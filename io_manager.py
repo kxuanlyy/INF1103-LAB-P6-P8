@@ -48,3 +48,55 @@ def load_inventory_file(file_path):
 
     return records
 
+def get_staff_input(file_record):
+
+    if not extracted_items:
+        print("Error: No inventory data available to process.")
+        return None
+
+    # Display Interactive Choice Selection Menu
+    print("\n--- SUPERMARKET STOCK LIST ---")
+    for id, record in enumerate(extracted_items, start=1):
+        print(f"[{id}] {record['item']:<32} (Stock Quantity: {record['quantity']})")
+    print("-" * 50)
+
+    # User Choice Selection Loop 
+    selected_record = None
+    while True:
+        user_choice = input(f"Enter the item number you want to check (1 to {len(extracted_items)}): ").strip()
+        
+        if user_choice.isdigit():
+            choice_num = int(user_choice)
+            if 1 <= choice_num <= len(extracted_items):
+                selected_record = extracted_items[choice_num - 1]
+                print(f"\nSelected Item: {selected_record['item']}")
+                break
+                
+        print(f"[INVALID INPUT] Please type a whole number between 1 and {len(extracted_items)}.")
+
+    # Processing the Chosen Item and Staff Observations
+    print("\n" + "="*55)
+    print(f"PROCESSING INVENTORY ITEM: {selected_record['item']}")
+    print(f"Expiry: {selected_record['use_by_date']} | Quantity: {selected_record['quantity']} | Risk Level: {selected_record['waste_risk_level']} ")
+    print("="*55)
+
+    # Staff Observations
+    staff_notes = input("Enter any quality observations (or press Enter to skip): ").strip()
+    if not staff_notes:
+        staff_notes = "No structural physical defects observed"
+
+    # combined payload dictionary
+    ai_payload = {
+        "item": selected_record["item"],
+        "category": selected_record["category"],
+        "use_by_date": selected_record["use_by_date"],
+        "file_storage_condition": selected_record["storage_condition"],
+        "days_to_expiry": selected_record["days_to_expiry"],
+        "waste_risk_level": selected_record["waste_risk_level"],
+        "allergen_info": selected_record["allergen_info"],
+        "demand_level": selected_record["demand_level"],
+        "quantity":  selected_record["quantity"],
+        "staff_observations": staff_notes
+    }
+
+    return ai_payload
