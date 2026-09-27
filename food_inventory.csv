@@ -1,0 +1,59 @@
+food,food_category,use-by,storage condition,days_to_expiry,waste_risk_level,allergen info,demand level,quantity
+Chew's Eggs,Fresh Produce,9/28/2026,Chilled (1-5°C),3,High,Eggs,Low,922
+Round Cabbage,Fresh Produce,10/5/2026,Chilled (1-5°C),10,Low,,Medium,214
+Sharp Spinach,Fresh Produce,10/5/2026,Chilled (1-5°C),10,Low,,Medium,2263
+Ladies Fingers,Fresh Produce,9/29/2026,Chilled (1-5°C),4,Medium,,Low,2016
+Broccoli,Fresh Produce,9/30/2026,Chilled (1-5°C),5,Medium,,High,1838
+Local Red Chilli,Fresh Produce,9/25/2026,Chilled (1-5°C),0,Critical,,High,1153
+Zespri Kiwis,Fresh Produce,9/27/2026,Chilled (1-5°C),2,High,,Medium,849
+Cherry Tomatoes,Fresh Produce,10/5/2026,Chilled (1-5°C),10,Low,,High,4477
+Fuji Apples,Fresh Produce,10/2/2026,Chilled (1-5°C),7,Medium,,High,722
+Bananas Bunch,Fresh Produce,9/30/2026,Chilled (1-5°C),5,Medium,,High,4847
+Bittergourd,Fresh Produce,9/28/2026,Chilled (1-5°C),3,High,,Medium,3466
+Xiao Bai Cai,Fresh Produce,9/29/2026,Chilled (1-5°C),4,Medium,,Medium,270
+Blueberries Punnet,Fresh Produce,9/26/2026,Chilled (1-5°C),1,High,,High,254
+Seng Choon Eggs,Fresh Produce,10/2/2026,Chilled (1-5°C),7,Medium,Eggs,High,777
+Enoki Mushrooms,Fresh Produce,9/25/2026,Chilled (1-5°C),0,Critical,,High,1801
+Sweet Corn,Fresh Produce,10/5/2026,Chilled (1-5°C),10,Low,,High,1915
+Red Onions,Fresh Produce,9/25/2026,"Cool, dry place",0,Critical,,Medium,4149
+Kang Kong,Fresh Produce,9/25/2026,Chilled (1-5°C),0,Critical,,High,4941
+Bean Sprouts,Fresh Produce,9/26/2026,Chilled (1-5°C),1,High,,High,227
+Shiitake Mushrooms,Fresh Produce,10/2/2026,Chilled (1-5°C),7,Medium,,High,4607
+Garlic Pack,Fresh Produce,9/29/2026,"Cool, dry place",4,Medium,,Low,1638
+Thai Mango,Fresh Produce,9/25/2026,Chilled (1-5°C),0,Critical,,High,4474
+Chye Sim,Fresh Produce,9/25/2026,Chilled (1-5°C),0,Critical,,High,3446
+Pasar Eggs (10s),Fresh Produce,10/5/2026,Chilled (1-5°C),10,Low,Eggs,Medium,1815
+Fortune Egg Tofu,"Dairy, Chilled & Soy",9/28/2026,Chilled (1-5°C),3,High,Eggs,High,3689
+Fortune Pressed Tofu,"Dairy, Chilled & Soy",9/26/2026,Chilled (1-5°C),1,High,Soy,High,4837
+Marigold Fruit Yogurt,"Dairy, Chilled & Soy",9/30/2026,Chilled (1-5°C),5,Medium,Milk,Medium,2288
+Unicurd Silken Tofu,"Dairy, Chilled & Soy",10/13/2026,Chilled (1-5°C),18,Low,Soy,High,63
+F&N Magnolia Milk,"Dairy, Chilled & Soy",9/28/2026,Chilled (1-5°C),3,High,Milk,Medium,1317
+Perfect Italian Mozzarella,"Dairy, Chilled & Soy",9/26/2026,Chilled (1-5°C),1,High,Milk,Medium,3472
+Vitagen Less Sugar,"Dairy, Chilled & Soy",10/20/2026,Chilled (1-5°C),25,Low,Milk,Medium,2797
+NutriSoy Fresh Soya Milk,"Dairy, Chilled & Soy",9/26/2026,Chilled (1-5°C),1,High,Soy,High,2286
+SCS Salted Butter,"Dairy, Chilled & Soy",10/7/2026,Chilled (1-5°C),12,Low,Milk,High,1283
+Marigold HL Milk (1L),"Dairy, Chilled & Soy",10/2/2026,Chilled (1-5°C),7,Medium,Milk,Medium,1773
+Yakult Ace Light (5s),"Dairy, Chilled & Soy",9/30/2026,Chilled (1-5°C),5,Medium,Milk,Medium,2767
+Meiji Fresh Milk (2L),"Dairy, Chilled & Soy",10/20/2026,Chilled (1-5°C),25,Low,Milk,High,847
+Kraft Cheddar Slices,"Dairy, Chilled & Soy",10/2/2026,Chilled (1-5°C),7,Medium,Milk,Low,769
+Emmi Greek Style Yogurt,"Dairy, Chilled & Soy",10/2/2026,Chilled (1-5°C),7,Medium,Milk,High,3122
+Chilled Fresh Wonton Skin,"Dairy, Chilled & Soy",9/27/2026,Chilled (1-5°C),2,High,Wheat,Medium,802
+Fresh Salmon Fillet,Meat & Seafood,9/25/2026,Chilled (1-5°C),0,Critical,Fish,Medium,2950
+Kee Song Fresh Chicken Breast,Meat & Seafood,9/26/2026,Chilled (1-5°C),1,High,,Low,2827
+Kee Song Chicken Drumsticks,Meat & Seafood,9/25/2026,Chilled (1-5°C),0,Critical,,Medium,4955
+Frozen CP Chicken Gyoza,Meat & Seafood,3/2/2027,Frozen (-18°C),158,Low,"Wheat, Soy, Sesame",Medium,2176
+Fresh Pork Belly Strips,Meat & Seafood,9/29/2026,Chilled (1-5°C),4,Medium,,High,365
+Tee Yih Jia Frozen Prata,Meat & Seafood,3/2/2027,Frozen (-18°C),158,Low,Wheat,High,3773
+Frozen Pork Collar Shabu,Meat & Seafood,5/16/2027,Frozen (-18°C),233,Low,,High,4402
+Frozen Dory Fillet,Meat & Seafood,5/19/2027,Frozen (-18°C),236,Low,Fish,Medium,1032
+Chilled Minced Beef,Meat & Seafood,9/26/2026,Chilled (1-5°C),1,High,,High,3110
+Chilled Pork Chop,Meat & Seafood,9/28/2026,Chilled (1-5°C),3,High,,Medium,655
+Fresh Grey Prawns,Meat & Seafood,9/28/2026,Chilled (1-5°C),3,High,Crustaceans,High,4532
+Gardenia Fine Grain Wholemeal,Bakery,9/27/2026,"Cool, dry place",2,High,Wheat (Gluten),High,211
+Local Bakery Pandan Chiffon Cake,Bakery,9/30/2026,"Cool, dry place",5,Medium,"Eggs, Wheat",High,172
+Swiss Roll Chocolate,Bakery,9/30/2026,"Cool, dry place",5,Medium,"Wheat, Eggs, Milk",High,439
+Gardenia Enriched White Bread,Bakery,9/27/2026,"Cool, dry place",2,High,Wheat (Gluten),Low,1585
+Gardenia Soft Wrap,Bakery,9/26/2026,"Cool, dry place",1,High,Wheat,Low,579
+Sunshine California Raisin Bread,Bakery,9/29/2026,"Cool, dry place",4,Medium,Wheat,High,385
+Sunshine Hokkaido Milk Bread,Bakery,9/27/2026,"Cool, dry place",2,High,"Wheat, Milk",Low,1876
+French Baguette,Bakery,9/26/2026,"Cool, dry place",1,High,Wheat,High,380
