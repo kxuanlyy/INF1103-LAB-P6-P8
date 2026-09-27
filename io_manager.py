@@ -1,6 +1,8 @@
 import csv
 import os
 
+# Functions
+
 def load_inventory_file(file_path):
 
     # Verify file existence
@@ -100,3 +102,16 @@ def get_staff_input(file_record):
     }
 
     return ai_payload
+
+# Main Program starts here
+
+inventory_data_path = "food_inventory.csv" 
+extracted_items = load_inventory_file(inventory_data_path)
+
+if extracted_data := extracted_items:
+    final_ai_ready_dict = get_staff_input(extracted_data)
+        
+    print("Final Combined Payload for AI:")
+    print(final_ai_ready_dict)
+else:
+    print(f"Error:  Ensure your inventory file exists at '{inventory_data_path}' and contains items.")
