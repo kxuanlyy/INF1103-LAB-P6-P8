@@ -1,26 +1,25 @@
-import os
-from google import genai
 from dotenv import load_dotenv
+from groq import Groq
 
 load_dotenv("apikey.env")
 
-api_key = os.getenv("GEMINI_API_KEY")
+client = Groq()
 
-if api_key is None:
-    print("ERROR: API key was not found.")
-    exit()
+completion = client.chat.completions.create(
+    model="openai/gpt-oss-120b",
+    messages=[
+        {
+            "role": "user",
+            "content": "Give me the opening sentence of the Shrek movie"
+        }
+    ],
+    temperature=1,
+    max_completion_tokens=2048,
+    top_p=1,
+    reasoning_effort="medium",
+    stream=True,
+    stop=None
+)
 
-client = genai.Client(api_key=api_key)
-
-try:
-    response = client.models.generate_content(
-        model="gemini-3.8-flash",
-        contents="give me the opening sentnece to shrek movie"
-    )
-
-    print(response.text)
-    print("Am i failing????")
-
-except Exception as e:
-    print("Gemini API returned an error:")
-    print(e)
+for chunk in completion:
+    print(chunk.choices[0].delta.content or "", end="")
