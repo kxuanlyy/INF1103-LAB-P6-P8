@@ -169,7 +169,7 @@ def create_client():
     except ImportError:
         return None, "AI dependencies are missing. Install requirements.txt and retry."
 
-    load_dotenv(Path(__file__).with_name("apikey.env"), override=False)
+    load_dotenv(Path(__file__).resolve().parent.parent / "apikey.env", override=False)
     api_key = os.getenv("GROQ_API_KEY", "").strip()
     if not api_key:
         return None, "GROQ_API_KEY is missing. Configure apikey.env and retry."

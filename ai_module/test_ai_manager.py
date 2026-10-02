@@ -1,4 +1,4 @@
-"""Offline, procedural tests. Run: python -m unittest discover -s tests -v."""
+"""Offline, procedural tests. Run: python -m unittest discover -s ai_module -v."""
 
 import ast
 from copy import deepcopy
@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-import ai_manager as ai
+from ai_module import ai_manager as ai
 
 
 TODAY = date(2026, 10, 1)
@@ -301,7 +301,8 @@ def test_client_configuration_uses_module_env_file_and_bounded_retries():
         client, error = ai.create_client()
     assert client is constructor.return_value and error is None
     constructor.assert_called_once_with(api_key="test-key", timeout=30.0, max_retries=1)
-    load_env.assert_called_once_with(Path(ai.__file__).with_name("apikey.env"), override=False)
+    load_env.assert_called_once_with(Path(ai.__file__).resolve().parent.parent / "apikey.env",
+                                   override=False)
 
 
 def test_owned_clients_close_on_success_and_failure():
