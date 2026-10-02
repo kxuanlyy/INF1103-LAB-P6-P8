@@ -1,0 +1,24 @@
+[
+  {
+    "name": "Simple Baked Dory Fillet",
+    "ingredients": [
+      "Frozen Dory Fillet"
+    ],
+    "instructions": [
+      "Preheat the oven to 200°C (392°F).",
+      "Place the frozen Dory fillet on a baking tray.",
+      "Bake for 20 minutes until the fillet is cooked through and flakes easily."
+    ]
+  },
+  {
+    "name": "Steamed Dory Fillet",
+    "ingredients": [
+      "Frozen Dory Fillet"
+    ],
+    "instructions": [
+      "Set up a steamer with water and bring to a boil.",
+      "Place the frozen Dory fillet in the steamer basket.",
+      "Steam for 12 minutes until the fillet is opaque and flakes with a fork."
+    ]
+  }
+]
