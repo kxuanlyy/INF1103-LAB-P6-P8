@@ -1,1 +1,8 @@
 apikey.env
+*.env
+!apikey.env.example
+.venv/
+__pycache__/
+*.py[cod]
+data/
+.pytest_cache/

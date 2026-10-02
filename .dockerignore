@@ -1,0 +1,11 @@
+*
+!requirements.txt
+!ai_module/
+!ai_module/__init__.py
+!ai_module/ai_manager.py
+!ai_module/requirements.txt
+!data_manager.py
+!io_manager.py
+!logic_manager.py
+!main.py
+!Dockerfile
