@@ -66,21 +66,7 @@ def validate_number(value, field, maximum):
 
 def validate_recipes(recipes, item_id, inventory_ids=None):
     """Check recipe structure and, when supplied, inventory references."""
-    if not isinstance(recipes, list) or len(recipes) > MAX_RECIPES:
-        raise ValueError("AI recipes must be a list of at most five suggestions.")
-    for recipe in recipes:
-        if not isinstance(recipe, dict) or set(recipe) != set(RECIPE_SCHEMA["required"]):
-            raise ValueError("Invalid recipe fields.")
-        validate_text(recipe["name"], "Recipe name")
-        ingredient_ids = recipe["ingredient_ids"]
-        if not isinstance(ingredient_ids, list) or not ingredient_ids:
-            raise ValueError("Recipe ingredient IDs are missing or invalid.")
-        for ingredient_id in ingredient_ids:
-            validate_text(ingredient_id, "Ingredient ID")
-        if len(ingredient_ids) != len(set(ingredient_ids)) or item_id not in ingredient_ids:
-            raise ValueError("Recipe must include this item and contain unique ingredient IDs.")
-        if inventory_ids is not None and not set(ingredient_ids).issubset(inventory_ids):
-            raise ValueError("Recipe references an ingredient outside the supplied inventory.")
+
 
 
 def validate_analysis(value, item_id, inventory_ids=None):

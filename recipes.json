@@ -1,0 +1,19 @@
+[
+  {
+    "name": "Spaghetti Bolognese",
+    "ingredients": ["spaghetti", "ground beef", "tomatoes"],
+    "instructions": ["Cook spaghetti.", "Brown ground beef.", "Add tomatoes and simmer.", "Combine with spaghetti."]
+    
+  },
+  {
+    "name": "Chicken Curry",
+    "ingredients": ["chicken", "curry powder", "coconut milk"],
+    "instructions": ["Cook chicken.", "Add curry powder.", "Pour in coconut milk and simmer."]
+  },
+  {
+    "name": "POOP",
+    "ingredients": ["ground beef", "tortillas", "lettuce", "tomatoes", "cheese"],
+    "instructions": ["Cook ground beef.", "Warm tortillas.", "Assemble tacos with beef and toppings."]
+  }
+  
+]
