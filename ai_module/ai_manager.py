@@ -3,7 +3,8 @@
 import json
 import math
 import os
-from datetime import date
+import runpy
+from datetime import date, datetime
 from pathlib import Path
 
 
@@ -139,6 +140,56 @@ def validate_inputs(item, inventory, today):
     return set(inventory_by_id)
 
 
+def prepare_io_inputs(payload, records):
+    """Convert I/O records without modifying the payload or source inventory.
+
+    The CSV has no IDs or units. IDs identify rows within this assessment;
+    units and verification statuses remain explicitly unknown.
+    """
+    if not isinstance(records, list) or not records:
+        raise ValueError("Inventory must be a nonempty list.")
+    selected = dict(payload)
+    if "file_storage_condition" in selected:
+        selected["storage_condition"] = selected.pop("file_storage_condition")
+    fields = ("item", "category", "use_by_date", "storage_condition",
+              "days_to_expiry", "waste_risk_level", "allergen_info",
+              "demand_level", "quantity")
+    matches = []
+    inventory = []
+    for index, record in enumerate(records, start=1):
+        if not isinstance(record, dict):
+            raise ValueError("Stock item must be an object.")
+        if all(record[field] == selected[field] for field in fields):
+            matches.append(index - 1)
+        use_by = record["use_by_date"]
+        try:
+            use_by = date.fromisoformat(use_by).isoformat()
+        except ValueError:
+            use_by = datetime.strptime(use_by, "%m/%d/%Y").date().isoformat()
+        quantity = record["quantity"]
+        if isinstance(quantity, str):
+            quantity = float(quantity)
+        validate_text(record["demand_level"], "demand_level")
+        inventory.append({
+            **record,
+            "id": f"inventory-{index:04d}",
+            "name": record["item"],
+            "quantity": quantity,
+            "unit": "unknown",
+            "use_by": use_by,
+            "demand_level": record["demand_level"].strip().lower(),
+            "storage_status": "unknown",
+            "allergens": record["allergen_info"],
+            "allergen_status": "unknown",
+        })
+    if len(matches) != 1:
+        raise ValueError("Selected item must match exactly one inventory row.")
+    item = inventory[matches[0]]
+    if "staff_observations" in selected:
+        item["staff_observations"] = selected["staff_observations"]
+    return item, inventory
+
+
 def build_messages(item, inventory, today):
     """Keep instructions separate from inventory data and describe the JSON contract."""
     return [
@@ -148,6 +199,9 @@ def build_messages(item, inventory, today):
             "Classify the item, assess expiry urgency and spoilage risk, interpret demand, "
             "identify uncertainty, and estimate suitability and confidence. "
             "Use the supplied assessment date and copy the target item's ID exactly. "
+            "Use the use-by date and assessment date to assess time to expiry; supplied "
+            "days_to_expiry may be stale. Consider staff_observations, category, and "
+            "waste_risk_level as reported evidence when present. "
             "Do not infer verified storage or allergens from missing information. "
             "Suggest recipes for soon-to-expire or low-demand stock, considering "
             "compatible ingredients together. Return each recipe's name and ALL ingredient "
@@ -257,8 +311,11 @@ def analyse_item(item, inventory, today, client=None):
 
     An injected client belongs to the caller. Internally created clients are closed.
     No assessment is fabricated when input, configuration, or model output fails.
+    Accepts either the stock contract or an io_manager payload and its raw records.
     """
     try:
+        if isinstance(item, dict) and "item" in item and "id" not in item:
+            item, inventory = prepare_io_inputs(item, inventory)
         inventory_ids = validate_inputs(item, inventory, today)
         messages = build_messages(item, inventory, today)
     except (ValueError, TypeError, KeyError, OverflowError, RecursionError):
@@ -280,3 +337,31 @@ def analyse_item(item, inventory, today, client=None):
                 client.close()
             except Exception:
                 pass  # A cleanup failure must not discard the assessment or its error.
+
+
+def analyse_from_io(today=None, client=None):
+    """Run the existing I/O menu and assess its selected item with the full inventory."""
+    project_dir = Path(__file__).resolve().parent.parent
+    original_dir = Path.cwd()
+    try:
+        # io_manager runs its menu at module level and uses a relative CSV path.
+        # Execute it only on request, from the project directory, then restore cwd.
+        os.chdir(project_dir)
+        io_data = runpy.run_path(str(project_dir / "io_manager.py"))
+    except (OSError, EOFError):
+        return None, "Inventory input unavailable. Check food_inventory.csv and retry."
+    finally:
+        os.chdir(original_dir)
+    payload = io_data.get("final_ai_ready_dict")
+    if not payload:
+        return None, "No inventory item selected. Check food_inventory.csv and retry."
+    return analyse_item(payload, io_data.get("extracted_items"),
+                        date.today() if today is None else today, client)
+
+
+if __name__ == "__main__":
+    assessment, error = analyse_from_io()
+    if error:
+        print("Assessment failed:", error)
+    else:
+        print(json.dumps(assessment, indent=2))
