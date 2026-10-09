@@ -1,44 +1,10 @@
-import json
 import csv
+import json
 from pathlib import Path
 
 
-# Keep your existing 20 combined recipes here
-expected_recipes = [
-    {
-        "name": "Spaghetti Bolognese",
-        "ingredients": [
-            "spaghetti",
-            "ground beef",
-            "tomatoes",
-            "onion",
-            "garlic",
-            "olive oil",
-            "Italian herbs"
-        ]
-    },
-    {
-        "name": "Chicken Curry",
-        "ingredients": [
-            "chicken",
-            "onion",
-            "garlic",
-            "curry powder",
-            "coconut milk",
-            "tomatoes",
-            "oil"
-        ]
-    }
-
-    # Keep the rest of your recipes here
-]
-
-
 def normalize_items(items):
-    return {
-        item.strip().lower()
-        for item in items
-    }
+    return {item.strip().lower() for item in items}
 
 
 def ingredients_match(expected_ingredients, json_ingredients):
@@ -52,76 +18,94 @@ def ingredients_match(expected_ingredients, json_ingredients):
 
 def create_recipe_results():
     folder = Path(__file__).resolve().parent
+
+    # File paths
+    expected_file = folder / "accepted_recipe.json"
     recipes_file = folder / "recipes.json"
     results_file = folder / "recipe_results.csv"
+    rejected_file = folder / "rejected.txt"
 
     _accept_list = []
     _reject_list = []
 
+    # Check for input files
+    if not expected_file.exists():
+        return {"error": f"Could not find {expected_file}"}
+
     if not recipes_file.exists():
-        return {
-            "error": f"Could not find {recipes_file}"
-        }
+        return {"error": f"Could not find {recipes_file}"}
+
+    # Load JSON files
+    with open(expected_file, "r", encoding="utf-8") as file:
+        accepted_recipes = json.load(file)
 
     with open(recipes_file, "r", encoding="utf-8") as file:
         recipes_from_json = json.load(file)
 
-    for expected_recipe in expected_recipes:
-        expected_name = expected_recipe["name"]
-        expected_ingredients = expected_recipe["ingredients"]
+    # Loop through EACH recipe inside recipes.json
+    for json_recipe in recipes_from_json:
+        json_name = json_recipe.get("name", "").strip()
 
-        json_recipe = None
-
-        for recipe in recipes_from_json:
-            if recipe.get("name", "").strip().lower() == expected_name.lower():
-                json_recipe = recipe
+        # Find matching recipe in accepted_recipe.json by name
+        matched_expected_recipe = None
+        for expected in accepted_recipes:
+            if expected.get("name", "").strip().lower() == json_name.lower():
+                matched_expected_recipe = expected
                 break
 
-        if json_recipe is None:
-            _reject_list.append({
-                "name": expected_name,
-                "reason": "Recipe not found in recipes.json"
-            })
+        # Rejection Rule 1: Recipe name from recipes.json isn't in accepted_recipe.json
+        if matched_expected_recipe is None:
+            _reject_list.append(
+                {
+                    "name": json_name or "Unknown Recipe",
+                    "reason": "Recipe name not found in accepted_recipe.json",
+                }
+            )
             continue
 
-        if ingredients_match(
-            expected_ingredients,
-            json_recipe.get("ingredients", [])
-        ):
-            _accept_list.append({
-                "name": json_recipe["name"],
-                "ingredients": ", ".join(
-                    json_recipe.get("ingredients", [])
-                ),
-                "instructions": " ".join(
-                    json_recipe.get("instructions", [])
-                )
-            })
-        else:
-            _reject_list.append({
-                "name": json_recipe["name"],
-                "reason": "Ingredients do not match"
-            })
+        # Rejection Rule 2: Ingredients do not match accepted recipe standards
+        expected_ingredients = matched_expected_recipe.get("ingredients", [])
+        actual_ingredients = json_recipe.get("ingredients", [])
 
+        if ingredients_match(expected_ingredients, actual_ingredients):
+            _accept_list.append(
+                {
+                    "name": json_recipe.get("name", ""),
+                    "ingredients": ", ".join(actual_ingredients),
+                    "instructions": " ".join(
+                        json_recipe.get("instructions", [])
+                    ),
+                }
+            )
+        else:
+            _reject_list.append(
+                {
+                    "name": json_name,
+                    "reason": "Ingredients do not match valid accepted criteria",
+                }
+            )
+
+    # Write accepted recipes to recipe_results.csv
     with open(results_file, "w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(
-            file,
-            fieldnames=[
-                "name",
-                "ingredients",
-                "instructions"
-            ]
+            file, fieldnames=["name", "ingredients", "instructions"]
         )
-
         writer.writeheader()
         writer.writerows(_accept_list)
 
-    return {
-        "accepted": len(_accept_list),
-        "rejected": len(_reject_list)
-    }
+    # Write rejected recipes to rejected.txt
+    with open(rejected_file, "w", encoding="utf-8") as file:
+        for rejected in _reject_list:
+            file.write(
+                f"Rejected recipe: {rejected['name']} | Reason: {rejected['reason']}\n"
+            )
+        file.write(f"\nTotal rejected recipes: {len(_reject_list)}\n")
+
+    print(f"Accepted recipes written to {results_file}")
+    print(f"Rejected recipes written to {rejected_file}")
+
+    return {"accepted": len(_accept_list), "rejected": len(_reject_list)}
 
 
 if __name__ == "__main__":
     create_recipe_results()
-
