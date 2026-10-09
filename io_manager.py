@@ -57,6 +57,75 @@ def print_current_inventory(extracted_items):
     print(separator_line)
     return True
 
+def handle_edit_menu(extracted_items, file_path):
+    """Handles the sub-menu routing for updating your operational inventory list."""
+    while True:
+        print("\n------------------------------")
+        print("    2. EDIT INVENTORY LIST       ")
+        print("------------------------------")
+        print("  a. Add Food")
+        print("  b. Remove Food")
+        print("  c. Edit Food")
+        print("  d. Back to Main Menu")
+        print("------------------------------")
+        
+        sub_choice = input("Select an option (a-d): ").strip().lower()
+
+        # a. Add Items
+        if sub_choice == 'a':
+            print("\nCurrent Inventory before adding:")
+            print_current_inventory(extracted_items)
+            
+            new_ingredient = prompt_for_ingredient_details()
+            if new_ingredient["item"]:
+                extracted_items.append(new_ingredient)
+                print(f"\nSuccess: '{new_ingredient['item']}' successfully added.")
+                save_inventory_file(file_path, extracted_items)
+            else:
+                print("\nError: Action cancelled. Ingredient name cannot be blank.")
+
+        # b. Remove Items
+        elif sub_choice == 'b':
+            print("\n--- REMOVE FOOD ITEM ---")
+            if not print_current_inventory(extracted_items):
+                continue
+            
+            remove_choice = input(f"Enter the item number to remove (1-{len(extracted_items)}): ").strip()
+            if remove_choice.isdigit() and 1 <= int(remove_choice) <= len(extracted_items):
+                removed = extracted_items.pop(int(remove_choice) - 1)
+                print(f"\n[SUCCESS] Removed '{removed['item']}' from the list.")
+                save_inventory_file(file_path, extracted_items)
+            else:
+                print("\nError: Invalid selection. No items were removed.")
+
+        # c. Edit Item
+        elif sub_choice == 'c':
+            if not print_current_inventory(extracted_items):
+                continue
+                
+            update_choice = input(f"Enter the item number to modify (1-{len(extracted_items)}): ").strip()
+            if update_choice.isdigit() and 1 <= int(update_choice) <= len(extracted_items):
+                target_idx = int(update_choice) - 1
+                current_data = extracted_items[target_idx]
+                
+                print(f"\nModifying details for: {current_data['item']}")
+                print("Press Enter to keep current bracketed values.")
+                
+                updated_data = prompt_for_ingredient_details(current_data)
+                extracted_items[target_idx] = updated_data
+                print(f"\nSuccess: Updated data for '{updated_data['item']}'.")
+                save_inventory_file(file_path, extracted_items)
+            else:
+                print("\nError: Invalid selection. Update aborted.")
+
+        # d. Return to Main Menu
+        elif sub_choice == 'd':
+            print("\nReturning to Main Menu...")
+            break
+        else:
+            print("\nError: Please enter a, b, c, or d.")
+
+
 def process_item_for_ai(extracted_items):
 
     if not extracted_items:
@@ -124,7 +193,7 @@ while True:
             
     elif main_choice == "2":
         print_current_inventory(current_inventory)
-        #handle_edit_menu(current_inventory, inventory_data_path)
+        handle_edit_menu(current_inventory, inventory_data_path)
             
     elif main_choice == "3":
         print_current_inventory(current_inventory)
