@@ -1,5 +1,6 @@
 import csv
 import os
+from datetime import datetime
 
 # Functions
 
@@ -56,6 +57,57 @@ def print_current_inventory(extracted_items):
         print(f"[{x}] {record['item']:<{name_col_width}} | {record['quantity']:<6} | {record['use_by_date']}")
     print(separator_line)
     return True
+
+
+def prompt_for_ingredient_details(existing_item=None):
+    print("\n--- ENTER INGREDIENT DETAILS ---")
+    if existing_item:
+        print("Press Enter to keep current bracketed values.")
+    
+    # Validated Inputs (Cannot be blank)
+    item = get_validated_string("Ingredient Name", allow_blank=False, current_val=existing_item.get('item') if existing_item else None)
+    
+    valid_categories = ["Dairy", "Meat & Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"]
+    category = get_validated_choice("Category", valid_categories, current_val=existing_item.get('category') if existing_item else None)
+    
+    use_by = get_validated_date("Use-By Date (YYYY-MM-DD)", current_val=existing_item.get('use_by_date') if existing_item else None)
+    
+    valid_storage = ["Chilled", "Frozen", "Ambient"]
+    storage = get_validated_choice("Storage Condition", valid_storage, current_val=existing_item.get('storage_condition') if existing_item else None)
+    
+    valid_risks = ["Low", "Medium", "High"]
+    risk_lvl = get_validated_choice("Waste Risk Level", valid_risks, current_val=existing_item.get('waste_risk_level') if existing_item else None)
+    
+    
+    allergens = get_validated_string("Allergen Info (or press Enter for None)", allow_blank=True, current_val=existing_item.get('allergen_info') if existing_item else None)
+        
+    demand = get_validated_choice("Demand Level", valid_risks, current_val=existing_item.get('demand_level').capitalize() if existing_item else None).lower()
+    quantity = get_validated_int("Stock Quantity", current_val=existing_item.get('quantity') if existing_item else None)
+    
+    # auto calculate date to expiry
+    today = datetime.today()
+    expiry_date = datetime.strptime(use_by, "%m/%d/%Y")
+    
+    calculated_days = (expiry_date - today).days + 1
+    
+    if calculated_days < 0:
+        calculated_days = 0
+        
+    days_exp = str(calculated_days)
+    print(f"-> Calculated Days to Expiry: {days_exp} day(s) remaining.")
+   
+    return {
+        "item": item,
+        "category": category,
+        "use_by_date": use_by,
+        "storage_condition": storage,
+        "days_to_expiry": days_exp,                        
+        "waste_risk_level": risk_lvl,                      
+        "allergen_info": allergens,
+        "demand_level": demand,                    
+        "quantity": quantity                                    
+    }
+
 
 def handle_edit_menu(extracted_items, file_path):
     """Handles the sub-menu routing for updating your operational inventory list."""
