@@ -12,8 +12,25 @@
   },
   {
     "name": "darren",
-    "ingredients": ["ground beef", "tortillas", "lettuce", "tomatoes", "cheese"],
-    "instructions": ["Cook ground beef.", "Warm tortillas.", "Assemble tacos with beef and toppings."]
+    "ingredients": ["dwa,dawd", "dawdaw", "dawdawd"],
+    "instructions": ["dawda"]
+  },
+  {
+    "name": "Pan-Seared Salmon with Asparagus",
+    "ingredients": ["salmon fillets","asparagus","lemon","garlic","olive oil","butter","salt"],
+    "instructions": ["Season salmon with salt and pepper.", "Heat olive oil in a pan.", "Sear salmon fillets until golden brown.", "Add butter, garlic, and lemon juice.", "Cook asparagus in the same pan until tender."]
+  },
+   {
+    "name": "POOP IN A PAN",
+    "ingredients": ["salmon fillets","asparagus","lemon","garlic","olive oil","butter","salt"],
+    "instructions": ["Season salmon with salt and pepper.", "Heat olive oil in a pan.", "Sear salmon fillets until golden brown.", "Add butter, garlic, and lemon juice.", "Cook asparagus in the same pan until tender."]
+  },
+  {
+    "name": "NOT Spaghetti Bolognese",
+    "ingredients": ["spaghetti", "ground beef", "tomatoes"],
+    "instructions": ["Cook spaghetti.", "Brown ground beef.", "Add tomatoes and simmer.", "Combine with spaghetti."]
+    
   }
+  
   
 ]

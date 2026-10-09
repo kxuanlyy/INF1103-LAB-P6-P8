@@ -1,3 +1,5 @@
 Rejected recipe: darren | Reason: Recipe name not found in accepted_recipe.json
+Rejected recipe: POOP IN A PAN | Reason: Recipe name not found in accepted_recipe.json
+Rejected recipe: NOT Spaghetti Bolognese | Reason: Recipe name not found in accepted_recipe.json
 
-Total rejected recipes: 1
+Total rejected recipes: 3
