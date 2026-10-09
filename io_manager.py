@@ -219,10 +219,7 @@ def handle_edit_menu(extracted_items, file_path):
         sub_choice = input("Select an option (a-d): ").strip().lower()
 
         # a. Add Items
-        if sub_choice == 'a':
-            print("\nCurrent Inventory before adding:")
-            print_current_inventory(extracted_items)
-            
+        if sub_choice == 'a':        
             new_ingredient = prompt_for_ingredient_details()
             if new_ingredient["item"]:
                 extracted_items.append(new_ingredient)
@@ -244,7 +241,7 @@ def handle_edit_menu(extracted_items, file_path):
             remove_choice = input(f"Enter the item number to remove (1-{len(extracted_items)}): ").strip()
             if remove_choice.isdigit() and 1 <= int(remove_choice) <= len(extracted_items):
                 removed = extracted_items.pop(int(remove_choice) - 1)
-                print(f"\n[SUCCESS] Removed '{removed['item']}' from the list.")
+                print(f"\nSuccess: Removed '{removed['item']}' from the list.")
                 save_inventory_file(file_path, extracted_items)
 
                 print("\nUpdated Inventory after item removal:")
@@ -270,6 +267,20 @@ def handle_edit_menu(extracted_items, file_path):
                 extracted_items[target_idx] = updated_data
                 print(f"\nSuccess: Updated data for '{updated_data['item']}'.")
                 save_inventory_file(file_path, extracted_items)
+
+                print("\n==================================================")
+                print(f"          UPDATED DETAILS FOR: {updated_data['item'].upper()}          ")
+                print("==================================================")
+                print(f" Category:          {updated_data['category']}")
+                print(f" Stock Quantity:    {updated_data['quantity']}")
+                print(f" Use-By Date:       {updated_data['use_by_date']}")
+                print(f" Days to Expiry:    {updated_data['days_to_expiry']} day(s) remaining")
+                print(f" Storage Type:      {updated_data['storage_condition']}")
+                print(f" Waste Risk Level:  {updated_data['waste_risk_level']}")
+                print(f" Demand Level:      {updated_data['demand_level'].capitalize()}")
+                print(f" Allergen Info:     {updated_data['allergen_info']}")
+                print("==================================================")
+
             else:
                 print("\nError: Invalid selection. Update aborted.")
 
@@ -339,7 +350,8 @@ while True:
     print(" 1. View current inventory stock")
     print(" 2. Edit items data")
     print(" 3. Ask AI")
-    print(" 4. Exit")
+    print(" 4. Search Food Information")
+    print(" 5. Exit")
     print("=================================")
         
     main_choice = input("Select an option (1-4): ").strip()
@@ -347,14 +359,16 @@ while True:
         print_current_inventory(current_inventory)
             
     elif main_choice == "2":
-        print_current_inventory(current_inventory)
         handle_edit_menu(current_inventory, inventory_data_path)
             
     elif main_choice == "3":
         print_current_inventory(current_inventory)
         process_item_for_ai(current_inventory)
+
+    #elif main_choice == "4":
+
             
-    elif main_choice == "4":
+    elif main_choice == "5":
         print("\nExiting program. Goodbye!")
         break
     else:
