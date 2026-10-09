@@ -1,6 +1,9 @@
 import csv
 import os
 from datetime import datetime
+from pathlib import Path
+
+from ai_module.ai_manager import RECIPES_PATH, suggest_recipes
 
 # Functions
 
@@ -376,43 +379,64 @@ def process_item_for_ai(extracted_items):
 
     return ai_payload
 
-# Main Program starts here
+def print_ai_result(result):
+    """Display the validated assessment and recipe preparation steps."""
+    print("\n--- AI ASSESSMENT ---")
+    print(f"Item: {result['stock_item']['name']}")
+    print(f"Category: {result['category']} | Demand: {result['demand_level']}")
+    print(f"Expiry urgency: {result['expiry_urgency']} | Spoilage risk: {result['spoilage_risk']}")
+    print(f"Suitability: {result['suitability_score']}/100 | Confidence: {result['confidence']:.0%}")
+    print(f"Allergen uncertain: {result['allergen_uncertain']} | Storage uncertain: {result['storage_uncertain']}")
+    print(f"Reason: {result['reason']}")
+    if not result['recipes']:
+        print("No recipes suggested for this item. See the assessment reason above.")
+    for number, recipe in enumerate(result['recipes'], start=1):
+        print(f"\nRecipe {number}: {recipe['name']}")
+        print("Ingredients: " + ", ".join(recipe['ingredients']))
+        for step_number, instruction in enumerate(recipe['instructions'], start=1):
+            print(f"  {step_number}. {instruction}")
+    print(f"\nRecipes saved to: {RECIPES_PATH}")
 
-inventory_data_path = "food_inventory.csv" 
-current_inventory = load_inventory_file(inventory_data_path)
 
-while True:
-    print("\n=================================")
-    print("          MAIN MENU              ")
-    print("=================================")
-    print(" 1. View current inventory stock")
-    print(" 2. Edit items data")
-    print(" 3. Ask AI")
-    print(" 4. Exit")
-    print("=================================")
-        
-    main_choice = input("Select an option (1-4): ").strip()
-    if main_choice == "1":
-        print_current_inventory(current_inventory)
-            
-    elif main_choice == "2":
-        print_current_inventory(current_inventory)
-        handle_edit_menu(current_inventory, inventory_data_path)
-            
-    elif main_choice == "3":
-        print_current_inventory(current_inventory)
-        process_item_for_ai(current_inventory)
-            
-    elif main_choice == "4":
-        print("\nExiting program. Goodbye!")
-        break
-    else:
-        print("\nError: Please select a number between 1 and 4.")
+def main(today=None, client=None):
+    """Run the menu and return the last AI result for downstream callers."""
+    inventory_data_path = Path(__file__).resolve().parent / "food_inventory.csv"
+    current_inventory = load_inventory_file(inventory_data_path)
+    last_result = None
+    last_error = "No inventory item selected. Check food_inventory.csv and retry."
 
-# if extracted_data := current_inventory:
-#     final_ai_ready_dict = get_staff_input(extracted_data)
-        
-#     print("Final Combined Payload for AI:")
-#     print(final_ai_ready_dict)
-# else:
-#     print(f"Error:  Ensure your inventory file exists at '{inventory_data_path}' and contains items.")
+    while True:
+        print("\n=================================")
+        print("          MAIN MENU              ")
+        print("=================================")
+        print(" 1. View current inventory stock")
+        print(" 2. Edit items data")
+        print(" 3. Ask AI")
+        print(" 4. Exit")
+        print("=================================")
+
+        main_choice = input("Select an option (1-4): ").strip()
+        if main_choice == "1":
+            print_current_inventory(current_inventory)
+        elif main_choice == "2":
+            print_current_inventory(current_inventory)
+            handle_edit_menu(current_inventory, inventory_data_path)
+        elif main_choice == "3":
+            if not print_current_inventory(current_inventory):
+                continue
+            payload = process_item_for_ai(current_inventory)
+            print("\nAsking AI... please wait.")
+            last_result, last_error = suggest_recipes(payload, today=today, client=client)
+            if last_error:
+                print("Assessment failed:", last_error)
+            else:
+                print_ai_result(last_result)
+        elif main_choice == "4":
+            print("\nExiting program. Goodbye!")
+            return last_result, last_error
+        else:
+            print("\nError: Please select a number between 1 and 4.")
+
+
+if __name__ == "__main__":
+    main()

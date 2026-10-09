@@ -156,7 +156,7 @@ def validate_inputs(item, inventory, today):
     return set(inventory_by_id)
 
 
-def prepare_io_inputs(payload, records):
+def prepare_io_inputs(ai_payload, records):
     """Convert I/O records without modifying the payload or source inventory.
 
     The CSV has no IDs or units. IDs identify rows within this assessment;
@@ -164,7 +164,7 @@ def prepare_io_inputs(payload, records):
     """
     if not isinstance(records, list) or not records:
         raise ValueError("Inventory must be a nonempty list.")
-    selected = dict(payload)
+    selected = dict(ai_payload)
     if "file_storage_condition" in selected:
         selected["storage_condition"] = selected.pop("file_storage_condition")
     fields = ("item", "category", "use_by_date", "storage_condition",
@@ -447,20 +447,11 @@ def suggest_recipes(final_ai_ready_dict, today=None, client=None):
 def analyse_from_io(today=None, client=None):
     """Run the I/O menu and return suggestions and stock data for logic_manager."""
     project_dir = Path(__file__).resolve().parent.parent
-    original_dir = Path.cwd()
     try:
-        # io_manager runs its menu at module level and uses a relative CSV path.
-        # Execute it only on request, from the project directory, then restore cwd.
-        os.chdir(project_dir)
         io_data = runpy.run_path(str(project_dir / "io_manager.py"))
+        return io_data["main"](today=today, client=client)
     except (OSError, EOFError):
         return None, "Inventory input unavailable. Check food_inventory.csv and retry."
-    finally:
-        os.chdir(original_dir)
-    payload = io_data.get("final_ai_ready_dict")
-    if not payload:
-        return None, "No inventory item selected. Check food_inventory.csv and retry."
-    return suggest_recipes(payload, today=today, client=client)
 
 
 if __name__ == "__main__":
