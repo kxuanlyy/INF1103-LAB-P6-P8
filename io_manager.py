@@ -112,7 +112,7 @@ def get_validated_choice(prompt_text, valid_choices, current_val=None):
             
         matched = [c for c in valid_choices if c.lower() == user_val.lower()]
         if matched:
-            return matched[0]  # Return standard capitalized version
+            return matched[0]
         print(f"Error: Invalid option. You must choose one of: {choices_str}")
 
 def get_validated_date(prompt_text, current_val=None):
@@ -126,20 +126,17 @@ def get_validated_date(prompt_text, current_val=None):
             print("Error: Date cannot be blank. Please enter a valid date.")
             continue
             
-        # Try parsing YYYY-MM-DD first (and convert it)
-        try:
-            parsed_date = datetime.strptime(user_val, "%Y-%m-%d")
-            # Convert to M/D/YYYY (e.g., 9/26/2026)
-            return f"{parsed_date.month}/{parsed_date.day}/{parsed_date.year}"
-        except ValueError:
-            pass
-            
-        # Try parsing M/D/YYYY directly
         try:
             parsed_date = datetime.strptime(user_val, "%m/%d/%Y")
+            
+            today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+            if parsed_date < today:
+                print("Error: The expiration date cannot be in the past. Please enter a current or future date.")
+                continue
+                
             return f"{parsed_date.month}/{parsed_date.day}/{parsed_date.year}"
         except ValueError:
-            print("Error: Invalid date format. Please use M/D/YYYY (e.g., 9/26/2026) or YYYY-MM-DD.")
+            print("Error: Invalid date format. Please use M/D/YYYY (e.g., 9/26/2026).")
 
 def get_validated_int(prompt_text, current_val=None):
     while True:
@@ -163,11 +160,12 @@ def prompt_for_ingredient_details(existing_item=None):
     # Validated Inputs (Cannot be blank)
     item = get_validated_string("Ingredient Name", allow_blank=False, current_val=existing_item.get('item') if existing_item else None)
     
-    valid_categories = ["Dairy", "Meat & Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"]
+    valid_categories = ["Dairy", "Meat", "Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"]
     category = get_validated_choice("Category", valid_categories, current_val=existing_item.get('category') if existing_item else None)
     
-    use_by = get_validated_date("Use-By Date (YYYY-MM-DD)", current_val=existing_item.get('use_by_date') if existing_item else None)
     
+    use_by = get_validated_date("Use-By Date (M/D/YYYY)", current_val=existing_item.get('use_by_date') if existing_item else None)
+
     valid_storage = ["Chilled", "Frozen", "Ambient"]
     storage = get_validated_choice("Storage Condition", valid_storage, current_val=existing_item.get('storage_condition') if existing_item else None)
     
@@ -180,15 +178,10 @@ def prompt_for_ingredient_details(existing_item=None):
     demand = get_validated_choice("Demand Level", valid_risks, current_val=existing_item.get('demand_level').capitalize() if existing_item else None).lower()
     quantity = get_validated_int("Stock Quantity", current_val=existing_item.get('quantity') if existing_item else None)
     
-    # auto calculate date to expiry
-    today = datetime.today()
+    today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
     expiry_date = datetime.strptime(use_by, "%m/%d/%Y")
     
-    calculated_days = (expiry_date - today).days + 1
-    
-    if calculated_days < 0:
-        calculated_days = 0
-        
+    calculated_days = (expiry_date - today).days
     days_exp = str(calculated_days)
     print(f"-> Calculated Days to Expiry: {days_exp} day(s) remaining.")
    
