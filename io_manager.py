@@ -13,18 +13,31 @@ def load_inventory_file(file_path):
         return []
 
     records = []
+    today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
     
     try:
         with open(file_path, mode='r', encoding='utf-8') as file:
             reader = csv.DictReader(file)
 
             for row in reader:
+                use_by_str = row.get('use-by', '').strip()
+                calculated_days = "0"
+                if use_by_str:
+                    try:
+                        expiry_date = datetime.strptime(use_by_str, "%m/%d/%Y")
+                        diff = (expiry_date - today).days
+                        calculated_days = str(max(0, diff))
+                    except ValueError:
+                        calculated_days = row.get('days_to_expiry', '').strip()
+
+
+
                 record = {
                     "item": row.get('food', '').strip(),
                     "category": row.get('food_category', '').strip(),
-                    "use_by_date": row.get('use-by', '').strip(),
+                    "use_by_date": use_by_str,
                     "storage_condition": row.get('storage condition', '').strip(),
-                    "days_to_expiry": row.get('days_to_expiry', '').strip(),       
+                    "days_to_expiry": calculated_days,  #  Fixed to use the live variable!     
                     "waste_risk_level": row.get('waste_risk_level', '').strip(),     
                     "allergen_info": row.get('allergen info', '').strip() or "None",
                     "demand_level": row.get('demand level', '').strip().lower(),                    
@@ -82,7 +95,7 @@ def save_inventory_file(file_path, extracted_items):
                     'demand level': record['demand_level'],
                     'quantity': record['quantity']
                 })
-        print(f"Successfully updated '{file_path}'.")
+        # print(f"Successfully updated '{file_path}'.")
     except Exception as e:
         print(f"Error: Failed to save changes to file: {e}")
 
@@ -156,13 +169,11 @@ def prompt_for_ingredient_details(existing_item=None):
     print("\n--- ENTER INGREDIENT DETAILS ---")
     if existing_item:
         print("Press Enter to keep current bracketed values.")
-    
-    # Validated Inputs (Cannot be blank)
+
     item = get_validated_string("Ingredient Name", allow_blank=False, current_val=existing_item.get('item') if existing_item else None)
     
     valid_categories = ["Dairy", "Meat", "Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"]
     category = get_validated_choice("Category", valid_categories, current_val=existing_item.get('category') if existing_item else None)
-    
     
     use_by = get_validated_date("Use-By Date (M/D/YYYY)", current_val=existing_item.get('use_by_date') if existing_item else None)
 
@@ -172,10 +183,8 @@ def prompt_for_ingredient_details(existing_item=None):
     valid_risks = ["Low", "Medium", "High"]
     risk_lvl = get_validated_choice("Waste Risk Level", valid_risks, current_val=existing_item.get('waste_risk_level') if existing_item else None)
     
-    
     allergens = get_validated_string("Allergen Info (or press Enter for None)", allow_blank=True, current_val=existing_item.get('allergen_info') if existing_item else None)
-        
-    demand = get_validated_choice("Demand Level", valid_risks, current_val=existing_item.get('demand_level').capitalize() if existing_item else None).lower()
+    demand = get_validated_choice("Demand Level", valid_risks, current_val=existing_item.get('demand_level', '').capitalize() if existing_item else None).lower()
     quantity = get_validated_int("Stock Quantity", current_val=existing_item.get('quantity') if existing_item else None)
     
     today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -370,6 +379,9 @@ def search_food_item(extracted_items):
 
 inventory_data_path = "food_inventory.csv" 
 current_inventory = load_inventory_file(inventory_data_path)
+
+save_inventory_file(inventory_data_path, current_inventory) 
+
 
 while True:
     print("\n=================================")
