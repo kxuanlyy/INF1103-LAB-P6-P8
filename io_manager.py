@@ -24,7 +24,7 @@ def load_inventory_file(file_path):
                 calculated_days = "0"
                 if use_by_str:
                     try:
-                        expiry_date = datetime.strptime(use_by_str, "%m/%d/%Y")
+                        expiry_date = datetime.strptime(use_by_str, "%d/%m/%Y")
                         diff = (expiry_date - today).days
                         calculated_days = str(max(0, diff))
                     except ValueError:
@@ -66,8 +66,8 @@ def print_current_inventory(extracted_items):
     print("\n" + separator_line)
     print(f"{'No.':<4} | {'Ingredient Name':<{name_col_width}} | {'Qty':<6} | {'Expiry Date'}")
     print(separator_line)
-    for x, record in enumerate(extracted_items, start=1):
-        print(f"[{x}] {record['item']:<{name_col_width}} | {record['quantity']:<6} | {record['use_by_date']}")
+    for itemid, record in enumerate(extracted_items, start=1):
+        print(f"[{itemid}] {record['item']:<{name_col_width}} | {record['quantity']:<6} | {record['use_by_date']}")
     print(separator_line)
     return True
 
@@ -140,16 +140,17 @@ def get_validated_date(prompt_text, current_val=None):
             continue
             
         try:
-            parsed_date = datetime.strptime(user_val, "%m/%d/%Y")
+            parsed_date = datetime.strptime(user_val, "%d/%m/%Y")
             
             today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
             if parsed_date < today:
                 print("Error: The expiration date cannot be in the past. Please enter a current or future date.")
                 continue
                 
-            return f"{parsed_date.month}/{parsed_date.day}/{parsed_date.year}"
+            return f"{parsed_date.day}/{parsed_date.month}/{parsed_date.year}"
+
         except ValueError:
-            print("Error: Invalid date format. Please use M/D/YYYY (e.g., 9/26/2026).")
+            print("Error: Invalid date format. Please use D/M/YYYY (e.g., 26/9/2026).")
 
 def get_validated_int(prompt_text, current_val=None):
     while True:
@@ -175,7 +176,7 @@ def prompt_for_ingredient_details(existing_item=None):
     valid_categories = ["Dairy", "Meat", "Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"]
     category = get_validated_choice("Category", valid_categories, current_val=existing_item.get('category') if existing_item else None)
     
-    use_by = get_validated_date("Use-By Date (M/D/YYYY)", current_val=existing_item.get('use_by_date') if existing_item else None)
+    use_by = get_validated_date("Use-By Date (D/M/YYYY)", current_val=existing_item.get('use_by_date') if existing_item else None)
 
     valid_storage = ["Chilled", "Frozen", "Ambient"]
     storage = get_validated_choice("Storage Condition", valid_storage, current_val=existing_item.get('storage_condition') if existing_item else None)
@@ -188,7 +189,7 @@ def prompt_for_ingredient_details(existing_item=None):
     quantity = get_validated_int("Stock Quantity", current_val=existing_item.get('quantity') if existing_item else None)
     
     today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
-    expiry_date = datetime.strptime(use_by, "%m/%d/%Y")
+    expiry_date = datetime.strptime(use_by, "%d/%m/%Y")
     
     calculated_days = (expiry_date - today).days
     days_exp = str(calculated_days)
