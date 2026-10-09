@@ -58,6 +58,75 @@ def print_current_inventory(extracted_items):
     print(separator_line)
     return True
 
+def get_validated_string(prompt_text, allow_blank=False, current_val=None):
+    while True:
+        suffix = f" [{current_val}]: " if current_val else ": "
+        user_val = input(prompt_text + suffix).strip()
+        
+        if not user_val and current_val:
+            return current_val
+        if not user_val and not allow_blank:
+            print("Error: This field cannot be left blank. Please enter a value.")
+            continue
+        return user_val if user_val else "None"
+
+def get_validated_choice(prompt_text, valid_choices, current_val=None):
+    choices_str = "/".join(valid_choices)
+    while True:
+        suffix = f" ({choices_str}) [{current_val}]: " if current_val else f" ({choices_str}): "
+        user_val = input(prompt_text + suffix).strip()
+        
+        if not user_val and current_val:
+            return current_val
+        if not user_val:
+            print("Error: Selection cannot be blank. Please pick one of the options.")
+            continue
+            
+        matched = [c for c in valid_choices if c.lower() == user_val.lower()]
+        if matched:
+            return matched[0]  # Return standard capitalized version
+        print(f"Error: Invalid option. You must choose one of: {choices_str}")
+
+def get_validated_date(prompt_text, current_val=None):
+    """Enforces that the user enters a valid date, converting it to M/D/YYYY format."""
+    while True:
+        suffix = f" [{current_val}]: " if current_val else ": "
+        user_val = input(prompt_text + suffix).strip()
+        
+        if not user_val and current_val:
+            return current_val
+        if not user_val:
+            print("Error: Date cannot be blank. Please enter a valid date.")
+            continue
+            
+        # Try parsing YYYY-MM-DD first (and convert it)
+        try:
+            parsed_date = datetime.strptime(user_val, "%Y-%m-%d")
+            # Convert to M/D/YYYY (e.g., 9/26/2026)
+            return f"{parsed_date.month}/{parsed_date.day}/{parsed_date.year}"
+        except ValueError:
+            pass
+            
+        # Try parsing M/D/YYYY directly
+        try:
+            parsed_date = datetime.strptime(user_val, "%m/%d/%Y")
+            return f"{parsed_date.month}/{parsed_date.day}/{parsed_date.year}"
+        except ValueError:
+            print("Error: Invalid date format. Please use M/D/YYYY (e.g., 9/26/2026) or YYYY-MM-DD.")
+
+def get_validated_int(prompt_text, current_val=None):
+    while True:
+        suffix = f" [{current_val}]: " if current_val else ": "
+        user_val = input(prompt_text + suffix).strip()
+        
+        if not user_val and current_val is not None:
+            return str(current_val)
+        if not user_val:
+            print("Error: This number field cannot be left blank.")
+            continue
+        if user_val.isdigit():
+            return user_val
+        print("Error: Invalid entry. Please enter a positive whole number or 0.")
 
 def prompt_for_ingredient_details(existing_item=None):
     print("\n--- ENTER INGREDIENT DETAILS ---")
