@@ -2,6 +2,7 @@ import csv
 import os
 from datetime import datetime
 
+
 # Functions
 
 def load_inventory_file(file_path):
@@ -38,7 +39,6 @@ def load_inventory_file(file_path):
     return records
 
 def print_current_inventory(extracted_items):
-    """Displays your items cleanly using dynamic width spacing metrics."""
     if not extracted_items:
         print("\n[!] The inventory list is currently empty.")
         return False
@@ -57,6 +57,34 @@ def print_current_inventory(extracted_items):
         print(f"[{x}] {record['item']:<{name_col_width}} | {record['quantity']:<6} | {record['use_by_date']}")
     print(separator_line)
     return True
+
+def save_inventory_file(file_path, extracted_items):
+    fieldnames = [
+        'food', 'food_category', 'use-by', 'storage condition', 
+        'days_to_expiry', 'waste_risk_level', 'allergen info', 
+        'demand level', 'quantity'
+    ]
+    
+    try:
+        with open(file_path, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()  # Write column names first
+            
+            for record in extracted_items:
+                writer.writerow({
+                    'food': record['item'],
+                    'food_category': record['category'],
+                    'use-by': record['use_by_date'],
+                    'storage condition': record['storage_condition'],
+                    'days_to_expiry': record['days_to_expiry'],
+                    'waste_risk_level': record['waste_risk_level'],
+                    'allergen info': record['allergen_info'],
+                    'demand level': record['demand_level'],
+                    'quantity': record['quantity']
+                })
+        print(f"Successfully updated '{file_path}'.")
+    except Exception as e:
+        print(f"Error: Failed to save changes to file: {e}")
 
 def get_validated_string(prompt_text, allow_blank=False, current_val=None):
     while True:
@@ -88,7 +116,6 @@ def get_validated_choice(prompt_text, valid_choices, current_val=None):
         print(f"Error: Invalid option. You must choose one of: {choices_str}")
 
 def get_validated_date(prompt_text, current_val=None):
-    """Enforces that the user enters a valid date, converting it to M/D/YYYY format."""
     while True:
         suffix = f" [{current_val}]: " if current_val else ": "
         user_val = input(prompt_text + suffix).strip()
@@ -177,9 +204,8 @@ def prompt_for_ingredient_details(existing_item=None):
         "quantity": quantity                                    
     }
 
-
 def handle_edit_menu(extracted_items, file_path):
-    """Handles the sub-menu routing for updating your operational inventory list."""
+
     while True:
         print("\n------------------------------")
         print("    2. EDIT INVENTORY LIST       ")
@@ -202,6 +228,10 @@ def handle_edit_menu(extracted_items, file_path):
                 extracted_items.append(new_ingredient)
                 print(f"\nSuccess: '{new_ingredient['item']}' successfully added.")
                 save_inventory_file(file_path, extracted_items)
+
+                print("\nUpdated Inventory after additions:")
+                print_current_inventory(extracted_items)
+
             else:
                 print("\nError: Action cancelled. Ingredient name cannot be blank.")
 
@@ -216,6 +246,10 @@ def handle_edit_menu(extracted_items, file_path):
                 removed = extracted_items.pop(int(remove_choice) - 1)
                 print(f"\n[SUCCESS] Removed '{removed['item']}' from the list.")
                 save_inventory_file(file_path, extracted_items)
+
+                print("\nUpdated Inventory after item removal:")
+                print_current_inventory(extracted_items)
+
             else:
                 print("\nError: Invalid selection. No items were removed.")
 
@@ -245,7 +279,6 @@ def handle_edit_menu(extracted_items, file_path):
             break
         else:
             print("\nError: Please enter a, b, c, or d.")
-
 
 def process_item_for_ai(extracted_items):
 
@@ -294,6 +327,7 @@ def process_item_for_ai(extracted_items):
 
     return ai_payload
 
+# Main Program starts here
 
 inventory_data_path = "food_inventory.csv" 
 current_inventory = load_inventory_file(inventory_data_path)
@@ -318,7 +352,7 @@ while True:
             
     elif main_choice == "3":
         print_current_inventory(current_inventory)
-        #process_item_for_ai(current_inventory)
+        process_item_for_ai(current_inventory)
             
     elif main_choice == "4":
         print("\nExiting program. Goodbye!")
