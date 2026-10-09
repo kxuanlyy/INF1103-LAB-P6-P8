@@ -17,31 +17,17 @@ def load_inventory_file(file_path):
             reader = csv.DictReader(file)
 
             for row in reader:
-                # Extract fields using column headers
-                food_name = row.get('food', '').strip()
-                category = row.get('food_category', '').strip()
-                use_by = row.get('use-by', '').strip()
-                storage = row.get('storage condition', '').strip()
-                days_exp = row.get('days_to_expiry', '').strip()       
-                risk_lvl = row.get('waste_risk_level', '').strip()     
-                allergens = row.get('allergen info', '').strip() or "None"
-                demand = row.get('demand level', '').strip()
-                quantity = row.get('quantity', '').strip()                  
-
-
-                # Construct the clean dictionary payload
                 record = {
-                    "item": food_name,
-                    "category": category,
-                    "use_by_date": use_by,
-                    "storage_condition": storage,
-                    "days_to_expiry": days_exp,                        
-                    "waste_risk_level": risk_lvl,                      
-                    "allergen_info": allergens,
-                    "demand_level": demand.lower(),                    
-                    "quantity": quantity                                    
+                    "item": row.get('food', '').strip(),
+                    "category": row.get('food_category', '').strip(),
+                    "use_by_date": row.get('use-by', '').strip(),
+                    "storage_condition": row.get('storage condition', '').strip(),
+                    "days_to_expiry": row.get('days_to_expiry', '').strip(),       
+                    "waste_risk_level": row.get('waste_risk_level', '').strip(),     
+                    "allergen_info": row.get('allergen info', '').strip() or "None",
+                    "demand_level": row.get('demand level', '').strip().lower(),                    
+                    "quantity": row.get('quantity', '').strip()                                    
                 }
-                    
                 records.append(record)
                 
     except Exception as e:
@@ -50,17 +36,32 @@ def load_inventory_file(file_path):
 
     return records
 
-def get_staff_input(file_record):
+def print_current_inventory(extracted_items):
+    """Displays your items cleanly using dynamic width spacing metrics."""
+    if not extracted_items:
+        print("\n[!] The inventory list is currently empty.")
+        return False
+    
+    # Safely evaluate string column layout profiles based on data sizes
+    max_name_len = max(len(record['item']) for record in extracted_items)
+    name_col_width = max(max_name_len, 25)
+    
+    total_table_width = 4 + 3 + name_col_width + 3 + 6 + 3 + 12
+    separator_line = "=" * total_table_width
+    
+    print("\n" + separator_line)
+    print(f"{'No.':<4} | {'Ingredient Name':<{name_col_width}} | {'Qty':<6} | {'Expiry Date'}")
+    print(separator_line)
+    for x, record in enumerate(extracted_items, start=1):
+        print(f"[{x}] {record['item']:<{name_col_width}} | {record['quantity']:<6} | {record['use_by_date']}")
+    print(separator_line)
+    return True
+
+def process_item_for_ai(extracted_items):
 
     if not extracted_items:
         print("Error: No inventory data available to process.")
         return None
-
-    # Display Interactive Choice Selection Menu
-    print("\n--- SUPERMARKET STOCK LIST ---")
-    for id, record in enumerate(extracted_items, start=1):
-        print(f"[{id}] {record['item']:<32} (Stock Quantity: {record['quantity']})")
-    print("-" * 50)
 
     # User Choice Selection Loop 
     selected_record = None
@@ -103,15 +104,42 @@ def get_staff_input(file_record):
 
     return ai_payload
 
-# Main Program starts here
 
 inventory_data_path = "food_inventory.csv" 
-extracted_items = load_inventory_file(inventory_data_path)
+current_inventory = load_inventory_file(inventory_data_path)
 
-if extracted_data := extracted_items:
-    final_ai_ready_dict = get_staff_input(extracted_data)
+while True:
+    print("\n=================================")
+    print("          MAIN MENU              ")
+    print("=================================")
+    print(" 1. View current inventory stock")
+    print(" 2. Edit items data")
+    print(" 3. Ask AI")
+    print(" 4. Exit")
+    print("=================================")
         
-    print("Final Combined Payload for AI:")
-    print(final_ai_ready_dict)
-else:
-    print(f"Error:  Ensure your inventory file exists at '{inventory_data_path}' and contains items.")
+    main_choice = input("Select an option (1-4): ").strip()
+    if main_choice == "1":
+        print_current_inventory(current_inventory)
+            
+    elif main_choice == "2":
+        print_current_inventory(current_inventory)
+        #handle_edit_menu(current_inventory, inventory_data_path)
+            
+    elif main_choice == "3":
+        print_current_inventory(current_inventory)
+        #process_item_for_ai(current_inventory)
+            
+    elif main_choice == "4":
+        print("\nExiting program. Goodbye!")
+        break
+    else:
+        print("\nError: Please select a number between 1 and 4.")
+
+# if extracted_data := current_inventory:
+#     final_ai_ready_dict = get_staff_input(extracted_data)
+        
+#     print("Final Combined Payload for AI:")
+#     print(final_ai_ready_dict)
+# else:
+#     print(f"Error:  Ensure your inventory file exists at '{inventory_data_path}' and contains items.")
