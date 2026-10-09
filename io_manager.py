@@ -338,6 +338,41 @@ def process_item_for_ai(extracted_items):
 
     return ai_payload
 
+def search_food_item(extracted_items):
+    
+    print("\n--- SEARCH INVENTORY BY ITEM NUMBER ---")
+    
+    # 1. Print the inventory first so the user can see the ID numbers
+    if not print_current_inventory(extracted_items):
+        return
+
+    # 2. Ask the user for the list index number
+    user_choice = input(f"\nEnter the item number to view details (1-{len(extracted_items)}): ").strip()
+    
+    # 3. Validate input and display the item card with swapped labels
+    if user_choice.isdigit():
+        choice_num = int(user_choice)
+        if 1 <= choice_num <= len(extracted_items):
+            match = extracted_items[choice_num - 1]
+            
+            print("\n==================================================")
+            print(f"          FOOD ID: [{choice_num}]          ")  # Changed header to Food ID
+            print("==================================================")
+            print(f" Item Name:         {match['item']}")         # Changed label to Item Name
+            print(f" Category:          {match['category']}")
+            print(f" Stock Quantity:    {match['quantity']}")
+            print(f" Use-By Date:       {match['use_by_date']}")
+            print(f" Days to Expiry:    {match['days_to_expiry']} day(s) remaining")
+            print(f" Storage Type:      {match['storage_condition']}")
+            print(f" Waste Risk Level:  {match['waste_risk_level']}")
+            print(f" Demand Level:      {match['demand_level'].capitalize()}")
+            print(f" Allergen Info:     {match['allergen_info']}")
+            print("==================================================")
+            return
+            
+    print(f"\nError: Invalid selection. Please type a valid number between 1 and {len(extracted_items)}.")
+
+
 # Main Program starts here
 
 inventory_data_path = "food_inventory.csv" 
@@ -349,35 +384,28 @@ while True:
     print("=================================")
     print(" 1. View current inventory stock")
     print(" 2. Edit items data")
-    print(" 3. Ask AI")
-    print(" 4. Search Food Information")
+    print(" 3. Search food item")  # New Option Added
+    print(" 4. Ask AI")
     print(" 5. Exit")
     print("=================================")
         
-    main_choice = input("Select an option (1-4): ").strip()
+    main_choice = input("Select an option (1-5): ").strip()
     if main_choice == "1":
         print_current_inventory(current_inventory)
             
     elif main_choice == "2":
         handle_edit_menu(current_inventory, inventory_data_path)
-            
+        
     elif main_choice == "3":
+        search_food_item(current_inventory)
+            
+    elif main_choice == "4":
         print_current_inventory(current_inventory)
         process_item_for_ai(current_inventory)
-
-    #elif main_choice == "4":
-
             
     elif main_choice == "5":
         print("\nExiting program. Goodbye!")
         break
     else:
-        print("\nError: Please select a number between 1 and 4.")
+        print("\nError: Please select a number between 1 and 5.")
 
-# if extracted_data := current_inventory:
-#     final_ai_ready_dict = get_staff_input(extracted_data)
-        
-#     print("Final Combined Payload for AI:")
-#     print(final_ai_ready_dict)
-# else:
-#     print(f"Error:  Ensure your inventory file exists at '{inventory_data_path}' and contains items.")
