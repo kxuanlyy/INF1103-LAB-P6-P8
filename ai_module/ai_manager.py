@@ -181,7 +181,8 @@ def prepare_io_inputs(ai_payload, records):
         try:
             use_by = date.fromisoformat(use_by).isoformat()
         except ValueError:
-            use_by = datetime.strptime(use_by, "%m/%d/%Y").date().isoformat()
+            # The I/O manager and CSV use day/month/year, including ambiguous dates.
+            use_by = datetime.strptime(use_by, "%d/%m/%Y").date().isoformat()
         quantity = record["quantity"]
         if isinstance(quantity, str):
             quantity = float(quantity)
