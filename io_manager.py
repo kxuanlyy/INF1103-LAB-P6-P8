@@ -1,7 +1,6 @@
 import csv
 import os
 from datetime import datetime
-from pathlib import Path
 
 from ai_module.ai_manager import RECIPES_PATH, suggest_recipes
 
@@ -15,68 +14,31 @@ def load_inventory_file(file_path):
         return []
 
     records = []
+    today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
     
     try:
         with open(file_path, mode='r', encoding='utf-8') as file:
             reader = csv.DictReader(file)
 
             for row in reader:
-                # Extract fields using column headers
-                food_name = row.get('food', '').strip()
-                category = row.get('food_category', '').strip()
-                use_by = row.get('use-by', '').strip()
-                storage = row.get('storage condition', '').strip()
-                days_exp = row.get('days_to_expiry', '').strip()       
-                risk_lvl = row.get('waste_risk_level', '').strip()     
-                allergens = row.get('allergen info', '').strip() or "None"
-                demand = row.get('demand level', '').strip()
-                quantity = row.get('quantity', '').strip()                  
+                use_by_str = row.get('use-by', '').strip()
+                calculated_days = "0"
+                if use_by_str:
+                    try:
+                        expiry_date = datetime.strptime(use_by_str, "%d/%m/%Y")
+                        diff = (expiry_date - today).days
+                        calculated_days = str(max(0, diff))
+                    except ValueError:
+                        calculated_days = row.get('days_to_expiry', '').strip()
 
 
-                # Construct the clean dictionary payload
-                record = {
-                    "item": food_name,
-                    "category": category,
-                    "use_by_date": use_by,
-                    "storage_condition": storage,
-                    "days_to_expiry": days_exp,                        
-                    "waste_risk_level": risk_lvl,                      
-                    "allergen_info": allergens,
-                    "demand_level": demand.lower(),                    
-                    "quantity": quantity                                    
-                }
-                    
-                records.append(record)
-                
-    except Exception as e:
-        print(f"Error: Failed to read inventory file: {e}")
-        return []
 
-    return records
-
-
-# Functions
-
-def load_inventory_file(file_path):
-
-    # Verify file existence
-    if not os.path.exists(file_path):
-        print(f"Error: Inventory file not found at path: {file_path}")
-        return []
-
-    records = []
-    
-    try:
-        with open(file_path, mode='r', encoding='utf-8') as file:
-            reader = csv.DictReader(file)
-
-            for row in reader:
                 record = {
                     "item": row.get('food', '').strip(),
                     "category": row.get('food_category', '').strip(),
-                    "use_by_date": row.get('use-by', '').strip(),
+                    "use_by_date": use_by_str,
                     "storage_condition": row.get('storage condition', '').strip(),
-                    "days_to_expiry": row.get('days_to_expiry', '').strip(),       
+                    "days_to_expiry": calculated_days,  #  Fixed to use the live variable!     
                     "waste_risk_level": row.get('waste_risk_level', '').strip(),     
                     "allergen_info": row.get('allergen info', '').strip() or "None",
                     "demand_level": row.get('demand level', '').strip().lower(),                    
@@ -105,8 +67,8 @@ def print_current_inventory(extracted_items):
     print("\n" + separator_line)
     print(f"{'No.':<4} | {'Ingredient Name':<{name_col_width}} | {'Qty':<6} | {'Expiry Date'}")
     print(separator_line)
-    for x, record in enumerate(extracted_items, start=1):
-        print(f"[{x}] {record['item']:<{name_col_width}} | {record['quantity']:<6} | {record['use_by_date']}")
+    for itemid, record in enumerate(extracted_items, start=1):
+        print(f"[{itemid}] {record['item']:<{name_col_width}} | {record['quantity']:<6} | {record['use_by_date']}")
     print(separator_line)
     return True
 
@@ -134,7 +96,7 @@ def save_inventory_file(file_path, extracted_items):
                     'demand level': record['demand_level'],
                     'quantity': record['quantity']
                 })
-        print(f"Successfully updated '{file_path}'.")
+        # print(f"Successfully updated '{file_path}'.")
     except Exception as e:
         print(f"Error: Failed to save changes to file: {e}")
 
@@ -164,7 +126,7 @@ def get_validated_choice(prompt_text, valid_choices, current_val=None):
             
         matched = [c for c in valid_choices if c.lower() == user_val.lower()]
         if matched:
-            return matched[0]  # Return standard capitalized version
+            return matched[0]
         print(f"Error: Invalid option. You must choose one of: {choices_str}")
 
 def get_validated_date(prompt_text, current_val=None):
@@ -178,20 +140,18 @@ def get_validated_date(prompt_text, current_val=None):
             print("Error: Date cannot be blank. Please enter a valid date.")
             continue
             
-        # Try parsing YYYY-MM-DD first (and convert it)
         try:
-            parsed_date = datetime.strptime(user_val, "%Y-%m-%d")
-            # Convert to M/D/YYYY (e.g., 9/26/2026)
-            return f"{parsed_date.month}/{parsed_date.day}/{parsed_date.year}"
-        except ValueError:
-            pass
+            parsed_date = datetime.strptime(user_val, "%d/%m/%Y")
             
-        # Try parsing M/D/YYYY directly
-        try:
-            parsed_date = datetime.strptime(user_val, "%m/%d/%Y")
-            return f"{parsed_date.month}/{parsed_date.day}/{parsed_date.year}"
+            today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+            if parsed_date < today:
+                print("Error: The expiration date cannot be in the past. Please enter a current or future date.")
+                continue
+                
+            return f"{parsed_date.day}/{parsed_date.month}/{parsed_date.year}"
+
         except ValueError:
-            print("Error: Invalid date format. Please use M/D/YYYY (e.g., 9/26/2026) or YYYY-MM-DD.")
+            print("Error: Invalid date format. Please use D/M/YYYY (e.g., 26/9/2026).")
 
 def get_validated_int(prompt_text, current_val=None):
     while True:
@@ -211,36 +171,28 @@ def prompt_for_ingredient_details(existing_item=None):
     print("\n--- ENTER INGREDIENT DETAILS ---")
     if existing_item:
         print("Press Enter to keep current bracketed values.")
-    
-    # Validated Inputs (Cannot be blank)
+
     item = get_validated_string("Ingredient Name", allow_blank=False, current_val=existing_item.get('item') if existing_item else None)
     
-    valid_categories = ["Dairy", "Meat & Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"]
+    valid_categories = ["Dairy", "Meat", "Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"]
     category = get_validated_choice("Category", valid_categories, current_val=existing_item.get('category') if existing_item else None)
     
-    use_by = get_validated_date("Use-By Date (YYYY-MM-DD)", current_val=existing_item.get('use_by_date') if existing_item else None)
-    
+    use_by = get_validated_date("Use-By Date (D/M/YYYY)", current_val=existing_item.get('use_by_date') if existing_item else None)
+
     valid_storage = ["Chilled", "Frozen", "Ambient"]
     storage = get_validated_choice("Storage Condition", valid_storage, current_val=existing_item.get('storage_condition') if existing_item else None)
     
     valid_risks = ["Low", "Medium", "High"]
     risk_lvl = get_validated_choice("Waste Risk Level", valid_risks, current_val=existing_item.get('waste_risk_level') if existing_item else None)
     
-    
     allergens = get_validated_string("Allergen Info (or press Enter for None)", allow_blank=True, current_val=existing_item.get('allergen_info') if existing_item else None)
-        
-    demand = get_validated_choice("Demand Level", valid_risks, current_val=existing_item.get('demand_level').capitalize() if existing_item else None).lower()
+    demand = get_validated_choice("Demand Level", valid_risks, current_val=existing_item.get('demand_level', '').capitalize() if existing_item else None).lower()
     quantity = get_validated_int("Stock Quantity", current_val=existing_item.get('quantity') if existing_item else None)
     
-    # auto calculate date to expiry
-    today = datetime.today()
-    expiry_date = datetime.strptime(use_by, "%m/%d/%Y")
+    today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+    expiry_date = datetime.strptime(use_by, "%d/%m/%Y")
     
-    calculated_days = (expiry_date - today).days + 1
-    
-    if calculated_days < 0:
-        calculated_days = 0
-        
+    calculated_days = (expiry_date - today).days
     days_exp = str(calculated_days)
     print(f"-> Calculated Days to Expiry: {days_exp} day(s) remaining.")
    
@@ -271,10 +223,7 @@ def handle_edit_menu(extracted_items, file_path):
         sub_choice = input("Select an option (a-d): ").strip().lower()
 
         # a. Add Items
-        if sub_choice == 'a':
-            print("\nCurrent Inventory before adding:")
-            print_current_inventory(extracted_items)
-            
+        if sub_choice == 'a':        
             new_ingredient = prompt_for_ingredient_details()
             if new_ingredient["item"]:
                 extracted_items.append(new_ingredient)
@@ -296,7 +245,7 @@ def handle_edit_menu(extracted_items, file_path):
             remove_choice = input(f"Enter the item number to remove (1-{len(extracted_items)}): ").strip()
             if remove_choice.isdigit() and 1 <= int(remove_choice) <= len(extracted_items):
                 removed = extracted_items.pop(int(remove_choice) - 1)
-                print(f"\n[SUCCESS] Removed '{removed['item']}' from the list.")
+                print(f"\nSuccess: Removed '{removed['item']}' from the list.")
                 save_inventory_file(file_path, extracted_items)
 
                 print("\nUpdated Inventory after item removal:")
@@ -322,6 +271,20 @@ def handle_edit_menu(extracted_items, file_path):
                 extracted_items[target_idx] = updated_data
                 print(f"\nSuccess: Updated data for '{updated_data['item']}'.")
                 save_inventory_file(file_path, extracted_items)
+
+                print("\n==================================================")
+                print(f"          UPDATED DETAILS FOR: {updated_data['item'].upper()}          ")
+                print("==================================================")
+                print(f" Category:          {updated_data['category']}")
+                print(f" Stock Quantity:    {updated_data['quantity']}")
+                print(f" Use-By Date:       {updated_data['use_by_date']}")
+                print(f" Days to Expiry:    {updated_data['days_to_expiry']} day(s) remaining")
+                print(f" Storage Type:      {updated_data['storage_condition']}")
+                print(f" Waste Risk Level:  {updated_data['waste_risk_level']}")
+                print(f" Demand Level:      {updated_data['demand_level'].capitalize()}")
+                print(f" Allergen Info:     {updated_data['allergen_info']}")
+                print("==================================================")
+
             else:
                 print("\nError: Invalid selection. Update aborted.")
 
@@ -379,64 +342,77 @@ def process_item_for_ai(extracted_items):
 
     return ai_payload
 
-def print_ai_result(result):
-    """Display the validated assessment and recipe preparation steps."""
-    print("\n--- AI ASSESSMENT ---")
-    print(f"Item: {result['stock_item']['name']}")
-    print(f"Category: {result['category']} | Demand: {result['demand_level']}")
-    print(f"Expiry urgency: {result['expiry_urgency']} | Spoilage risk: {result['spoilage_risk']}")
-    print(f"Suitability: {result['suitability_score']}/100 | Confidence: {result['confidence']:.0%}")
-    print(f"Allergen uncertain: {result['allergen_uncertain']} | Storage uncertain: {result['storage_uncertain']}")
-    print(f"Reason: {result['reason']}")
-    if not result['recipes']:
-        print("No recipes suggested for this item. See the assessment reason above.")
-    for number, recipe in enumerate(result['recipes'], start=1):
-        print(f"\nRecipe {number}: {recipe['name']}")
-        print("Ingredients: " + ", ".join(recipe['ingredients']))
-        for step_number, instruction in enumerate(recipe['instructions'], start=1):
-            print(f"  {step_number}. {instruction}")
-    print(f"\nRecipes saved to: {RECIPES_PATH}")
+def search_food_item(extracted_items):
+    
+    print("\n--- SEARCH INVENTORY BY ITEM NUMBER ---")
+    
+    # 1. Print the inventory first so the user can see the ID numbers
+    if not print_current_inventory(extracted_items):
+        return
+
+    # 2. Ask the user for the list index number
+    user_choice = input(f"\nEnter the item number to view details (1-{len(extracted_items)}): ").strip()
+    
+    # 3. Validate input and display the item card with swapped labels
+    if user_choice.isdigit():
+        choice_num = int(user_choice)
+        if 1 <= choice_num <= len(extracted_items):
+            match = extracted_items[choice_num - 1]
+            
+            print("\n==================================================")
+            print(f"          FOOD ID: [{choice_num}]          ")  # Changed header to Food ID
+            print("==================================================")
+            print(f" Item Name:         {match['item']}")         # Changed label to Item Name
+            print(f" Category:          {match['category']}")
+            print(f" Stock Quantity:    {match['quantity']}")
+            print(f" Use-By Date:       {match['use_by_date']}")
+            print(f" Days to Expiry:    {match['days_to_expiry']} day(s) remaining")
+            print(f" Storage Type:      {match['storage_condition']}")
+            print(f" Waste Risk Level:  {match['waste_risk_level']}")
+            print(f" Demand Level:      {match['demand_level'].capitalize()}")
+            print(f" Allergen Info:     {match['allergen_info']}")
+            print("==================================================")
+            return
+            
+    print(f"\nError: Invalid selection. Please type a valid number between 1 and {len(extracted_items)}.")
 
 
-def main(today=None, client=None):
-    """Run the menu and return the last AI result for downstream callers."""
-    inventory_data_path = Path(__file__).resolve().parent / "food_inventory.csv"
-    current_inventory = load_inventory_file(inventory_data_path)
-    last_result = None
-    last_error = "No inventory item selected. Check food_inventory.csv and retry."
+# Main Program starts here
 
-    while True:
-        print("\n=================================")
-        print("          MAIN MENU              ")
-        print("=================================")
-        print(" 1. View current inventory stock")
-        print(" 2. Edit items data")
-        print(" 3. Ask AI")
-        print(" 4. Exit")
-        print("=================================")
+inventory_data_path = "food_inventory.csv" 
+current_inventory = load_inventory_file(inventory_data_path)
 
-        main_choice = input("Select an option (1-4): ").strip()
-        if main_choice == "1":
-            print_current_inventory(current_inventory)
-        elif main_choice == "2":
-            print_current_inventory(current_inventory)
-            handle_edit_menu(current_inventory, inventory_data_path)
-        elif main_choice == "3":
-            if not print_current_inventory(current_inventory):
-                continue
-            payload = process_item_for_ai(current_inventory)
-            print("\nAsking AI... please wait.")
-            last_result, last_error = suggest_recipes(payload, today=today, client=client)
-            if last_error:
-                print("Assessment failed:", last_error)
-            else:
-                print_ai_result(last_result)
-        elif main_choice == "4":
-            print("\nExiting program. Goodbye!")
-            return last_result, last_error
-        else:
-            print("\nError: Please select a number between 1 and 4.")
+save_inventory_file(inventory_data_path, current_inventory) 
 
 
-if __name__ == "__main__":
-    main()
+while True:
+    print("\n=================================")
+    print("          MAIN MENU              ")
+    print("=================================")
+    print(" 1. View current inventory stock")
+    print(" 2. Edit items data")
+    print(" 3. Search food item")  # New Option Added
+    print(" 4. Ask AI")
+    print(" 5. Exit")
+    print("=================================")
+        
+    main_choice = input("Select an option (1-5): ").strip()
+    if main_choice == "1":
+        print_current_inventory(current_inventory)
+            
+    elif main_choice == "2":
+        handle_edit_menu(current_inventory, inventory_data_path)
+        
+    elif main_choice == "3":
+        search_food_item(current_inventory)
+            
+    elif main_choice == "4":
+        print_current_inventory(current_inventory)
+        process_item_for_ai(current_inventory)
+            
+    elif main_choice == "5":
+        print("\nExiting program. Goodbye!")
+        break
+    else:
+        print("\nError: Please select a number between 1 and 5.")
+
