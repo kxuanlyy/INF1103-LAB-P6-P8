@@ -9,5 +9,39 @@
       "Toast the slices in a toaster or under a broiler until golden.",
       "Serve warm."
     ]
+  },
+  {
+    "name": "Spaghetti Carbonara",
+    "ingredients": [
+      "Spaghetti",
+      "Eggs"     
+    ],
+    "instructions": [
+      "Cook the spaghetti according to package instructions.",
+      "In a separate pan, whisk together the eggs and Parmesan cheese.",
+      "Drain the cooked spaghetti and add it to the egg mixture, tossing to combine.",
+      "Serve immediately."
+    ]
+  },{
+    "name": "darren",
+    "ingredients": [
+      "darren"
+    ],
+    "instructions": [
+      "darren"
+    ]
+  },{
+     "name": "Chicken Curry",
+        "ingredients": [
+            "chicken",
+            "onion",
+            "garlic",
+            "ginger",
+            "tomatoes",
+            "curry powder",
+            "coconut milk",
+            "oil",
+            "rice"]
+            
   }
 ]
