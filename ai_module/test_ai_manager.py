@@ -1,6 +1,8 @@
 """Offline, procedural tests. Run: python -m unittest discover -s ai_module -v."""
 
 import ast
+import contextlib
+import io
 from copy import deepcopy
 from datetime import date
 import json
@@ -12,6 +14,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from ai_module import ai_manager as ai
+import io_manager
 
 
 TODAY = date(2026, 10, 1)
@@ -392,6 +395,129 @@ def test_ai_manager_and_tests_remain_procedural():
     for path in (Path(ai.__file__), Path(__file__)):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         assert not any(isinstance(node, ast.ClassDef) for node in ast.walk(tree))
+
+
+def io_record():
+    return {
+        "item": "Tomatoes", "category": "Fresh Produce",
+        "use_by_date": "3/10/2026", "storage_condition": "Chilled",
+        "days_to_expiry": "2", "waste_risk_level": "High",
+        "allergen_info": "None", "demand_level": "low", "quantity": "12",
+    }
+
+
+def test_menu_calls_ai_displays_recipes_and_returns_result():
+    analysis = valid_analysis()
+    analysis["item_id"] = "inventory-0001"
+    analysis["recipe_suggestions"] = [{
+        "name": "Roasted tomatoes", "ingredient_ids": ["inventory-0001"],
+        "how_to_make": ["Wash and halve the tomatoes.", "Roast until tender."],
+    }]
+    client = fake_client(completion(json.dumps(analysis)))
+    output = io.StringIO()
+    with patch.object(io_manager, "load_inventory_file", return_value=[io_record()]), \
+            patch.object(io_manager, "save_inventory_file"), \
+            patch("builtins.input", side_effect=["4", "1", "Firm and fresh", "5"]), \
+            patch.object(ai, "save_recipes") as save, contextlib.redirect_stdout(output):
+        result, error = io_manager.main(today=TODAY, client=client)
+    assert error is None
+    assert result["recipes"][0]["name"] == "Roasted tomatoes"
+    assert "Roast until tender." in output.getvalue()
+    assert analysis["reason"] in output.getvalue()
+    save.assert_called_once_with(result["recipes"])
+    sent = json.loads(client.chat.completions.create.call_args.kwargs["messages"][1]["content"])
+    assert sent["target_item"]["staff_observations"] == "Firm and fresh"
+    assert sent["target_item"]["quantity"] == 12
+    assert sent["target_item"]["use_by"] == "2026-10-03"
+
+
+def test_menu_reports_ai_error_and_allows_exit():
+    output = io.StringIO()
+    with patch.object(io_manager, "load_inventory_file", return_value=[io_record()]), \
+            patch.object(io_manager, "save_inventory_file"), \
+            patch("builtins.input", side_effect=["4", "1", "", "5"]), \
+            patch.object(io_manager, "suggest_recipes", return_value=(None, ai.SERVICE_ERROR)), \
+            contextlib.redirect_stdout(output):
+        assert io_manager.main() == (None, ai.SERVICE_ERROR)
+    assert "Assessment failed: " + ai.SERVICE_ERROR in output.getvalue()
+    assert "Exiting program" in output.getvalue()
+
+
+def test_menu_skips_ai_when_inventory_is_empty():
+    with patch.object(io_manager, "load_inventory_file", return_value=[]), \
+            patch.object(io_manager, "save_inventory_file") as save, \
+            patch("builtins.input", side_effect=["4", "5"]), \
+            patch.object(io_manager, "suggest_recipes") as suggest, \
+            contextlib.redirect_stdout(io.StringIO()):
+        result, error = io_manager.main()
+    assert result is None and error
+    suggest.assert_not_called()
+    save.assert_not_called()
+
+
+def test_empty_recipe_result_displays_assessment_reason():
+    result = {**valid_analysis(), "recipes": [], "stock_item": {"name": "Tomatoes"}}
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        io_manager.print_ai_result(result)
+    assert result["reason"] in output.getvalue()
+    assert "No recipes suggested" in output.getvalue()
+
+
+def test_ai_entry_point_delegates_to_menu_without_second_request():
+    client = fake_client()
+    expected = ({"recipes": []}, None)
+    menu = Mock(return_value=expected)
+    original_dir = Path.cwd()
+    with patch.object(ai.runpy, "run_path", return_value={"main": menu}), \
+            patch.object(ai, "suggest_recipes") as suggest:
+        assert ai.analyse_from_io(today=TODAY, client=client) == expected
+    menu.assert_called_once_with(today=TODAY, client=client)
+    suggest.assert_not_called()
+    assert Path.cwd() == original_dir
+
+
+def test_io_dates_follow_day_month_year_and_preserve_iso_inputs():
+    for use_by, expected in (("3/10/2026", "2026-10-03"),
+                             ("28/10/2026", "2026-10-28"),
+                             ("2026-10-03", "2026-10-03")):
+        record = {**io_record(), "use_by_date": use_by}
+        before = deepcopy(record)
+        item, inventory = ai.prepare_io_inputs(record, [record])
+        assert item["use_by"] == expected
+        assert inventory[0] == item
+        assert record == before
+
+
+def test_invalid_io_date_never_calls_ai_or_overwrites_recipes():
+    client = fake_client()
+    record = {**io_record(), "use_by_date": "31/2/2026"}
+    with patch.object(ai, "save_recipes") as save:
+        assert ai.suggest_recipes(record, today=TODAY, client=client) == (None, ai.INVALID_INPUT_ERROR)
+    client.chat.completions.create.assert_not_called()
+    save.assert_not_called()
+
+
+def test_search_remains_option_three_without_calling_ai():
+    output = io.StringIO()
+    with patch.object(io_manager, "load_inventory_file", return_value=[io_record()]), \
+            patch.object(io_manager, "save_inventory_file"), \
+            patch("builtins.input", side_effect=["3", "1", "5"]), \
+            patch.object(io_manager, "suggest_recipes") as suggest, \
+            contextlib.redirect_stdout(output):
+        io_manager.main()
+    assert "FOOD ID: [1]" in output.getvalue()
+    assert "Use-By Date:       3/10/2026" in output.getvalue()
+    suggest.assert_not_called()
+
+
+def test_loading_io_module_does_not_prompt_or_rewrite_inventory():
+    with patch("builtins.input") as prompt, \
+            patch.object(io_manager.csv, "DictReader") as reader:
+        module = ai.runpy.run_path(str(Path(io_manager.__file__)))
+    assert callable(module["main"])
+    prompt.assert_not_called()
+    reader.assert_not_called()
 
 
 def load_tests(loader, tests, pattern):
