@@ -1,4 +1,4 @@
-"""Offline, procedural tests. Run: python -m unittest discover -s ai_module -v."""
+# Offline, procedural tests. Run: python -m unittest discover -s ai_module -v.
 
 import ast
 import contextlib
@@ -360,7 +360,7 @@ def test_configuration_errors_return_safe_messages():
 
 
 def sdk_modules():
-    """Transport tests are optional when production dependencies are not installed."""
+    # Transport tests are optional when production dependencies are not installed.
     try:
         import groq
         import httpx
@@ -370,7 +370,7 @@ def sdk_modules():
 
 
 def run_transport_scenario(status_codes):
-    """Exercise SDK retries without any network connections or real credentials."""
+    # Exercise SDK retries without any network connections or real credentials.
     groq, httpx = sdk_modules()
     requests = []
 
@@ -548,7 +548,7 @@ def test_loading_io_module_does_not_prompt_or_rewrite_inventory():
 
 
 def load_tests(loader, tests, pattern):
-    """Register function tests with unittest without defining test classes."""
+    # Register function tests with unittest without defining test classes.
     return unittest.TestSuite(unittest.FunctionTestCase(function)
                               for name, function in sorted(globals().items())
                               if name.startswith("test_"))

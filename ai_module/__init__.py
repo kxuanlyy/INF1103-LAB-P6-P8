@@ -1,1 +1,1 @@
-"""AI assessment implementation and offline tests for FoodRescue."""
+# AI assessment implementation and offline tests for FoodRescue.

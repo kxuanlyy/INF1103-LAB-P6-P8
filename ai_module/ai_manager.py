@@ -1,4 +1,4 @@
-"""Build prompts, call Groq, and validate AI output; no business decisions."""
+# Build prompts, call Groq, and validate AI output; no business decisions.
 
 import json
 import math
@@ -64,20 +64,20 @@ ANALYSIS_SCHEMA = {
 
 
 def validate_text(value, field):
-    """Require actual text; never silently coerce model or input values."""
+    # Require actual text; never silently coerce model or input values.
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field} must be nonempty text.")
 
 
 def validate_number(value, field, maximum):
-    """Reject booleans, non-finite numbers, and values outside the allowed range."""
+    # Reject booleans, non-finite numbers, and values outside the allowed range.
     if (type(value) not in (int, float) or not 0 <= value <= maximum
             or not math.isfinite(value)):
         raise ValueError(f"{field} is outside its allowed range.")
 
 
 def validate_recipes(recipes, item_id, inventory_ids=None, require_steps=False):
-    """Check recipes; older saved assessments may omit steps unless required."""
+    # Check recipes; older saved assessments may omit steps unless required.
     if not isinstance(recipes, list) or len(recipes) > MAX_RECIPES:
         raise ValueError("AI recipes must be a list of at most five suggestions.")
     for recipe in recipes:
@@ -114,7 +114,7 @@ def validate_recipes(recipes, item_id, inventory_ids=None, require_steps=False):
 
 
 def validate_analysis(value, item_id, inventory_ids=None, require_steps=False):
-    """Validate AI output; the optional inventory argument preserves saved-record callers."""
+    # Validate AI output; the optional inventory argument preserves saved-record callers.
     if not isinstance(value, dict) or set(value) != set(ANALYSIS_PROPERTIES):
         raise ValueError("AI response must be an object with exactly the required fields.")
     for field in TEXT_FIELDS:
@@ -134,7 +134,7 @@ def validate_analysis(value, item_id, inventory_ids=None, require_steps=False):
 
 
 def validate_stock_item(item):
-    """Check the stock record contract before passing user data to the API."""
+    # Check the stock record contract before passing user data to the API.
     if not isinstance(item, dict):
         raise ValueError("Stock item must be an object.")
     for field in ("id", "name", "unit", "storage_condition", "allergens", "use_by"):
@@ -152,7 +152,7 @@ def validate_stock_item(item):
 
 
 def validate_inputs(item, inventory, today):
-    """Validate request data and return the unique inventory IDs for response checks."""
+    # Validate request data and return the unique inventory IDs for response checks.
     if type(today) is not date:
         raise ValueError("Assessment date must be a date.")
     if not isinstance(inventory, list) or not inventory:
@@ -170,11 +170,11 @@ def validate_inputs(item, inventory, today):
 
 
 def prepare_io_inputs(ai_payload, records):
-    """Convert I/O records without modifying the payload or source inventory.
-
-    The CSV has no IDs or units. IDs identify rows within this assessment;
-    units and verification statuses remain explicitly unknown.
-    """
+    # Convert I/O records without modifying the payload or source inventory.
+    #
+    # The CSV has no IDs or units. IDs identify rows within this assessment;
+    # units and verification statuses remain explicitly unknown.
+    #
     if not isinstance(records, list) or not records:
         raise ValueError("Inventory must be a nonempty list.")
     selected = dict(ai_payload)
@@ -224,7 +224,7 @@ def prepare_io_inputs(ai_payload, records):
 
 
 def build_messages(item, inventory, today):
-    """Keep instructions separate from inventory data and describe the JSON contract."""
+    # Keep instructions separate from inventory data and describe the JSON contract.
     return [
         {"role": "system", "content": (
             "Assess supermarket stock and return only a JSON object matching the schema. "
@@ -268,7 +268,7 @@ def build_messages(item, inventory, today):
 
 
 def create_client():
-    """Load optional local configuration and create a client with bounded API retries."""
+    # Load optional local configuration and create a client with bounded API retries.
     try:
         from dotenv import load_dotenv
         from groq import Groq
@@ -283,7 +283,7 @@ def create_client():
 
 
 def request_completion(client, messages):
-    """Send one assessment request; the Groq SDK handles transient API retries."""
+    # Send one assessment request; the Groq SDK handles transient API retries.
     return client.chat.completions.create(
         model=os.getenv("GROQ_MODEL", "").strip() or DEFAULT_MODEL,
         messages=messages,
@@ -294,7 +294,7 @@ def request_completion(client, messages):
 
 
 def extract_response(completion):
-    """Reject truncated, refused, or missing completions before parsing their content."""
+    # Reject truncated, refused, or missing completions before parsing their content.
     try:
         choice = completion.choices[0]
         if choice.finish_reason != "stop" or getattr(choice.message, "refusal", None):
@@ -305,7 +305,7 @@ def extract_response(completion):
 
 
 def unique_object(pairs):
-    """Reject duplicate JSON keys instead of silently accepting the last value."""
+    # Reject duplicate JSON keys instead of silently accepting the last value.
     result = {}
     for key, value in pairs:
         if key in result:
@@ -315,12 +315,12 @@ def unique_object(pairs):
 
 
 def reject_constant(value):
-    """Reject NaN and Infinity, which are not valid JSON numbers."""
+    # Reject NaN and Infinity, which are not valid JSON numbers.
     raise ValueError("AI JSON contains a non-finite number.")
 
 
 def parse_response(content):
-    """Decode one JSON object, allowing an optional enclosing Markdown code fence."""
+    # Decode one JSON object, allowing an optional enclosing Markdown code fence.
     if not isinstance(content, str) or not content.strip():
         raise ValueError("AI response must contain JSON text.")
     content = content.strip()
@@ -338,7 +338,7 @@ def parse_response(content):
 
 
 def assess_with_client(client, messages, item_id, inventory_ids, require_steps=False):
-    """Retry invalid model output once; API failures remain the SDK's responsibility."""
+    # Retry invalid model output once; API failures remain the SDK's responsibility.
     for attempt in range(RESPONSE_ATTEMPTS):
         try:
             completion = request_completion(client, messages)
@@ -363,12 +363,12 @@ def assess_with_client(client, messages, item_id, inventory_ids, require_steps=F
 
 
 def analyse_item(item, inventory, today, client=None, require_steps=False):
-    """Input -> prompt/API/validation -> (assessment, error), with no terminal I/O.
-
-    An injected client belongs to the caller. Internally created clients are closed.
-    No assessment is fabricated when input, configuration, or model output fails.
-    Accepts either the stock contract or an io_manager payload and its raw records.
-    """
+    # Input -> prompt/API/validation -> (assessment, error), with no terminal I/O.
+    #
+    # An injected client belongs to the caller. Internally created clients are closed.
+    # No assessment is fabricated when input, configuration, or model output fails.
+    # Accepts either the stock contract or an io_manager payload and its raw records.
+    #
     try:
         if isinstance(item, dict) and "item" in item and "id" not in item:
             item, inventory = prepare_io_inputs(item, inventory)
@@ -396,7 +396,7 @@ def analyse_item(item, inventory, today, client=None, require_steps=False):
 
 
 def save_recipes(recipes):
-    """Atomically save a JSON list of recipe names, ingredients, and instructions."""
+    # Atomically save a JSON list of recipe names, ingredients, and instructions.
     content = json.dumps(recipes, indent=2, ensure_ascii=False, allow_nan=False)
     temporary_path = None
     try:
@@ -412,28 +412,28 @@ def save_recipes(recipes):
 
 
 def suggest_recipes(final_ai_ready_dict, today=None, client=None):
-    """Save recipes.json and return (logic_ready_dict, error) without opening a menu.
-
-    Only the item in final_ai_ready_dict is sent to the AI. Unselected inventory
-    records are not included, and recipe ingredient IDs must reference this item.
-
-    On success, the dictionary contains validated AI assessment fields and recipes:
-    [{"name": str, "ingredients": [str], "instructions": [str]}].
-    Ingredient names include the selected stock and any additional ingredients
-    needed to prepare the popular dish; additional ingredients are not stock records.
-    It also contains assessment_date (ISO text), stock_item (the normalized target),
-    and inventory_by_id (ID -> normalized stock record) so logic_manager can check
-    the selected stock. Quantities and days_to_expiry are numeric; the CSV's
-    original expiry estimate is retained as reported_days_to_expiry. IDs are local
-    to this result, so pass the whole dictionary to logic_manager.
-
-    Only the recipes list is saved to recipes.json in the project folder, replacing
-    the previous successful result. Assessment metadata stays in the returned
-    dictionary for logic_manager. An empty recipe list is a valid assessment.
-    API or validation failures leave the previous file untouched. Errors return
-    (None, error), never a partial result. Final business decisions belong to
-    logic_manager. The caller's input dictionaries are not changed.
-    """
+    # Save recipes.json and return (logic_ready_dict, error) without opening a menu.
+    #
+    # Only the item in final_ai_ready_dict is sent to the AI. Unselected inventory
+    # records are not included, and recipe ingredient IDs must reference this item.
+    #
+    # On success, the dictionary contains validated AI assessment fields and recipes:
+    # [{"name": str, "ingredients": [str], "instructions": [str]}].
+    # Ingredient names include the selected stock and any additional ingredients
+    # needed to prepare the popular dish; additional ingredients are not stock records.
+    # It also contains assessment_date (ISO text), stock_item (the normalized target),
+    # and inventory_by_id (ID -> normalized stock record) so logic_manager can check
+    # the selected stock. Quantities and days_to_expiry are numeric; the CSV's
+    # original expiry estimate is retained as reported_days_to_expiry. IDs are local
+    # to this result, so pass the whole dictionary to logic_manager.
+    #
+    # Only the recipes list is saved to recipes.json in the project folder, replacing
+    # the previous successful result. Assessment metadata stays in the returned
+    # dictionary for logic_manager. An empty recipe list is a valid assessment.
+    # API or validation failures leave the previous file untouched. Errors return
+    # (None, error), never a partial result. Final business decisions belong to
+    # logic_manager. The caller's input dictionaries are not changed.
+    #
     today = date.today() if today is None else today
     try:
         if not isinstance(final_ai_ready_dict, dict) or type(today) is not date:
@@ -473,7 +473,7 @@ def suggest_recipes(final_ai_ready_dict, today=None, client=None):
 
 
 def analyse_from_io(today=None, client=None):
-    """Run the I/O menu and return suggestions and stock data for logic_manager."""
+    # Run the I/O menu and return suggestions and stock data for logic_manager.
     project_dir = Path(__file__).resolve().parent.parent
     try:
         io_data = runpy.run_path(str(project_dir / "io_manager.py"))

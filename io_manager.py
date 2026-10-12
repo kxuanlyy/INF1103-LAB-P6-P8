@@ -379,7 +379,7 @@ def search_food_item(extracted_items):
 
 
 def print_ai_result(result):
-    """Display the validated assessment and recipe preparation steps."""
+    # Display the validated assessment and recipe preparation steps.
     print("\n==================================================")
     print(f"          AI ASSESSMENT FOR: {result['stock_item']['name'].upper()}          ")
     print("==================================================")
@@ -409,7 +409,7 @@ def print_ai_result(result):
 
 
 def main(today=None, client=None):
-    """Run the menu and return the last AI result for downstream callers."""
+    # Run the menu and return the last AI result for downstream callers.
     inventory_data_path = Path(__file__).resolve().parent / "food_inventory.csv"
     current_inventory = load_inventory_file(inventory_data_path)
     if current_inventory:
