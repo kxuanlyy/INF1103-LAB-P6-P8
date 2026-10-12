@@ -83,8 +83,7 @@ def create_recipe_results():
         print(f"{Colors.FAIL}[ERROR] recipes.json is empty or contains no recipes!{Colors.ENDC}\n")
         return {"error": "recipes.json is empty"}
 
-    print(f"{Colors.BLUE}[INFO] Loaded {len(recipes_from_json)} recipe(s) from recipes.json{Colors.ENDC}")
-    print(f"{Colors.BLUE}[INFO] Loaded {len(accepted_recipes)} template(s) from accepted_recipe.json{Colors.ENDC}\n")
+
     print(f"{Colors.BOLD}Processing recipes...{Colors.ENDC}\n")
 
     # Loop through EACH recipe inside recipes.json
