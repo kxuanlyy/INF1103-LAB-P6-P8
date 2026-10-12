@@ -1,5 +1,4 @@
-Rejected recipe: Spaghetti Bolognese | Reason: Ingredients do not match valid accepted criteria
-Rejected recipe: Spaghetti Carbonara | Reason: Ingredients do not match valid accepted criteria
-Rejected recipe: Spaghetti Aglio e Olio | Reason: Recipe name not found in accepted_recipe.json
+Rejected recipe: Classic Beef Burgers | Reason: Ingredients do not match valid accepted criteria
+Rejected recipe: Beef Meatballs in Tomato Sauce | Reason: Ingredients do not match valid accepted criteria
 
 Total rejected recipes: 3
