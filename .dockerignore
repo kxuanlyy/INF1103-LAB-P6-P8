@@ -1,11 +1,26 @@
+# Ignore everything by default
 *
+
+# Main Python files
+!main.py
+!io_manager.py
+!data_manager.py
+!logic_manager.py
+
+# Main dependencies
 !requirements.txt
+
+# AI module
 !ai_module/
 !ai_module/__init__.py
 !ai_module/ai_manager.py
 !ai_module/requirements.txt
-!data_manager.py
-!io_manager.py
-!logic_manager.py
-!main.py
+
+# Input data
+!food_inventory.csv
+!accepted_recipe.json
+!recipes.json
+
+# Docker configuration
 !Dockerfile
+!.dockerignore
