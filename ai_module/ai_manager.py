@@ -33,6 +33,10 @@ RECIPE_SCHEMA = {
             "type": "array", "minItems": 1, "uniqueItems": True,
             "items": {"type": "string", "minLength": 1},
         },
+        "additional_ingredients": {
+            "type": "array", "uniqueItems": True,
+            "items": {"type": "string", "minLength": 1},
+        },
         "how_to_make": {
             "type": "array", "minItems": 1,
             "items": {"type": "string", "minLength": 1},
@@ -80,9 +84,18 @@ def validate_recipes(recipes, item_id, inventory_ids=None, require_steps=False):
         allowed_fields = [set(RECIPE_SCHEMA["required"])]
         if not require_steps:
             allowed_fields.append({"name", "ingredient_ids"})
+        allowed_fields += [fields | {"additional_ingredients"}
+                           for fields in allowed_fields]
         if not isinstance(recipe, dict) or set(recipe) not in allowed_fields:
             raise ValueError("Invalid recipe fields.")
         validate_text(recipe["name"], "Recipe name")
+        additional = recipe.get("additional_ingredients", [])
+        if not isinstance(additional, list):
+            raise ValueError("Additional ingredients must be a list.")
+        for ingredient in additional:
+            validate_text(ingredient, "Additional ingredient")
+        if len(additional) != len({ingredient.strip().lower() for ingredient in additional}):
+            raise ValueError("Additional ingredients must be unique.")
         if "how_to_make" in recipe:
             steps = recipe["how_to_make"]
             if not isinstance(steps, list) or not steps:
@@ -223,14 +236,26 @@ def build_messages(item, inventory, today):
             "days_to_expiry may be stale. Consider staff_observations, category, and "
             "waste_risk_level as reported evidence when present. "
             "Do not infer verified storage or allergens from missing information. "
-            "Suggest recipes for soon-to-expire or low-demand stock, considering "
-            "compatible ingredients together. Return each recipe's name and ALL ingredient "
-            "IDs using only supplied inventory. Every recipe must include the target item. "
+            "Recommend popular, well-known dishes for soon-to-expire or low-demand stock, "
+            "considering compatible ingredients together. Use recognizable dish names, "
+            "such as Spaghetti Bolognese, Chicken Curry, Fried Rice, or Omelette, only "
+            "when the target item is a meaningful ingredient in that dish. Avoid invented "
+            "recipe names and generic preparation ideas such as Warm Baguette Slices, "
+            "Steamed Vegetables, or Roasted Tomatoes. Recommend complete recipes even "
+            "when other ingredients are not present in the supplied inventory. "
+            "Rank suggestions by how widely recognized the dish is and how well it uses "
+            "the target stock. Return each recipe's name and ALL ingredient "
+            "IDs for ingredients from supplied inventory. Every recipe must include the "
+            "target item. Include additional_ingredients as a list of the names of ALL "
+            "other ingredients needed, including pantry staples; use an empty list when "
+            "none are needed. Do not invent inventory IDs for additional ingredients or "
+            "claim those ingredients are in stock. "
             "Include how_to_make as a nonempty ordered list of clear preparation steps "
-            "for every recipe. Use only the listed ingredients throughout the steps; "
-            "do not add unselected stock or assume pantry ingredients are available. "
+            "for every recipe. The steps may use both the referenced inventory ingredients "
+            "and the listed additional ingredients. "
             "Recipe suggestions are candidates for the logic manager and staff to review. "
-            "For a suitable target, suggest practical recipes rather than just assessing it. "
+            "For a suitable target, suggest popular recipes using that item without "
+            "restricting the recipe to ingredients currently in stock. "
             "Flag unverified storage and allergens as uncertain; never imply approval. "
             "Do not suggest expired, incorrectly stored, or high-spoilage-risk ingredients. "
             "An empty recipe list is valid. Explain assessments using supplied facts. "
@@ -394,10 +419,11 @@ def suggest_recipes(final_ai_ready_dict, today=None, client=None):
 
     On success, the dictionary contains validated AI assessment fields and recipes:
     [{"name": str, "ingredients": [str], "instructions": [str]}].
-    Ingredient names come from the selected stock record.
+    Ingredient names include the selected stock and any additional ingredients
+    needed to prepare the popular dish; additional ingredients are not stock records.
     It also contains assessment_date (ISO text), stock_item (the normalized target),
     and inventory_by_id (ID -> normalized stock record) so logic_manager can check
-    every proposed ingredient. Quantities and days_to_expiry are numeric; the CSV's
+    the selected stock. Quantities and days_to_expiry are numeric; the CSV's
     original expiry estimate is retained as reported_days_to_expiry. IDs are local
     to this result, so pass the whole dictionary to logic_manager.
 
@@ -431,7 +457,8 @@ def suggest_recipes(final_ai_ready_dict, today=None, client=None):
         "recipes": [{
             "name": recipe["name"],
             "ingredients": [inventory_by_id[ingredient_id]["name"]
-                            for ingredient_id in recipe["ingredient_ids"]],
+                            for ingredient_id in recipe["ingredient_ids"]]
+                           + recipe.get("additional_ingredients", []),
             "instructions": recipe["how_to_make"],
         } for recipe in assessment["recipe_suggestions"]],
         "assessment_date": today.isoformat(),
