@@ -1,47 +1,66 @@
 [
   {
-    "name": "Simple Baguette Toast",
+    "name": "Spaghetti Bolognese",
     "ingredients": [
-      "Baguette"
+      "Spaghetti",
+      "ground beef",
+      "tomato sauce",
+      "onion",
+      "garlic",
+      "olive oil",
+      "carrot",
+      "celery",
+      "red wine (optional)",
+      "bay leaf",
+      "salt",
+      "pepper",
+      "parmesan cheese"
     ],
     "instructions": [
-      "Slice the baguette into 1cm thick pieces.",
-      "Toast the slices in a toaster or under a broiler until golden.",
-      "Serve warm."
+      "Cook the spaghetti in boiling salted water until al dente and drain.",
+      "Heat olive oil in a pan, add finely chopped onion, garlic, carrot and celery; sauté until softened.",
+      "Add ground beef and brown it, breaking up lumps.",
+      "Stir in tomato sauce, a splash of red wine if using, and bay leaf; simmer for 15‑20 minutes, seasoning with salt and pepper.",
+      "Combine the cooked spaghetti with the Bolognese sauce, toss to coat.",
+      "Serve hot, topped with grated parmesan cheese."
     ]
   },
   {
     "name": "Spaghetti Carbonara",
     "ingredients": [
       "Spaghetti",
-      "Eggs"     
+      "pancetta or guanciale",
+      "egg yolks",
+      "parmesan cheese",
+      "black pepper",
+      "olive oil",
+      "salt"
     ],
     "instructions": [
-      "Cook the spaghetti according to package instructions.",
-      "In a separate pan, whisk together the eggs and Parmesan cheese.",
-      "Drain the cooked spaghetti and add it to the egg mixture, tossing to combine.",
-      "Serve immediately."
+      "Cook the spaghetti in boiling salted water until al dente; reserve a cup of cooking water and drain.",
+      "In a pan, heat olive oil and crisp the pancetta or guanciale until golden.",
+      "In a bowl whisk egg yolks with grated parmesan and a generous amount of black pepper.",
+      "Add the hot spaghetti to the pan with pancetta, remove from heat, and quickly stir in the egg‑cheese mixture, adding reserved pasta water as needed to create a creamy sauce.",
+      "Season with extra pepper and serve immediately."
     ]
-  },{
-    "name": "darren",
+  },
+  {
+    "name": "Spaghetti Aglio e Olio",
     "ingredients": [
-      "darren"
+      "Spaghetti",
+      "garlic",
+      "extra‑virgin olive oil",
+      "red pepper flakes",
+      "fresh parsley",
+      "salt",
+      "parmesan cheese (optional)"
     ],
     "instructions": [
-      "darren"
+      "Cook the spaghetti in boiling salted water until al dente; drain, reserving a little cooking water.",
+      "Thinly slice garlic and gently fry in olive oil over low heat until fragrant but not brown.",
+      "Add red pepper flakes and stir briefly.",
+      "Add the drained spaghetti to the pan, toss to coat, adding a splash of reserved cooking water if needed.",
+      "Season with salt, sprinkle chopped parsley, and optionally top with grated parmesan before serving."
     ]
-  },{
-     "name": "Chicken Curry",
-        "ingredients": [
-            "chicken",
-            "onion",
-            "garlic",
-            "ginger",
-            "tomatoes",
-            "curry powder",
-            "coconut milk",
-            "oil",
-            "rice"]
-            
   }
 ]
