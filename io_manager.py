@@ -606,7 +606,7 @@ def main(today=None, client=None):
             print("\nExiting program. Goodbye!")
             break
         else:
-            print("\nError: Please select a number between 1 and 7.")
+            print("\nError: Please select a number between 1 and 8.")
 
 if __name__ == "__main__":
     main()
