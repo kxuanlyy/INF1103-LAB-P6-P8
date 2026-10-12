@@ -595,11 +595,14 @@ def main(today=None, client=None):
         elif main_choice == "5":
             print("\nProcessing recipes based on accepted_recipe.json...")
             subprocess.run(["python", "logic_manager.py"], check=True)
+            dm.load()
 
         elif main_choice == "6":
+            dm.load()
             print_recipes(dm.recipes)
 
         elif main_choice == "7":
+            dm.load()
             handle_recipe_search()
 
         elif main_choice == "8":
