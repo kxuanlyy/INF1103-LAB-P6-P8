@@ -154,7 +154,7 @@ def prompt_for_ingredient_details(existing_item=None):
     valid_categories = ["Dairy", "Meat & Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"]
     category = get_validated_choice("Category", valid_categories, current_val=existing_item.get('food_category') if existing_item else None)
 
-    use_by = get_validated_date("Use-By Date (DD-MM-YYYY)", current_val=existing_item.get('use-by') if existing_item else None)
+    use_by = get_validated_date("Use-By Date (DD/MM/YYYY)", current_val=existing_item.get('use-by') if existing_item else None)
 
     valid_storage = ["Chilled", "Frozen", "Ambient"]
     storage = get_validated_choice("Storage Condition", valid_storage, current_val=existing_item.get('storage condition') if existing_item else None)
