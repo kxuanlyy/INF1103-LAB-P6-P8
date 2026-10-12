@@ -145,6 +145,33 @@ def test_invalid_recipe_shapes_and_references_are_rejected():
         ai.validate_recipes("Soup", "tomato")
 
 
+def test_additional_ingredients_are_saved_without_inventing_stock():
+    analysis = valid_analysis()
+    analysis["item_id"] = "inventory-0001"
+    analysis["recipe_suggestions"] = [{
+        "name": "Spaghetti Bolognese", "ingredient_ids": ["inventory-0001"],
+        "additional_ingredients": ["spaghetti", "ground beef", "onion"],
+        "how_to_make": ["Brown the ground beef and onion, then simmer with tomatoes.",
+                        "Cook the spaghetti and serve with the sauce."],
+    }]
+    client = fake_client(completion(json.dumps(analysis)))
+    with patch.object(ai, "save_recipes") as save:
+        result, error = ai.suggest_recipes(io_record(), today=TODAY, client=client)
+    assert error is None
+    assert result["recipes"][0]["ingredients"] == [
+        "Tomatoes", "spaghetti", "ground beef", "onion"]
+    assert set(result["inventory_by_id"]) == {"inventory-0001"}
+    save.assert_called_once_with(result["recipes"])
+
+
+def test_invalid_additional_ingredients_are_rejected():
+    for additional in (None, "onion", [""], [1], ["onion", " Onion "]):
+        recipe = {"name": "Tomato soup", "ingredient_ids": ["tomato"],
+                  "additional_ingredients": additional}
+        with assert_raises(ValueError):
+            ai.validate_recipes([recipe], "tomato", {"tomato"})
+
+
 def test_json_accepts_plain_and_fenced_objects():
     content = json.dumps(valid_analysis())
     for text in (content, " \n" + content + "\n ", "```json\n" + content + "\n```",
