@@ -571,7 +571,7 @@ def main(today=None, client=None):
         print(" 8. Exit")
         print("=================================")
 
-        main_choice = input("Select an option (1-7): ").strip()
+        main_choice = input("Select an option (1-8): ").strip()
         if main_choice == "1":
             print_current_inventory(dm.inventory)
 
