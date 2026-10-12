@@ -1,2 +1,4 @@
+Rejected recipe: Classic Beef Burgers | Reason: Ingredients do not match valid accepted criteria
+Rejected recipe: Beef Meatballs in Tomato Sauce | Reason: Ingredients do not match valid accepted criteria
 
-Total rejected recipes: 0
+Total rejected recipes: 2

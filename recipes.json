@@ -1,14 +1,115 @@
 [
   {
-    "name": "Simple Boiled Spaghetti",
+    "name": "Spaghetti Bolognese",
     "ingredients": [
-      "spaghetti"
+      "Chilled Minced Beef",
+      "spaghetti",
+      "tomato sauce",
+      "onion",
+      "garlic",
+      "olive oil",
+      "salt",
+      "pepper"
     ],
     "instructions": [
-      "Bring a large pot of water to a rolling boil.",
-      "Add the spaghetti to the boiling water and cook according to package instructions (typically 8-10 minutes) until al dente.",
-      "Drain the cooked spaghetti using a colander.",
-      "Serve the spaghetti hot, optionally with a sauce or seasoning if available."
+      "Heat olive oil in a pan over medium heat.",
+      "Add finely chopped onion and minced garlic; sauté until translucent.",
+      "Add the minced beef and cook until browned, breaking it up with a spoon.",
+      "Stir in tomato sauce, season with salt and pepper, and simmer for 15‑20 minutes.",
+      "Meanwhile, cook spaghetti according to package instructions and drain.",
+      "Combine the sauce with the cooked spaghetti and serve hot."
+    ]
+  },
+  {
+    "name": "Beef Chili",
+    "ingredients": [
+      "Chilled Minced Beef",
+      "kidney beans",
+      "canned diced tomatoes",
+      "onion",
+      "garlic",
+      "chili powder",
+      "cumin",
+      "olive oil",
+      "salt"
+    ],
+    "instructions": [
+      "Heat olive oil in a large pot over medium heat.",
+      "Add diced onion and minced garlic; sauté until softened.",
+      "Add the minced beef and brown it thoroughly.",
+      "Stir in chili powder, cumin, salt, canned diced tomatoes, and drained kidney beans.",
+      "Bring to a boil, then reduce heat and simmer for 30‑40 minutes, stirring occasionally.",
+      "Serve the chili hot, optionally with rice or crusty bread."
+    ]
+  },
+  {
+    "name": "Beef Tacos",
+    "ingredients": [
+      "Chilled Minced Beef",
+      "taco shells",
+      "lettuce",
+      "cheddar cheese",
+      "salsa",
+      "onion",
+      "garlic",
+      "cumin",
+      "olive oil",
+      "salt",
+      "pepper"
+    ],
+    "instructions": [
+      "Heat olive oil in a skillet over medium‑high heat.",
+      "Add finely chopped onion and minced garlic; cook until fragrant.",
+      "Add the minced beef, season with cumin, salt, and pepper, and cook until fully browned.",
+      "Warm taco shells according to package instructions.",
+      "Fill each shell with the cooked beef, shredded lettuce, grated cheddar cheese, and a spoonful of salsa."
+    ]
+  },
+  {
+    "name": "Classic Beef Burgers",
+    "ingredients": [
+      "Chilled Minced Beef",
+      "burger buns",
+      "lettuce",
+      "tomato",
+      "onion",
+      "cheddar cheese",
+      "ketchup",
+      "mustard",
+      "olive oil",
+      "salt",
+      "pepper"
+    ],
+    "instructions": [
+      "Form the minced beef into evenly sized patties and season with salt and pepper.",
+      "Heat olive oil in a grill pan over medium‑high heat.",
+      "Cook the patties 4‑5 minutes per side, or until desired doneness.",
+      "Toast the burger buns lightly in the pan.",
+      "Assemble each burger with lettuce, sliced tomato, onion, a cheese slice, ketchup, and mustard."
+    ]
+  },
+  {
+    "name": "Beef Meatballs in Tomato Sauce",
+    "ingredients": [
+      "Chilled Minced Beef",
+      "breadcrumbs",
+      "egg",
+      "parmesan cheese",
+      "garlic",
+      "onion",
+      "canned tomato sauce",
+      "olive oil",
+      "salt",
+      "pepper",
+      "fresh basil"
+    ],
+    "instructions": [
+      "In a bowl combine minced beef, breadcrumbs, beaten egg, grated parmesan, minced garlic, salt, and pepper; mix well.",
+      "Form the mixture into small meatballs.",
+      "Heat olive oil in a saucepan over medium heat; add chopped onion and sauté until translucent.",
+      "Add the meatballs and brown on all sides.",
+      "Pour in canned tomato sauce, add chopped basil, and simmer for 20‑25 minutes until meatballs are cooked through.",
+      "Serve the meatballs over pasta or with crusty bread."
     ]
   }
 ]

@@ -3,6 +3,19 @@ import json
 from pathlib import Path
 
 
+# ANSI Color Codes for terminal styling
+class Colors:
+    HEADER = "\033[95m"
+    BLUE = "\033[94m"
+    CYAN = "\033[96m"
+    GREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+
+
 def normalize_items(items):
     return {item.strip().lower() for item in items}
 
@@ -11,9 +24,26 @@ def ingredients_match(expected_ingredients, json_ingredients):
     expected = normalize_items(expected_ingredients)
     actual = normalize_items(json_ingredients)
 
-    # Allows recipes.json to contain fewer ingredients
-    # as long as all of them are valid ingredients.
-    return actual.issubset(expected) and len(actual) > 0
+    if not actual:
+        return False
+
+    # Flexible matching: Check if each expected ingredient finds a match 
+    # based on overlapping words (handles plurals, minor phrasing differences)
+    matched_count = 0
+    for exp in expected:
+        exp_words = set(exp.split())
+        found = False
+        for act in actual:
+            act_words = set(act.split())
+            if exp_words.intersection(act_words):
+                found = True
+                break
+        if found:
+            matched_count += 1
+
+    # Accepts the recipe if at least 60% of the template ingredients match (adjustable)
+    match_percentage = matched_count / len(expected)
+    return match_percentage >= 0.6
 
 
 def create_recipe_results():
@@ -28,11 +58,17 @@ def create_recipe_results():
     _accept_list = []
     _reject_list = []
 
+    print(f"\n{Colors.BOLD}{Colors.CYAN}{'='*50}")
+    print(f"       🍳 RECIPE VALIDATION PROCESSOR 🍳")
+    print(f"{'='*50}{Colors.ENDC}\n")
+
     # Check for input files
     if not expected_file.exists():
+        print(f"{Colors.FAIL}[ERROR] Could not find {expected_file}{Colors.ENDC}")
         return {"error": f"Could not find {expected_file}"}
 
     if not recipes_file.exists():
+        print(f"{Colors.FAIL}[ERROR] Could not find {recipes_file}{Colors.ENDC}")
         return {"error": f"Could not find {recipes_file}"}
 
     # Load JSON files
@@ -41,6 +77,15 @@ def create_recipe_results():
 
     with open(recipes_file, "r", encoding="utf-8") as file:
         recipes_from_json = json.load(file)
+
+    # Check if recipes.json is empty
+    if not recipes_from_json:
+        print(f"{Colors.FAIL}[ERROR] recipes.json is empty or contains no recipes!{Colors.ENDC}\n")
+        return {"error": "recipes.json is empty"}
+
+    print(f"{Colors.BLUE}[INFO] Loaded {len(recipes_from_json)} recipe(s) from recipes.json{Colors.ENDC}")
+    print(f"{Colors.BLUE}[INFO] Loaded {len(accepted_recipes)} template(s) from accepted_recipe.json{Colors.ENDC}\n")
+    print(f"{Colors.BOLD}Processing recipes...{Colors.ENDC}\n")
 
     # Loop through EACH recipe inside recipes.json
     for json_recipe in recipes_from_json:
@@ -60,12 +105,14 @@ def create_recipe_results():
 
         # Rejection Rule 1: No overlapping words found in accepted_recipe.json
         if matched_expected_recipe is None:
+            reason_text = "Recipe name not found in accepted_recipe.json"
             _reject_list.append(
                 {
                     "name": json_name or "Unknown Recipe",
-                    "reason": "Recipe name not found in accepted_recipe.json",
+                    "reason": reason_text,
                 }
             )
+            print(f"  {Colors.FAIL}✖ REJECTED:{Colors.ENDC} {json_name or 'Unknown Recipe'} -> {Colors.WARNING}{reason_text}{Colors.ENDC}")
             continue
 
         # Rejection Rule 2: Ingredients do not match accepted recipe standards
@@ -82,13 +129,16 @@ def create_recipe_results():
                     ),
                 }
             )
+            print(f"  {Colors.GREEN}✔ ACCEPTED:{Colors.ENDC} {json_name} (Matched with template: '{matched_expected_recipe.get('name')}')")
         else:
+            reason_text = "Ingredients do not match valid accepted criteria"
             _reject_list.append(
                 {
                     "name": json_name,
-                    "reason": "Ingredients do not match valid accepted criteria",
+                    "reason": reason_text,
                 }
             )
+            print(f"  {Colors.FAIL}✖ REJECTED:{Colors.ENDC} {json_name} -> {Colors.WARNING}{reason_text}{Colors.ENDC}")
 
     # Write accepted recipes to recipe_results.csv
     with open(results_file, "w", newline="", encoding="utf-8") as file:
@@ -106,8 +156,16 @@ def create_recipe_results():
             )
         file.write(f"\nTotal rejected recipes: {len(_reject_list)}\n")
 
-    print(f"Accepted recipes written to {results_file}")
-    print(f"Rejected recipes written to {rejected_file}")
+    # Beautiful Summary Box
+    print(f"\n{Colors.CYAN}{'='*50}")
+    print(f"                 SUMMARY REPORT")
+    print(f"{'='*50}{Colors.ENDC}")
+    print(f"  {Colors.GREEN}✔ Accepted Recipes :{Colors.ENDC} {len(_accept_list)}")
+    print(f"  {Colors.FAIL}✖ Rejected Recipes :{Colors.ENDC} {len(_reject_list)}")
+    print(f"{Colors.CYAN}{'-'*50}{Colors.ENDC}")
+    print(f"  📁 Results saved to : {Colors.BOLD}{results_file.name}{Colors.ENDC}")
+    print(f"  📁 Log saved to     : {Colors.BOLD}{rejected_file.name}{Colors.ENDC}")
+    print(f"{Colors.CYAN}{'='*50}\n{Colors.ENDC}")
 
     return {"accepted": len(_accept_list), "rejected": len(_reject_list)}
 
