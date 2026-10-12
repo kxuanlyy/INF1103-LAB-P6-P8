@@ -1,5 +1,7 @@
+import subprocess
 import csv
 import os
+
 
 from datetime import datetime
 
@@ -563,9 +565,10 @@ def main(today=None, client=None):
         print(" 2. Search in inventory")
         print(" 3. Edit items data")
         print(" 4. Ask AI")
-        print(" 5. View recipes")
-        print(" 6. search recipes")
-        print(" 7. Exit")
+        print(" 5. Process valid recipes")
+        print(" 6. View recipes")
+        print(" 7. Search recipes")
+        print(" 8. Exit")
         print("=================================")
 
         main_choice = input("Select an option (1-7): ").strip()
@@ -589,14 +592,17 @@ def main(today=None, client=None):
                 print("Assessment failed:", last_error)
             else:
                 print_ai_result(last_result)
-
         elif main_choice == "5":
-            print_recipes(dm.recipes)
+            print("\nProcessing recipes based on accepted_recipe.json...")
+            subprocess.run(["python", "logic_manager.py"], check=True)
 
         elif main_choice == "6":
-            handle_recipe_search()
+            print_recipes(dm.recipes)
 
         elif main_choice == "7":
+            handle_recipe_search()
+
+        elif main_choice == "8":
             print("\nExiting program. Goodbye!")
             break
         else:

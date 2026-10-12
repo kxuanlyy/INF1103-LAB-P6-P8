@@ -1,4 +1,5 @@
-Rejected recipe: Classic Beef Burgers | Reason: Ingredients do not match valid accepted criteria
-Rejected recipe: Beef Meatballs in Tomato Sauce | Reason: Ingredients do not match valid accepted criteria
+Rejected recipe: Croque Monsieur | Reason: Recipe name not found in accepted_recipe.json
+Rejected recipe: Bruschetta | Reason: Recipe name not found in accepted_recipe.json
+Rejected recipe: French Toast | Reason: Recipe name not found in accepted_recipe.json
 
-Total rejected recipes: 2
+Total rejected recipes: 3
