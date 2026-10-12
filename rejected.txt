@@ -1,4 +1,2 @@
-Rejected recipe: Simple Baguette Toast | Reason: Recipe name not found in accepted_recipe.json
-Rejected recipe: darren | Reason: Recipe name not found in accepted_recipe.json
 
-Total rejected recipes: 2
+Total rejected recipes: 0

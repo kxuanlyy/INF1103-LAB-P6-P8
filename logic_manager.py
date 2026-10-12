@@ -45,15 +45,20 @@ def create_recipe_results():
     # Loop through EACH recipe inside recipes.json
     for json_recipe in recipes_from_json:
         json_name = json_recipe.get("name", "").strip()
+        json_words = set(json_name.lower().split())
 
-        # Find matching recipe in accepted_recipe.json by name
+        # Find matching recipe in accepted_recipe.json by checking if any word/part overlaps
         matched_expected_recipe = None
         for expected in accepted_recipes:
-            if expected.get("name", "").strip().lower() == json_name.lower():
+            expected_name = expected.get("name", "").strip()
+            expected_words = set(expected_name.lower().split())
+            
+            # Matches if they share at least one word (e.g., "spaghetti")
+            if json_words and expected_words and json_words.intersection(expected_words):
                 matched_expected_recipe = expected
                 break
 
-        # Rejection Rule 1: Recipe name from recipes.json isn't in accepted_recipe.json
+        # Rejection Rule 1: No overlapping words found in accepted_recipe.json
         if matched_expected_recipe is None:
             _reject_list.append(
                 {
