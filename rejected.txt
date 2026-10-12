@@ -1,7 +1,5 @@
-Rejected recipe: Chicken Wrap | Reason: Ingredients do not match valid accepted criteria
-Rejected recipe: Veggie Wrap | Reason: Recipe name not found in accepted_recipe.json
-Rejected recipe: Tuna Salad Wrap | Reason: Recipe name not found in accepted_recipe.json
-Rejected recipe: Falafel Wrap | Reason: Recipe name not found in accepted_recipe.json
-Rejected recipe: Breakfast Burrito | Reason: Recipe name not found in accepted_recipe.json
+Rejected recipe: Croque Monsieur | Reason: Recipe name not found in accepted_recipe.json
+Rejected recipe: Bruschetta | Reason: Recipe name not found in accepted_recipe.json
+Rejected recipe: French Toast | Reason: Recipe name not found in accepted_recipe.json
 
-Total rejected recipes: 5
+Total rejected recipes: 3

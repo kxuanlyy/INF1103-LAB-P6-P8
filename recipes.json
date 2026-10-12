@@ -1,1 +1,58 @@
-[]
+[
+  {
+    "name": "Croque Monsieur",
+    "ingredients": [
+      "Baguette",
+      "ham",
+      "Gruyère cheese",
+      "milk",
+      "butter",
+      "flour",
+      "mustard"
+    ],
+    "instructions": [
+      "Slice the baguette lengthwise and toast lightly",
+      "Spread mustard on the inner sides",
+      "Layer ham and grated Gruyère cheese on the bottom half",
+      "Prepare a béchamel sauce by melting butter, whisking in flour, and slowly adding milk until thick",
+      "Spread béchamel over the top half and close the sandwich",
+      "Bake in a preheated oven at 200°C until the cheese melts and the top is golden"
+    ]
+  },
+  {
+    "name": "Bruschetta",
+    "ingredients": [
+      "Baguette",
+      "ripe tomatoes",
+      "fresh basil",
+      "garlic",
+      "extra‑virgin olive oil",
+      "salt"
+    ],
+    "instructions": [
+      "Slice the baguette diagonally into 1‑cm thick pieces and toast until crisp",
+      "Rub each toasted slice with a cut garlic clove",
+      "Dice tomatoes and combine with chopped basil, olive oil, and a pinch of salt",
+      "Spoon the tomato mixture onto the toasted baguette slices",
+      "Serve immediately"
+    ]
+  },
+  {
+    "name": "French Toast",
+    "ingredients": [
+      "Baguette",
+      "eggs",
+      "milk",
+      "sugar",
+      "ground cinnamon",
+      "butter"
+    ],
+    "instructions": [
+      "Cut the baguette into 2‑cm thick slices",
+      "Whisk together eggs, milk, sugar, and cinnamon in a shallow bowl",
+      "Dip each slice into the egg mixture, allowing it to soak briefly",
+      "Melt butter in a skillet over medium heat and cook each slice until golden on both sides",
+      "Serve warm with optional maple syrup or fruit"
+    ]
+  }
+]
