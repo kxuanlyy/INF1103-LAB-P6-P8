@@ -254,11 +254,15 @@ def build_messages(item, inventory, today):
             "for every recipe. The steps may use both the referenced inventory ingredients "
             "and the listed additional ingredients. "
             "Recipe suggestions are candidates for the logic manager and staff to review. "
-            "For a suitable target, suggest popular recipes using that item without "
-            "restricting the recipe to ingredients currently in stock. "
+            f"For a suitable target, return exactly {MAX_RECIPES} distinct popular recipes "
+            "using that item without restricting the recipe to ingredients currently in "
+            "stock. Each suggestion must be a different dish, not a renamed duplicate "
+            "or a minor variation of another suggestion. Do not return fewer recipes "
+            "because additional ingredients are needed; list those ingredients instead. "
             "Flag unverified storage and allergens as uncertain; never imply approval. "
             "Do not suggest expired, incorrectly stored, or high-spoilage-risk ingredients. "
-            "An empty recipe list is valid. Explain assessments using supplied facts. "
+            "If the target is unsuitable for recipe use, return an empty recipe list and "
+            "explain why in the reason. Explain assessments using supplied facts. "
             "Do not issue final business decisions. JSON schema: "
             + json.dumps(ANALYSIS_SCHEMA))},
         {"role": "user", "content": json.dumps({"assessment_date": today.isoformat(),
