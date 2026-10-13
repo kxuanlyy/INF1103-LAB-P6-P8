@@ -1,7 +1,5 @@
-import subprocess
-import sys
+# main.py
+import io_manager
 
-# 1. Run the first script
-print("Starting file1...")
-subprocess.run([sys.executable, "io_manager.py"], check=True)
-
+if __name__ == "__main__":
+    io_manager.main()
