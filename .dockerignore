@@ -7,6 +7,9 @@
 !data_manager.py
 !logic_manager.py
 
+# Test Script
+!test_logic_manager.py
+
 # Main dependencies
 !requirements.txt
 
