@@ -682,7 +682,3 @@ def run_recipe_processor():
     print(f"{Colors.CYAN}{'='*50}\n{Colors.ENDC}")
 
     return {"accepted": len(_accept_list), "rejected": len(_reject_list)}
-
-
-if __name__ == "__main__":
-    main()
