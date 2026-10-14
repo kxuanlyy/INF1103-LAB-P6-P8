@@ -484,12 +484,4 @@ def analyse_from_io(today=None, client=None):
         return io_data["main"](today=today, client=client)
     except (OSError, EOFError):
         return None, "Inventory input unavailable. Check food_inventory.csv and retry."
-
-
-if __name__ == "__main__":
-    logic_ready_dict, error = analyse_from_io()
-    if error:
-        print("Assessment failed:", error)
-    else:
-        print(json.dumps(logic_ready_dict["recipes"], indent=2))
-        print(f"Recipes saved to: {RECIPES_PATH}")
+    
