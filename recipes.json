@@ -1,0 +1,75 @@
+[
+  {
+    "name": "Spaghetti Bolognese",
+    "ingredients": [
+      "Chilled Minced Beef",
+      "spaghetti",
+      "tomato sauce",
+      "onion",
+      "garlic",
+      "olive oil",
+      "salt",
+      "pepper",
+      "carrot",
+      "celery"
+    ],
+    "instructions": [
+      "Heat olive oil in a pan over medium heat.",
+      "Add finely chopped onion, garlic, carrot and celery; sauté until softened.",
+      "Add the minced beef and cook until browned.",
+      "Stir in tomato sauce, season with salt and pepper, and simmer for 20 minutes.",
+      "Cook spaghetti according to package instructions.",
+      "Drain spaghetti and combine with the Bolognese sauce.",
+      "Serve hot."
+    ]
+  },
+  {
+    "name": "Beef Chili",
+    "ingredients": [
+      "Chilled Minced Beef",
+      "kidney beans",
+      "canned diced tomatoes",
+      "onion",
+      "garlic",
+      "chili powder",
+      "cumin",
+      "olive oil",
+      "salt",
+      "pepper"
+    ],
+    "instructions": [
+      "Heat olive oil in a large pot over medium heat.",
+      "Add chopped onion and garlic; sauté until translucent.",
+      "Add minced beef and brown thoroughly.",
+      "Stir in chili powder, cumin, salt and pepper.",
+      "Add canned diced tomatoes and kidney beans; bring to a boil.",
+      "Reduce heat and simmer for 30 minutes, stirring occasionally.",
+      "Serve hot with optional toppings."
+    ]
+  },
+  {
+    "name": "Shepherd's Pie",
+    "ingredients": [
+      "Chilled Minced Beef",
+      "onion",
+      "carrot",
+      "peas",
+      "garlic",
+      "beef broth",
+      "mashed potatoes",
+      "butter",
+      "salt",
+      "pepper"
+    ],
+    "instructions": [
+      "Preheat oven to 200°C (390°F).",
+      "In a skillet, melt butter and sauté onion, garlic, carrot until softened.",
+      "Add minced beef and cook until browned.",
+      "Stir in peas, beef broth, salt and pepper; simmer until mixture thickens.",
+      "Transfer the meat mixture to a baking dish.",
+      "Spread mashed potatoes evenly over the top.",
+      "Bake for 25‑30 minutes until the topping is golden.",
+      "Allow to rest briefly before serving."
+    ]
+  }
+]
