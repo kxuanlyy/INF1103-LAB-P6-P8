@@ -1,15 +1,8 @@
-import subprocess
-import csv
-import os
-
-
+from data_manager import load_json_files, save_results
+from logic_manager import evaluate_recipes
 from datetime import datetime
-
 import textwrap
 import data_manager as dm
-
-from pathlib import Path
-
 from ai_module.ai_manager import RECIPES_PATH, suggest_recipes
 
 # Functions
@@ -446,7 +439,7 @@ def run_recipe_search():
         print("\nNo recipes matched that ingredient/ID.")
 
 def handle_recipe_search():
-#   Main menu option 6: search the recipes, then offer a small menu to
+#   Main menu option 7: search the recipes, then offer a small menu to
 #   re-search, show a recipe card by ID, or go back to the main menu.
     run_recipe_search()
 
@@ -612,9 +605,6 @@ def main(today=None, client=None):
         else:
             print("\nError: Please select a number between 1 and 8.")
 
-# io_manager.py
-from data_manager import load_json_files, save_results
-from logic_manager import evaluate_recipes
 
 
 # ANSI Color Codes for terminal styling
