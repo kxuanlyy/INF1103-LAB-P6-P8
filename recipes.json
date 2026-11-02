@@ -2,43 +2,115 @@
   {
     "name": "Spaghetti Bolognese",
     "ingredients": [
+      "Chilled Minced Beef",
       "spaghetti",
-      "ground beef",
-      "tomato sauce",
+      "canned tomatoes",
       "onion",
       "garlic",
       "olive oil",
-      "carrot",
-      "celery",
       "salt",
       "pepper",
-      "Italian herbs"
+      "basil"
     ],
     "instructions": [
-      "Cook spaghetti according to package instructions until al dente and set aside.",
-      "Heat olive oil in a pan, add diced onion, carrot, and celery; sauté until softened.",
-      "Add minced garlic and ground beef; brown the meat thoroughly.",
-      "Stir in tomato sauce and Italian herbs; simmer for 15‑20 minutes, seasoning with salt and pepper.",
-      "Drain the spaghetti and combine with the Bolognese sauce; toss to coat evenly.",
-      "Serve hot, optionally garnished with grated cheese."
+      "Heat olive oil in a pan and sauté finely chopped onion and minced garlic until translucent.",
+      "Add the minced beef and brown it, breaking up any lumps.",
+      "Stir in canned tomatoes, season with salt, pepper, and basil, then simmer for 20‑30 minutes.",
+      "Meanwhile, cook spaghetti according to package instructions.",
+      "Drain the spaghetti and combine with the Bolognese sauce before serving."
     ]
   },
   {
-    "name": "Spaghetti Carbonara",
+    "name": "Beef Tacos",
     "ingredients": [
-      "spaghetti",
-      "eggs",
-      "pancetta",
-      "Parmesan cheese",
-      "black pepper",
-      "olive oil"
+      "Chilled Minced Beef",
+      "taco shells",
+      "onion",
+      "garlic",
+      "chili powder",
+      "cumin",
+      "lettuce",
+      "cheddar cheese",
+      "salsa"
     ],
     "instructions": [
-      "Cook spaghetti until al dente; reserve a cup of cooking water and drain the rest.",
-      "In a bowl, whisk together eggs, grated Parmesan, and a generous amount of black pepper.",
-      "Dice pancetta and fry in olive oil over medium heat until crisp; remove from heat.",
-      "Return the hot spaghetti to the pot, add the pancetta with its oil, and quickly pour in the egg‑cheese mixture, tossing continuously to create a creamy sauce without scrambling the eggs; add reserved pasta water as needed to reach desired consistency.",
-      "Serve immediately, topped with extra Parmesan and black pepper."
+      "Heat a skillet over medium heat and add a little oil.",
+      "Sauté chopped onion and minced garlic until softened.",
+      "Add the minced beef, chili powder, and cumin; cook until beef is fully browned.",
+      "Warm taco shells according to package instructions.",
+      "Fill each shell with the seasoned beef, then top with shredded lettuce, grated cheddar, and salsa."
+    ]
+  },
+  {
+    "name": "Shepherd's Pie",
+    "ingredients": [
+      "Chilled Minced Beef",
+      "potatoes",
+      "onion",
+      "carrot",
+      "peas",
+      "beef broth",
+      "butter",
+      "milk",
+      "salt",
+      "pepper"
+    ],
+    "instructions": [
+      "Preheat the oven to 200 °C (390 °F).",
+      "Boil peeled potatoes until tender, then mash with butter, milk, salt and pepper; set aside.",
+      "In a pan, sauté diced onion, carrot, and peas, then add the minced beef and cook through.",
+      "Stir in beef broth and simmer until the mixture thickens slightly.",
+      "Transfer the beef mixture to a baking dish, spread the mashed potatoes on top, and smooth the surface.",
+      "Bake for 25‑30 minutes until the topping is golden brown."
+    ]
+  },
+  {
+    "name": "Beef Chili",
+    "ingredients": [
+      "Chilled Minced Beef",
+      "kidney beans",
+      "canned tomatoes",
+      "onion",
+      "garlic",
+      "chili powder",
+      "cumin",
+      "paprika",
+      "olive oil",
+      "salt",
+      "pepper"
+    ],
+    "instructions": [
+      "Heat olive oil in a large pot and sauté chopped onion and minced garlic until fragrant.",
+      "Add the minced beef and brown it, breaking up clumps.",
+      "Stir in chili powder, cumin, and paprika; cook for 1 minute.",
+      "Add canned tomatoes, kidney beans, and a splash of water; bring to a boil.",
+      "Reduce heat and simmer for 30‑40 minutes, stirring occasionally, until flavors meld.",
+      "Season with salt and pepper to taste before serving."
+    ]
+  },
+  {
+    "name": "Beef Stroganoff",
+    "ingredients": [
+      "Chilled Minced Beef",
+      "mushrooms",
+      "onion",
+      "garlic",
+      "beef broth",
+      "sour cream",
+      "flour",
+      "butter",
+      "egg noodles",
+      "salt",
+      "pepper"
+    ],
+    "instructions": [
+      "Cook egg noodles according to package directions; drain and set aside.",
+      "In a large skillet, melt butter and sauté sliced onion, minced garlic, and sliced mushrooms until softened.",
+      "Add the minced beef and cook until browned.",
+      "Sprinkle flour over the mixture and stir to coat.",
+      "Gradually pour in beef broth, stirring constantly, and bring to a simmer until the sauce thickens.",
+      "Remove from heat and stir in sour cream; season with salt and pepper.",
+      "Serve the beef stroganoff over the cooked egg noodles."
     ]
   }
 ]

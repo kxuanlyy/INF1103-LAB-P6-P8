@@ -1,3 +1,4 @@
-Rejected recipe: Spaghetti Carbonara | Reason: Ingredients do not match valid accepted criteria
+Rejected recipe: Shepherd's Pie | Reason: Ingredients do not match valid accepted criteria
+Rejected recipe: Beef Stroganoff | Reason: Ingredients do not match valid accepted criteria
 
-Total rejected recipes: 1
+Total rejected recipes: 2
