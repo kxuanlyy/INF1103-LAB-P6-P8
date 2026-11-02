@@ -1,6 +1,5 @@
-"""Offline, procedural tests. Run: python -m unittest discover -s ai_module -v."""
+# Offline behaviour and OOP tests. Run: python -m unittest discover -s ai_module -v.
 
-import ast
 import contextlib
 import io
 from copy import deepcopy
@@ -9,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
@@ -155,7 +155,7 @@ def test_additional_ingredients_are_saved_without_inventing_stock():
                         "Cook the spaghetti and serve with the sauce."],
     }]
     client = fake_client(completion(json.dumps(analysis)))
-    with patch.object(ai, "save_recipes") as save:
+    with patch.object(ai.RecipeStore, "save") as save:
         result, error = ai.suggest_recipes(io_record(), today=TODAY, client=client)
     assert error is None
     assert result["recipes"][0]["ingredients"] == [
@@ -360,7 +360,7 @@ def test_configuration_errors_return_safe_messages():
 
 
 def sdk_modules():
-    """Transport tests are optional when production dependencies are not installed."""
+    # Transport tests are optional when production dependencies are not installed.
     try:
         import groq
         import httpx
@@ -370,7 +370,7 @@ def sdk_modules():
 
 
 def run_transport_scenario(status_codes):
-    """Exercise SDK retries without any network connections or real credentials."""
+    # Exercise SDK retries without any network connections or real credentials.
     groq, httpx = sdk_modules()
     requests = []
 
@@ -418,10 +418,70 @@ def test_sdk_timeout_retries_are_bounded():
     assert len(requests) == 2
 
 
-def test_ai_manager_and_tests_remain_procedural():
-    for path in (Path(ai.__file__), Path(__file__)):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        assert not any(isinstance(node, ast.ClassDef) for node in ast.walk(tree))
+def test_provider_interface_requires_concrete_operations():
+    with assert_raises(TypeError):
+        ai.AIProvider()
+
+
+def test_manager_uses_providers_polymorphically():
+    alternative = {**valid_analysis(), "reason": "Assessment from the offline provider."}
+    providers = [ai.GroqProvider(fake_client()), TestProvider(completion(json.dumps(alternative)))]
+    item = stock_item()
+    for provider, expected in zip(providers, [valid_analysis(), alternative]):
+        manager = ai.AIManager(provider)
+        assert manager.analyse_item(item, [item], TODAY) == (expected, None)
+
+
+def test_shared_provider_outlives_managers_and_retries_invalid_output():
+    provider = TestProvider(completion("{}"), completion(), completion())
+    item = stock_item()
+    for manager in (ai.AIManager(provider), ai.AIManager(provider)):
+        assert manager.analyse_item(item, [item], TODAY) == (valid_analysis(), None)
+    assert [len(messages) for messages in provider.requests] == [2, 3, 2]
+    assert not provider.closed
+    provider.close()
+    assert provider.closed
+
+
+def test_provider_close_respects_client_ownership():
+    for owns_client in (False, True):
+        client = fake_client()
+        ai.GroqProvider(client, owns_client=owns_client).close()
+        assert client.close.call_count == int(owns_client)
+
+
+def test_recipe_store_saves_json_and_exposes_read_only_path():
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "recipes.json"
+        store = ai.RecipeStore(path)
+        assert store.path == path
+        with assert_raises(AttributeError):
+            store.path = Path(folder) / "other.json"
+        recipes = [{"name": "Soup", "ingredients": ["Tomatoes"], "instructions": ["Simmer."]}]
+        store.save(recipes)
+        assert path.read_text(encoding="utf-8") == json.dumps(
+            recipes, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+        assert list(Path(folder).iterdir()) == [path]
+
+
+def test_recipe_store_failed_replace_preserves_previous_file():
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "recipes.json"
+        path.write_text("previous recipes", encoding="utf-8")
+        with patch.object(ai.os, "replace", side_effect=OSError("permission denied")):
+            with assert_raises(OSError):
+                ai.RecipeStore(path).save([])
+        assert path.read_text(encoding="utf-8") == "previous recipes"
+        assert list(Path(folder).iterdir()) == [path]
+
+
+def test_manager_reports_save_failure_without_returning_partial_result():
+    analysis = valid_analysis()
+    analysis["item_id"] = "inventory-0001"
+    analysis["recipe_suggestions"] = []
+    manager = ai.AIManager(TestProvider(completion(json.dumps(analysis))))
+    with patch.object(ai.RecipeStore, "save", side_effect=OSError("private details")):
+        assert manager.suggest_recipes(io_record(), TODAY) == (None, ai.SAVE_ERROR)
 
 
 def io_record():
@@ -433,7 +493,7 @@ def io_record():
     }
 
 
-def test_menu_calls_ai_displays_recipes_and_returns_result():
+def test_menu_calls_ai_and_displays_recipes():
     analysis = valid_analysis()
     analysis["item_id"] = "inventory-0001"
     analysis["recipe_suggestions"] = [{
@@ -442,16 +502,16 @@ def test_menu_calls_ai_displays_recipes_and_returns_result():
     }]
     client = fake_client(completion(json.dumps(analysis)))
     output = io.StringIO()
-    with patch.object(io_manager, "load_inventory_file", return_value=[io_record()]), \
-            patch.object(io_manager, "save_inventory_file"), \
-            patch("builtins.input", side_effect=["4", "1", "Firm and fresh", "5"]), \
-            patch.object(ai, "save_recipes") as save, contextlib.redirect_stdout(output):
-        result, error = io_manager.main(today=TODAY, client=client)
-    assert error is None
-    assert result["recipes"][0]["name"] == "Roasted tomatoes"
+    with patch.object(io_manager.dm, "inventory", [menu_record()]), \
+            patch("builtins.input", side_effect=["4", "1", "Firm and fresh", "8"]), \
+            patch.object(ai.RecipeStore, "save") as save, contextlib.redirect_stdout(output):
+        io_manager.main(today=TODAY, client=client)
     assert "Roast until tender." in output.getvalue()
     assert analysis["reason"] in output.getvalue()
-    save.assert_called_once_with(result["recipes"])
+    save.assert_called_once_with([{
+        "name": "Roasted tomatoes", "ingredients": ["Tomatoes"],
+        "instructions": ["Wash and halve the tomatoes.", "Roast until tender."],
+    }])
     sent = json.loads(client.chat.completions.create.call_args.kwargs["messages"][1]["content"])
     assert sent["target_item"]["staff_observations"] == "Firm and fresh"
     assert sent["target_item"]["quantity"] == 12
@@ -460,26 +520,22 @@ def test_menu_calls_ai_displays_recipes_and_returns_result():
 
 def test_menu_reports_ai_error_and_allows_exit():
     output = io.StringIO()
-    with patch.object(io_manager, "load_inventory_file", return_value=[io_record()]), \
-            patch.object(io_manager, "save_inventory_file"), \
-            patch("builtins.input", side_effect=["4", "1", "", "5"]), \
+    with patch.object(io_manager.dm, "inventory", [menu_record()]), \
+            patch("builtins.input", side_effect=["4", "1", "", "8"]), \
             patch.object(io_manager, "suggest_recipes", return_value=(None, ai.SERVICE_ERROR)), \
             contextlib.redirect_stdout(output):
-        assert io_manager.main() == (None, ai.SERVICE_ERROR)
+        io_manager.main()
     assert "Assessment failed: " + ai.SERVICE_ERROR in output.getvalue()
     assert "Exiting program" in output.getvalue()
 
 
 def test_menu_skips_ai_when_inventory_is_empty():
-    with patch.object(io_manager, "load_inventory_file", return_value=[]), \
-            patch.object(io_manager, "save_inventory_file") as save, \
-            patch("builtins.input", side_effect=["4", "5"]), \
+    with patch.object(io_manager.dm, "inventory", []), \
+            patch("builtins.input", side_effect=["4", "8"]), \
             patch.object(io_manager, "suggest_recipes") as suggest, \
             contextlib.redirect_stdout(io.StringIO()):
-        result, error = io_manager.main()
-    assert result is None and error
+        io_manager.main()
     suggest.assert_not_called()
-    save.assert_not_called()
 
 
 def test_empty_recipe_result_displays_assessment_reason():
@@ -519,20 +575,21 @@ def test_io_dates_follow_day_month_year_and_preserve_iso_inputs():
 def test_invalid_io_date_never_calls_ai_or_overwrites_recipes():
     client = fake_client()
     record = {**io_record(), "use_by_date": "31/2/2026"}
-    with patch.object(ai, "save_recipes") as save:
+    with patch.object(ai.RecipeStore, "save") as save:
         assert ai.suggest_recipes(record, today=TODAY, client=client) == (None, ai.INVALID_INPUT_ERROR)
     client.chat.completions.create.assert_not_called()
     save.assert_not_called()
 
 
-def test_search_remains_option_three_without_calling_ai():
+def test_search_option_two_does_not_call_ai():
     output = io.StringIO()
-    with patch.object(io_manager, "load_inventory_file", return_value=[io_record()]), \
-            patch.object(io_manager, "save_inventory_file"), \
-            patch("builtins.input", side_effect=["3", "1", "5"]), \
+    with patch.object(io_manager.dm, "inventory", [menu_record()]), \
+            patch.object(io_manager, "run_inventory_search") as search, \
+            patch("builtins.input", side_effect=["2", "2", "1", "3", "8"]), \
             patch.object(io_manager, "suggest_recipes") as suggest, \
             contextlib.redirect_stdout(output):
         io_manager.main()
+    search.assert_called_once_with()
     assert "FOOD ID: [1]" in output.getvalue()
     assert "Use-By Date:       3/10/2026" in output.getvalue()
     suggest.assert_not_called()
@@ -540,15 +597,51 @@ def test_search_remains_option_three_without_calling_ai():
 
 def test_loading_io_module_does_not_prompt_or_rewrite_inventory():
     with patch("builtins.input") as prompt, \
-            patch.object(io_manager.csv, "DictReader") as reader:
+            patch.object(io_manager.dm, "load") as load, \
+            patch.object(io_manager.dm, "save_inventory") as save:
         module = ai.runpy.run_path(str(Path(io_manager.__file__)))
     assert callable(module["main"])
     prompt.assert_not_called()
-    reader.assert_not_called()
+    load.assert_not_called()
+    save.assert_not_called()
+
+
+class TestProvider(ai.AIProvider):
+    # Supply offline completions through the same interface as the Groq provider.
+    __test__ = False
+
+    def __init__(self, *responses):
+        self._responses = iter(responses)
+        self._requests = []
+        self._closed = False
+
+    @property
+    def requests(self):
+        return deepcopy(self._requests)
+
+    @property
+    def closed(self):
+        return self._closed
+
+    def complete(self, messages):
+        self._requests.append(deepcopy(messages))
+        return next(self._responses)
+
+    def close(self):
+        self._closed = True
+
+
+def menu_record():
+    # Match the current Data Manager inventory field names used by the I/O menu.
+    return {
+        "food": "Tomatoes", "food_category": "Fresh Produce", "use-by": "3/10/2026",
+        "storage condition": "Chilled", "days_to_expiry": "2", "waste_risk_level": "High",
+        "allergen info": "None", "demand level": "low", "quantity": "12",
+    }
 
 
 def load_tests(loader, tests, pattern):
-    """Register function tests with unittest without defining test classes."""
+    # Register function tests alongside the offline provider helper.
     return unittest.TestSuite(unittest.FunctionTestCase(function)
                               for name, function in sorted(globals().items())
                               if name.startswith("test_"))

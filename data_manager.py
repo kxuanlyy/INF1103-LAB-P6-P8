@@ -2,6 +2,9 @@ import csv
 import logging
 import os
 import tempfile
+import csv
+import json
+from pathlib import Path
 from datetime import datetime
 from typing import Iterable, Optional, Union
 
@@ -461,19 +464,9 @@ def search_recipes(
 load()
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-    print(f"Loaded {len(inventory)} inventory items and {len(recipes)} recipes.")
-
-
 #--------------------------------------------------------------------------- #
 # Created and writing files for accepted and rejected recipes
 # --------------------------------------------------------------------------- #
-import csv
-import json
-from pathlib import Path
-
-
 def get_folder_path():
     return Path(__file__).resolve().parent
 
