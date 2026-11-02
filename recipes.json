@@ -2,74 +2,43 @@
   {
     "name": "Spaghetti Bolognese",
     "ingredients": [
-      "Chilled Minced Beef",
       "spaghetti",
+      "ground beef",
       "tomato sauce",
       "onion",
       "garlic",
       "olive oil",
+      "carrot",
+      "celery",
       "salt",
       "pepper",
-      "carrot",
-      "celery"
+      "Italian herbs"
     ],
     "instructions": [
-      "Heat olive oil in a pan over medium heat.",
-      "Add finely chopped onion, garlic, carrot and celery; sauté until softened.",
-      "Add the minced beef and cook until browned.",
-      "Stir in tomato sauce, season with salt and pepper, and simmer for 20 minutes.",
-      "Cook spaghetti according to package instructions.",
-      "Drain spaghetti and combine with the Bolognese sauce.",
-      "Serve hot."
+      "Cook spaghetti according to package instructions until al dente and set aside.",
+      "Heat olive oil in a pan, add diced onion, carrot, and celery; sauté until softened.",
+      "Add minced garlic and ground beef; brown the meat thoroughly.",
+      "Stir in tomato sauce and Italian herbs; simmer for 15‑20 minutes, seasoning with salt and pepper.",
+      "Drain the spaghetti and combine with the Bolognese sauce; toss to coat evenly.",
+      "Serve hot, optionally garnished with grated cheese."
     ]
   },
   {
-    "name": "Beef Chili",
+    "name": "Spaghetti Carbonara",
     "ingredients": [
-      "Chilled Minced Beef",
-      "kidney beans",
-      "canned diced tomatoes",
-      "onion",
-      "garlic",
-      "chili powder",
-      "cumin",
-      "olive oil",
-      "salt",
-      "pepper"
+      "spaghetti",
+      "eggs",
+      "pancetta",
+      "Parmesan cheese",
+      "black pepper",
+      "olive oil"
     ],
     "instructions": [
-      "Heat olive oil in a large pot over medium heat.",
-      "Add chopped onion and garlic; sauté until translucent.",
-      "Add minced beef and brown thoroughly.",
-      "Stir in chili powder, cumin, salt and pepper.",
-      "Add canned diced tomatoes and kidney beans; bring to a boil.",
-      "Reduce heat and simmer for 30 minutes, stirring occasionally.",
-      "Serve hot with optional toppings."
-    ]
-  },
-  {
-    "name": "Shepherd's Pie",
-    "ingredients": [
-      "Chilled Minced Beef",
-      "onion",
-      "carrot",
-      "peas",
-      "garlic",
-      "beef broth",
-      "mashed potatoes",
-      "butter",
-      "salt",
-      "pepper"
-    ],
-    "instructions": [
-      "Preheat oven to 200°C (390°F).",
-      "In a skillet, melt butter and sauté onion, garlic, carrot until softened.",
-      "Add minced beef and cook until browned.",
-      "Stir in peas, beef broth, salt and pepper; simmer until mixture thickens.",
-      "Transfer the meat mixture to a baking dish.",
-      "Spread mashed potatoes evenly over the top.",
-      "Bake for 25‑30 minutes until the topping is golden.",
-      "Allow to rest briefly before serving."
+      "Cook spaghetti until al dente; reserve a cup of cooking water and drain the rest.",
+      "In a bowl, whisk together eggs, grated Parmesan, and a generous amount of black pepper.",
+      "Dice pancetta and fry in olive oil over medium heat until crisp; remove from heat.",
+      "Return the hot spaghetti to the pot, add the pancetta with its oil, and quickly pour in the egg‑cheese mixture, tossing continuously to create a creamy sauce without scrambling the eggs; add reserved pasta water as needed to reach desired consistency.",
+      "Serve immediately, topped with extra Parmesan and black pepper."
     ]
   }
 ]
