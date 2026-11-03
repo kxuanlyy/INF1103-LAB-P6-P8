@@ -1,3 +1,5 @@
-Rejected recipe: Shepherd's Pie | Reason: Ingredients do not match valid accepted criteria
+Rejected recipe: French Toast | Reason: Recipe name not found in accepted_recipe.json
+Rejected recipe: Bruschetta | Reason: Recipe name not found in accepted_recipe.json
+Rejected recipe: Garlic Bread | Reason: Recipe name not found in accepted_recipe.json
 
-Total rejected recipes: 1
+Total rejected recipes: 3

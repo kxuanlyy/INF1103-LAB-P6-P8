@@ -178,24 +178,6 @@ The team repository requirements are:
 - **Testing and documentation:** Test cases, report writing, and demonstration script
 - **DevOps and Git:** Docker setup, branch management, and repository verification
 
-<<<<<<< HEAD
-### Git and Docker expectations
-
-- Start from an up-to-date `main` branch.
-- Use descriptive, short-lived feature branches.
-- Commit early and often with meaningful messages.
-- Keep the main branch stable.
-- Test Docker on every team member's laptop.
-
-Example Docker commands:
-
-```bash
-docker build -t foodrescue-ai .
-docker run --rm foodrescue-ai
-```
-
-=======
->>>>>>> 0f81dd20b1372f12e91dbfbc495f764b21ab0140
 ## Definition of Done
 
 - Supermarket staff can enter and review an inventory record.
