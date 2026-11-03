@@ -1,16 +1,8 @@
-import subprocess
-import csv
-import os
-
-
 from datetime import datetime
 
 import textwrap
-import data_manager as dm
+from data_manager import DataManager
 
-from pathlib import Path
-
-from ai_module.ai_manager import RECIPES_PATH, suggest_recipes
 
 # Functions
 
@@ -38,7 +30,7 @@ def print_current_inventory(extracted_items, ids=None):
     return True
 
 def print_recipes(recipe_list, ids=None):
-#    Print every recipe (dm.recipes) with its ingredients as a list and
+#    Print every recipe (dm.recipes.records) with its ingredients as a list and
 #    its instructions word-wrapped. Returns False if there is nothing to show.
 
 #    ids: optional numbers to show instead of 1, 2, 3... (search results use this
@@ -101,6 +93,32 @@ def get_validated_choice(prompt_text, valid_choices, current_val=None):
             return matched[0]  # Return standard capitalized version
         print(f"Error: Invalid option. You must choose one of: {choices_str}")
 
+def get_validated_date(prompt_text, current_val=None):
+    while True:
+        suffix = f" [{current_val}]: " if current_val else ": "
+        user_val = input(prompt_text + suffix).strip()
+
+        if not user_val and current_val:
+            return current_val
+        if not user_val:
+            print("Error: Date cannot be blank. Please enter a valid date.")
+            continue
+
+        # Try parsing YYYY-MM-DD first (and convert it)
+        try:
+            parsed_date = datetime.strptime(user_val, "%Y-%m-%d")
+            # Convert to DD/MM/YYYY (e.g., 26/09/2026)
+            return parsed_date.strftime("%d/%m/%Y")
+        except ValueError:
+            pass
+
+        # Try parsing DD/MM/YYYY directly
+        try:
+            parsed_date = datetime.strptime(user_val, "%d/%m/%Y")
+            return parsed_date.strftime("%d/%m/%Y")
+        except ValueError:
+            print("Error: Invalid date format. Please use DD/MM/YYYY (e.g., 26/09/2026) or YYYY-MM-DD.")
+
 def get_validated_int(prompt_text, current_val=None):
     while True:
         suffix = f" [{current_val}]: " if current_val is not None else ": "
@@ -115,35 +133,11 @@ def get_validated_int(prompt_text, current_val=None):
             return user_val
         print("Error: Invalid entry. Please enter a positive whole number or 0.")
 
-def get_validated_date(prompt_text, current_val=None):
-    while True:
-        suffix = f" [{current_val}]: " if current_val else ": "
-        user_val = input(prompt_text + suffix).strip()
-        
-        if not user_val and current_val:
-            return current_val
-        if not user_val:
-            print("Error: Date cannot be blank. Please enter a valid date.")
-            continue
-            
-        try:
-            parsed_date = datetime.strptime(user_val, "%d/%m/%Y")
-            
-            today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
-            if parsed_date < today:
-                print("Error: The expiration date cannot be in the past. Please enter a current or future date.")
-                continue
-                
-            return f"{parsed_date.day}/{parsed_date.month}/{parsed_date.year}"
-
-        except ValueError:
-            print("Error: Invalid date format. Please use DD/MM/YYYY (e.g., 9/26/2026).")
-
 def prompt_for_ingredient_details(existing_item=None):
 #    Ask for every field and return them as keyword arguments for
-#    dm.add_inventory_item() / dm.update_inventory_item().
+#    dm.inventory.add() / dm.inventory.update().
 
-#    existing_item is a record from dm.inventory (CSV column names as keys).
+#    existing_item is a record from dm.inventory.records (CSV column names as keys).
     print("\n--- ENTER INGREDIENT DETAILS ---")
     if existing_item:
         print("Press Enter to keep current bracketed values.")
@@ -165,7 +159,7 @@ def prompt_for_ingredient_details(existing_item=None):
 
     allergens = get_validated_string("Allergen Info (or press Enter for None)", allow_blank=True, current_val=existing_item.get('allergen info') if existing_item else None)
     if allergens.lower() == "none":
-        allergens = "None"  # data_manager stores "no allergens" as an empty cell
+        allergens = ""  # data_manager stores "no allergens" as an empty cell
 
     demand = get_validated_choice("Demand Level", valid_risks, current_val=existing_item.get('demand level').capitalize() if existing_item else None)
     quantity = get_validated_int("Stock Quantity", current_val=existing_item.get('quantity') if existing_item else None)
@@ -210,56 +204,56 @@ def handle_edit_menu():
         # a. Add Items
         if sub_choice == 'a':
             print("\nCurrent Inventory before adding:")
-            print_current_inventory(dm.inventory)
+            print_current_inventory(dm.inventory.records)
 
             details = prompt_for_ingredient_details()
             try:
-                dm.add_inventory_item(**details)
+                dm.inventory.add(**details)
             except (OSError, ValueError) as e:
                 print(f"\nError: Failed to add '{details['food']}': {e}")
             else:
                 print(f"\nSuccess: '{details['food']}' successfully added.")
 
                 print("\nUpdated Inventory after additions:")
-                print_current_inventory(dm.inventory)
+                print_current_inventory(dm.inventory.records)
 
         # b. Remove Items
         elif sub_choice == 'b':
             print("\n--- REMOVE FOOD ITEM ---")
-            if not print_current_inventory(dm.inventory):
+            if not print_current_inventory(dm.inventory.records):
                 continue
 
-            remove_choice = input(f"Enter the item number to remove (1-{len(dm.inventory)}): ").strip()
-            if remove_choice.isdigit() and 1 <= int(remove_choice) <= len(dm.inventory):
+            remove_choice = input(f"Enter the item number to remove (1-{len(dm.inventory.records)}): ").strip()
+            if remove_choice.isdigit() and 1 <= int(remove_choice) <= len(dm.inventory.records):
                 try:
-                    removed = dm.delete_inventory_item(int(remove_choice) - 1)
+                    removed = dm.inventory.delete(int(remove_choice) - 1)
                 except OSError as e:
                     print(f"\nError: Failed to remove the item: {e}")
                 else:
                     print(f"\n[SUCCESS] Removed '{removed['food']}' from the list.")
 
                     print("\nUpdated Inventory after item removal:")
-                    print_current_inventory(dm.inventory)
+                    print_current_inventory(dm.inventory.records)
 
             else:
                 print("\nError: Invalid selection. No items were removed.")
 
         # c. Edit Item
         elif sub_choice == 'c':
-            if not print_current_inventory(dm.inventory):
+            if not print_current_inventory(dm.inventory.records):
                 continue
 
-            update_choice = input(f"Enter the item number to modify (1-{len(dm.inventory)}): ").strip()
-            if update_choice.isdigit() and 1 <= int(update_choice) <= len(dm.inventory):
+            update_choice = input(f"Enter the item number to modify (1-{len(dm.inventory.records)}): ").strip()
+            if update_choice.isdigit() and 1 <= int(update_choice) <= len(dm.inventory.records):
                 target_idx = int(update_choice) - 1
-                current_data = dm.inventory[target_idx]
+                current_data = dm.inventory.records[target_idx]
 
                 print(f"\nModifying details for: {current_data['food']}")
                 print("Press Enter to keep current bracketed values.")
 
                 details = prompt_for_ingredient_details(current_data)
                 try:
-                    dm.update_inventory_item(target_idx, **details)
+                    dm.inventory.update(target_idx, **details)
                 except (OSError, ValueError) as e:
                     print(f"\nError: Failed to update '{current_data['food']}': {e}")
                 else:
@@ -301,7 +295,7 @@ def ids_of(table, records):
 
 def prompt_for_inventory_filters():
 #    Ask for the inventory search fields (Enter skips one) and return keyword
-#    arguments for dm.search_inventory().
+#    arguments for dm.inventory.search().
     print("\n--- SEARCH INVENTORY ---")
     print("Leave a field blank to skip it. If you fill in both, both must match.")
 
@@ -312,7 +306,7 @@ def prompt_for_inventory_filters():
 
 def prompt_for_recipe_filters():
 #Ask for the recipe search fields (Enter skips one) and return keyword
-#arguments for dm.search_recipes().
+#arguments for dm.recipes.search().
     print("\n--- SEARCH RECIPES ---")
     print("Leave a field blank to skip it. If you fill in both, both must match.")
 
@@ -324,7 +318,7 @@ def prompt_for_recipe_filters():
 def print_item_card(user_choice):
 #   Show one inventory item as a card. user_choice is the ID the user typed
 #   (the item's number in the full inventory list). Returns True if a card was shown.
-    extracted_items = dm.inventory
+    extracted_items = dm.inventory.records
 
     if not extracted_items:
         print("\n[!] The inventory list is currently empty.")
@@ -359,7 +353,7 @@ def print_item_card(user_choice):
 def print_recipe_card(user_choice):
 #   Show one recipe as a card. user_choice is the ID the user typed
 #   (the recipe's number in the full recipe list). Returns True if a card was shown.
-    recipe_list = dm.recipes
+    recipe_list = dm.recipes.records
 
     if not recipe_list:
         print("\n[!] There are no recipes saved yet.")
@@ -395,13 +389,13 @@ def print_recipe_card(user_choice):
     return False
 
 def run_inventory_search():
-#   Ask for name/ID, search dm.inventory and print the matches.
+#   Ask for name/ID, search dm.inventory.records and print the matches.
     filters = prompt_for_inventory_filters()
-    results = dm.search_inventory(**filters)
+    results = dm.inventory.search(**filters)
 
     if results:
         print(f"\nFound {len(results)} matching item(s):")
-        print_current_inventory(results, ids_of(dm.inventory, results))
+        print_current_inventory(results, ids_of(dm.inventory.records, results))
     else:
         print("\nNo inventory items matched that name/ID.")
 
@@ -425,7 +419,7 @@ def handle_inventory_search():
             run_inventory_search()
 
         elif search_choice == "2":
-            user_choice = input(f"Enter the item ID to show (1-{len(dm.inventory)}): ").strip()
+            user_choice = input(f"Enter the item ID to show (1-{len(dm.inventory.records)}): ").strip()
             print_item_card(user_choice)
 
         elif search_choice == "3":
@@ -435,13 +429,13 @@ def handle_inventory_search():
             print("\nError: Please enter 1, 2, or 3.")
 
 def run_recipe_search():
-#   Ask for ingredient/ID, search dm.recipes and print the matches.
+#   Ask for ingredient/ID, search dm.recipes.records and print the matches.
     filters = prompt_for_recipe_filters()
-    results = dm.search_recipes(**filters)
+    results = dm.recipes.search(**filters)
 
     if results:
         print(f"\nFound {len(results)} matching recipe(s):")
-        print_recipes(results, ids_of(dm.recipes, results))
+        print_recipes(results, ids_of(dm.recipes.records, results))
     else:
         print("\nNo recipes matched that ingredient/ID.")
 
@@ -465,7 +459,7 @@ def handle_recipe_search():
             run_recipe_search()
 
         elif search_choice == "2":
-            user_choice = input(f"Enter the recipe ID to show (1-{len(dm.recipes)}): ").strip()
+            user_choice = input(f"Enter the recipe ID to show (1-{len(dm.recipes.records)}): ").strip()
             print_recipe_card(user_choice)
 
         elif search_choice == "3":
@@ -521,39 +515,10 @@ def process_item_for_ai(extracted_items):
 
     return ai_payload
 
-def print_ai_result(result):
-    # Display the validated assessment and recipe preparation steps.
-    print("\n==================================================")
-    print(f"          AI ASSESSMENT FOR: {result['stock_item']['name'].upper()}          ")
-    print("==================================================")
-    print(f" Item Name:         {result['stock_item']['name']}")
-    print(f" Category:          {result['category']}")
-    print(f" Demand Level:      {result['demand_level'].capitalize()}")
-    print(f" Expiry Urgency:    {result['expiry_urgency'].capitalize()}")
-    print(f" Spoilage Risk:     {result['spoilage_risk'].capitalize()}")
-    print(f" Suitability Score: {result['suitability_score']}/100")
-    print(f" Confidence:        {result['confidence']:.0%}")
-    print(f" Allergen Uncertain: {result['allergen_uncertain']}")
-    print(f" Storage Uncertain:  {result['storage_uncertain']}")
-    print(f" Reason:            {result['reason']}")
-    print("==================================================")
-    if not result['recipes']:
-        print("No recipes suggested for this item. See the assessment reason above.")
-    for number, recipe in enumerate(result['recipes'], start=1):
-        print("\n==================================================")
-        print(f"          RECIPE {number}: {recipe['name'].upper()}          ")
-        print("==================================================")
-        print(" Ingredients:       " + ", ".join(recipe['ingredients']))
-        print(" Preparation Steps:")
-        for step_number, instruction in enumerate(recipe['instructions'], start=1):
-            print(f"  {step_number}. {instruction}")
-        print("==================================================")
-    print(f"\nRecipes saved to: {RECIPES_PATH}")
-
-
 # Main Program starts here
-# (data_manager loads food_inventory.csv and recipe_results.csv when it is imported;
-#  the live data is dm.inventory and dm.recipes)
+# (DataManager() loads food_inventory.csv and recipe_results.csv when it is created;
+#  the live data is dm.inventory.records and dm.recipes.records)
+dm = DataManager()
 
 
 def main(today=None, client=None):
@@ -565,51 +530,37 @@ def main(today=None, client=None):
         print(" 2. Search in inventory")
         print(" 3. Edit items data")
         print(" 4. Ask AI")
-        print(" 5. Process valid recipes")
-        print(" 6. View recipes")
-        print(" 7. Search recipes")
-        print(" 8. Exit")
+        print(" 5. View recipes")
+        print(" 6. search recipes")
+        print(" 7. Exit")
         print("=================================")
 
-        main_choice = input("Select an option (1-8): ").strip()
+        main_choice = input("Select an option (1-7): ").strip()
         if main_choice == "1":
-            print_current_inventory(dm.inventory)
+            print_current_inventory(dm.inventory.records)
 
         elif main_choice == "2":
             handle_inventory_search()
 
         elif main_choice == "3":
-            print_current_inventory(dm.inventory)
+            print_current_inventory(dm.inventory.records)
             handle_edit_menu()
 
         elif main_choice == "4":
-            if not print_current_inventory(dm.inventory):
-                continue
-            payload = process_item_for_ai(dm.inventory)
-            print("\nAsking AI... please wait.")
-            last_result, last_error = suggest_recipes(payload, today=today, client=client)
-            if last_error:
-                print("Assessment failed:", last_error)
-            else:
-                print_ai_result(last_result)
+            print_current_inventory(dm.inventory.records)
+            process_item_for_ai(dm.inventory.records)
+
         elif main_choice == "5":
-            print("\nProcessing recipes based on accepted_recipe.json...")
-            subprocess.run(["python", "logic_manager.py"], check=True)
-            dm.load()
+            print_recipes(dm.recipes.records)
 
         elif main_choice == "6":
-            dm.load()
-            print_recipes(dm.recipes)
-
-        elif main_choice == "7":
-            dm.load()
             handle_recipe_search()
 
-        elif main_choice == "8":
+        elif main_choice == "7":
             print("\nExiting program. Goodbye!")
             break
         else:
-            print("\nError: Please select a number between 1 and 8.")
+            print("\nError: Please select a number between 1 and 7.")
 
 if __name__ == "__main__":
     main()
