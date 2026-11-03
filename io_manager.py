@@ -1,15 +1,8 @@
-import subprocess
-import csv
-import os
-
-
+from data_manager import load_json_files, save_results
+from logic_manager import evaluate_recipes
 from datetime import datetime
-
 import textwrap
 import data_manager as dm
-
-from pathlib import Path
-
 from ai_module.ai_manager import RECIPES_PATH, suggest_recipes
 
 # Functions
@@ -446,7 +439,7 @@ def run_recipe_search():
         print("\nNo recipes matched that ingredient/ID.")
 
 def handle_recipe_search():
-#   Main menu option 6: search the recipes, then offer a small menu to
+#   Main menu option 7: search the recipes, then offer a small menu to
 #   re-search, show a recipe card by ID, or go back to the main menu.
     run_recipe_search()
 
@@ -592,9 +585,10 @@ def main(today=None, client=None):
                 print("Assessment failed:", last_error)
             else:
                 print_ai_result(last_result)
+                
         elif main_choice == "5":
             print("\nProcessing recipes based on accepted_recipe.json...")
-            subprocess.run(["python", "logic_manager.py"], check=True)
+            run_recipe_processor()  # Calls the IO manager processor directly
             dm.load()
 
         elif main_choice == "6":
@@ -611,5 +605,70 @@ def main(today=None, client=None):
         else:
             print("\nError: Please select a number between 1 and 8.")
 
-if __name__ == "__main__":
-    main()
+
+
+# ANSI Color Codes for terminal styling
+class Colors:
+    HEADER = "\033[95m"
+    BLUE = "\033[94m"
+    CYAN = "\033[96m"
+    GREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+
+
+def run_recipe_processor():
+    # Print welcome header banner
+    print(f"\n{Colors.BOLD}{Colors.CYAN}{'='*50}")
+    print(f"       🍳 RECIPE VALIDATION PROCESSOR 🍳")
+    print(f"{'='*50}{Colors.ENDC}\n")
+
+    # Load data via data_manager
+    data = load_json_files()
+    if isinstance(data, dict) and "error" in data:
+        print(f"{Colors.FAIL}[ERROR] {data['error']}{Colors.ENDC}")
+        return data
+
+    accepted_recipes = data["accepted_recipes"]
+    recipes_from_json = data["recipes_from_json"]
+
+    print(f"{Colors.BOLD}Processing recipes...{Colors.ENDC}\n")
+
+    # Evaluate recipes using logic_manager
+    _accept_list = []
+    _reject_list = []
+
+    # Custom real-time print feedback loop leveraging logic evaluations
+    for json_recipe in recipes_from_json:
+        json_name = json_recipe.get("name", "").strip()
+        
+        # Run evaluation for individual item to display step-by-step terminal UI feedback
+        single_accept, single_reject = evaluate_recipes(accepted_recipes, [json_recipe])
+        
+        if single_accept:
+            _accept_list.append(single_accept[0])
+            matched_name = single_accept[0]["name"]
+            print(f"  {Colors.GREEN}✔ ACCEPTED:{Colors.ENDC} {json_name} (Matched template)")
+        else:
+            rejected_item = single_reject[0]
+            _reject_list.append(rejected_item)
+            print(f"  {Colors.FAIL}✖ REJECTED:{Colors.ENDC} {rejected_item['name']} -> {Colors.WARNING}{rejected_item['reason']}{Colors.ENDC}")
+
+    # Save results via data_manager
+    results_filename, rejected_filename = save_results(_accept_list, _reject_list)
+
+    # Render summary report block
+    print(f"\n{Colors.CYAN}{'='*50}")
+    print(f"                SUMMARY REPORT")
+    print(f"{'='*50}{Colors.ENDC}")
+    print(f"  {Colors.GREEN}✔ Accepted Recipes :{Colors.ENDC} {len(_accept_list)}")
+    print(f"  {Colors.FAIL}✖ Rejected Recipes :{Colors.ENDC} {len(_reject_list)}")
+    print(f"{Colors.CYAN}{'-'*50}{Colors.ENDC}")
+    print(f"  📁 Accepted Recipes saved to : {Colors.BOLD}{results_filename}{Colors.ENDC}")
+    print(f"  📁 Rejected Recipes saved to : {Colors.BOLD}{rejected_filename}{Colors.ENDC}")
+    print(f"{Colors.CYAN}{'='*50}\n{Colors.ENDC}")
+
+    return {"accepted": len(_accept_list), "rejected": len(_reject_list)}
