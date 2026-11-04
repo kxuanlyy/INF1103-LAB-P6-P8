@@ -1,11 +1,15 @@
-from data_manager import load_json_files, save_results
-from logic_manager import evaluate_recipes
+# standard library
+from abc import ABC, abstractmethod
 from datetime import datetime
 import textwrap
-import data_manager as dm
+
+# typing n ds imports
+from typing import Any, Dict, List, Optional
+
+# local project imports
 from ai_module.ai_manager import RECIPES_PATH, suggest_recipes
-from typing import List, Dict, Any, Optional
-from abc import ABC, abstractmethod
+from logic_manager import evaluate_recipes
+
 
 class UserInterface(ABC):
     @abstractmethod
@@ -30,13 +34,23 @@ class StockItem:
     #Domain object representing food asset in inventory, groups item data together instead of using raw loose variables
 
     def __init__(self, name: str, quantity: float, unit: str = "pcs"):
-        self.name: str = name
-        self.quantity: float = quantity
-        self.unit: str = unit
+        self._name: str = name
+        self._quantity: float = quantity
+        self._unit: str = unit
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def quantity(self) -> float:
+        return self._quantity
+
 
     def to_dict(self) -> Dict[str, Any]:
         #Converts object data back into dictionary for storage
-        return {"name": self.name, "quantity": self.quantity, "unit": self.unit}
+        return {"name": self._name, "quantity": self._quantity, "unit": self._unit}
+
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'StockItem':
@@ -372,10 +386,13 @@ class InputValidator:
 class MenuController:
     # Coordinates application lifecycle states, routes user selections, n bridges interaction across IO, Data n AI
 
-    def __init__(self, view: UserInterface) -> None:
+    def __init__(self, view: UserInterface, data_manager: Any, results_store: Any) -> None:
         self.view: UserInterface  = view
+        self.data_manager = data_manager
+        self.results_store = results_store
         self.validator: InputValidator = InputValidator()
-
+             
+        
     def _get_record_ids(self, table: List[Any], records: List[Any]) -> List[int]:
         position = {id(record): n for n, record in enumerate(table, start=1)}
         return [position[id(record)] for record in records]
@@ -386,19 +403,19 @@ class MenuController:
             main_choice = input("Select an option (1-8): ").strip()
 
             if main_choice == "1":
-                self.view.print_current_inventory(dm.inventory)
+                self.view.print_current_inventory(self.data_manager.inventory.records)
 
             elif main_choice == "2":
                 self.handle_inventory_search()
 
             elif main_choice == "3":
-                self.view.print_current_inventory(dm.inventory)
+                self.view.print_current_inventory(self.data_manager.inventory.records)
                 self.handle_edit_menu()
 
             elif main_choice == "4":
-                if not self.view.print_current_inventory(dm.inventory):
+                if not self.view.print_current_inventory(self.data_manager.inventory.records):
                     continue
-                payload = self.process_item_for_ai(dm.inventory)
+                payload = self.process_item_for_ai(self.data_manager.inventory.records)
                 if payload:
                     print("\nAsking AI... please wait.")
                     last_result, last_error = suggest_recipes(payload, today=today, client=client)
@@ -411,12 +428,13 @@ class MenuController:
                 self.handle_recipe_processor()
 
             elif main_choice == "6":
-                dm.load()
-                self.view.print_recipes(dm.recipes)
+                self.data_manager.load()
+                self.view.print_recipes(self.data_manager.recipes.records)
 
             elif main_choice == "7":
-                dm.load()
+                self.data_manager.load()
                 self.handle_recipe_search()
+
 
             elif main_choice == "8":
                 print("\nExiting program. Goodbye!")
@@ -431,51 +449,51 @@ class MenuController:
 
             if sub_choice == 'a':
                 print("\nCurrent Inventory before adding:")
-                self.view.print_current_inventory(dm.inventory)
+                self.view.print_current_inventory(self.data_manager.inventory.records)
 
                 details = self.validator.prompt_for_ingredient_details()
                 try:
-                    dm.add_inventory_item(**details)
+                    self.data_manager.inventory.add(**details)
                 except (OSError, ValueError) as e:
                     print(f"\nError: Failed to add '{details['food']}': {e}")
                 else:
                     print(f"\nSuccess: '{details['food']}' successfully added.")
                     print("\nUpdated Inventory after additions:")
-                    self.view.print_current_inventory(dm.inventory)
+                    self.view.print_current_inventory(self.data_manager.inventory.records)
 
             elif sub_choice == 'b':
                 print("\n--- REMOVE FOOD ITEM ---")
-                if not self.view.print_current_inventory(dm.inventory):
+                if not self.view.print_current_inventory(self.data_manager.inventory.records):
                     continue
 
-                remove_choice = input(f"Enter the item number to remove (1-{len(dm.inventory)}): ").strip()
-                if remove_choice.isdigit() and 1 <= int(remove_choice) <= len(dm.inventory):
+                remove_choice = input(f"Enter the item number to remove (1-{len(self.data_manager.inventory.records)}): ").strip()
+                if remove_choice.isdigit() and 1 <= int(remove_choice) <= len(self.data_manager.inventory.records):
                     try:
-                        removed = dm.delete_inventory_item(int(remove_choice) - 1)
+                        removed = self.data_manager.inventory.delete(int(remove_choice) - 1)
                     except OSError as e:
                         print(f"\nError: Failed to remove the item: {e}")
                     else:
                         print(f"\n[SUCCESS] Removed '{removed['food']}' from the list.")
                         print("\nUpdated Inventory after item removal:")
-                        self.view.print_current_inventory(dm.inventory)
+                        self.view.print_current_inventory(self.data_manager.inventory.records)
                 else:
                     print("\nError: Invalid selection. No items were removed.")
 
             elif sub_choice == 'c':
-                if not self.view.print_current_inventory(dm.inventory):
+                if not self.view.print_current_inventory(self.data_manager.inventory.records):
                     continue
 
-                update_choice = input(f"Enter the item number to modify (1-{len(dm.inventory)}): ").strip()
-                if update_choice.isdigit() and 1 <= int(update_choice) <= len(dm.inventory):
+                update_choice = input(f"Enter the item number to modify (1-{len(self.data_manager.inventory.records)}): ").strip()
+                if update_choice.isdigit() and 1 <= int(update_choice) <= len(self.data_manager.inventory.records):
                     target_idx = int(update_choice) - 1
-                    current_data = dm.inventory[target_idx]
+                    current_data = self.data_manager.inventory.records[target_idx]
 
                     print(f"\nModifying details for: {current_data['food']}")
                     print("Press Enter to keep current bracketed values.")
 
                     details = self.validator.prompt_for_ingredient_details(current_data)
                     try:
-                        dm.update_inventory_item(target_idx, **details)
+                        self.data_manager.inventory.update(target_idx, **details)
                     except (OSError, ValueError) as e:
                         print(f"\nError: Failed to update '{current_data['food']}': {e}")
                     else:
@@ -497,11 +515,11 @@ class MenuController:
             "food": self.validator.get_optional_text("Food name contains"),
             "item_id": self.validator.get_optional_int("ID (the number shown in the inventory list)"),
         }
-        results = dm.search_inventory(**filters)
-
+        results = self.data_manager.inventory.search(**filters)
+        
         if results:
             print(f"\nFound {len(results)} matching item(s):")
-            self.view.print_current_inventory(results, self._get_record_ids(dm.inventory, results))
+            self.view.print_current_inventory(results, self._get_record_ids(self.data_manager.inventory.records, results))
         else:
             print("\nNo inventory items matched that name/ID.")
 
@@ -513,12 +531,12 @@ class MenuController:
                 self.handle_inventory_search()
                 break
             elif search_choice == "2":
-                user_choice = input(f"Enter the item ID to show (1-{len(dm.inventory)}): ").strip()
-                if user_choice.isdigit() and 1 <= int(user_choice) <= len(dm.inventory):
+                user_choice = input(f"Enter the item ID to show (1-{len(self.data_manager.inventory.records)}): ").strip()
+                if user_choice.isdigit() and 1 <= int(user_choice) <= len(self.data_manager.inventory.records):
                     idx = int(user_choice)
-                    self.view.print_item_card(idx, dm.inventory[idx - 1])
+                    self.view.print_item_card(idx, self.data_manager.inventory.records[idx - 1])
                 else:
-                    print(f"\nError: Invalid selection. Use range 1-{len(dm.inventory)}.")
+                    print(f"\nError: Invalid selection. Use range 1-{len(self.data_manager.inventory.records)}.")
             elif search_choice == "3":
                 print("\nReturning to Main Menu...")
                 break
@@ -533,11 +551,11 @@ class MenuController:
             "ingredient": self.validator.get_optional_list("Ingredient (a recipe must have all you list)"),
             "item_id": self.validator.get_optional_int("ID (the number shown in the recipe list)"),
         }
-        results = dm.search_recipes(**filters)
+        results = self.data_manager.recipes.search(**filters)
 
         if search_results := results:
             print(f"\nFound {len(search_results)} matching recipe(s):")
-            self.view.print_recipes(search_results, self._get_record_ids(dm.recipes, search_results))
+            self.view.print_recipes(search_results, self._get_record_ids(self.data_manager.recipes.records, search_results))
         else:
             print("\nNo recipes matched that ingredient/ID.")
 
@@ -549,12 +567,12 @@ class MenuController:
                 self.handle_recipe_search()
                 break
             elif search_choice == "2":
-                user_choice = input(f"Enter the recipe ID to show (1-{len(dm.recipes)}): ").strip()
-                if user_choice.isdigit() and 1 <= int(user_choice) <= len(dm.recipes):
+                user_choice = input(f"Enter the recipe ID to show (1-{len(self.data_manager.recipes.records)}): ").strip()
+                if user_choice.isdigit() and 1 <= int(user_choice) <= len(self.data_manager.recipes.records):
                     idx = int(user_choice)
-                    self.view.print_recipe_card(idx, dm.recipes[idx - 1])
+                    self.view.print_recipe_card(idx, self.data_manager.recipes.records[idx - 1])
                 else:
-                    print(f"\nError: Invalid selection. Use range 1-{len(dm.recipes)}.")
+                    print(f"\nError: Invalid selection. Use range 1-{len(self.data_manager.recipes.records)}.")
             elif search_choice == "3":
                 print("\nReturning to Main Menu...")
                 break
@@ -598,7 +616,7 @@ class MenuController:
     
     def handle_recipe_processor(self) -> None:
         self.view.print_recipe_processor_header()
-        data = load_json_files()
+        data = self.results_store.load_json_files()
         
         if isinstance(data, dict) and "error" in data:
             print(f"\033[91m[ERROR] {data['error']}\033[0m")
@@ -622,14 +640,24 @@ class MenuController:
                 _reject_list.append(rejected_item)
                 self.view.print_recipe_processor_step(False, rejected_item['name'], rejected_item['reason'])
 
-        results_filename, rejected_filename = save_results(_accept_list, _reject_list)
+        results_filename, rejected_filename = self.results_store.save_results(_accept_list, _reject_list)
         self.view.print_recipe_processor_summary(len(_accept_list), len(_reject_list), results_filename, rejected_filename)
-        dm.load()
+        self.data_manager.load()
 
 def main(today=None, client=None):
+    import data_manager as dm 
+    
     active_view = ConsoleView()
-    controller = MenuController(view=active_view)
+    active_data_mgr = dm.DataManager()         
+    active_results_store = dm.RecipeResultsStore() 
+    
+    controller = MenuController(
+        view=active_view, 
+        data_manager=active_data_mgr, 
+        results_store=active_results_store
+    )
     controller.run(today=today, client=client)
+
     
 if __name__ == "__main__":
     main()
