@@ -4,6 +4,28 @@ from datetime import datetime
 import textwrap
 import data_manager as dm
 from ai_module.ai_manager import RECIPES_PATH, suggest_recipes
+from typing import List, Dict, Any
+
+class StockItem:
+    #Domain object representing food asset in inventory, groups item data together instead of using raw loose variables
+
+    def __init__(self, name: str, quantity: float, unit: str = "pcs"):
+        self.name: str = name
+        self.quantity: float = quantity
+        self.unit: str = unit
+
+    def to_dict(self) -> Dict[str, Any]:
+        #Converts object data back into dictionary for storage
+        return {"name": self.name, "quantity": self.quantity, "unit": self.unit}
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'StockItem':
+        #Creates a fresh StockItem object using dictionary data from storage
+        return cls(
+            name=data.get("name", "Unknown"),
+            quantity=float(data.get("quantity", 0.0)),
+            unit=data.get("unit", "pcs")
+        )
 
 # Functions
 
