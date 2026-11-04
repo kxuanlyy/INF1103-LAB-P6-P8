@@ -386,13 +386,14 @@ class InputValidator:
 class MenuController:
     # Coordinates application lifecycle states, routes user selections, n bridges interaction across IO, Data n AI
 
-    def __init__(self, view: UserInterface, data_manager: Any, results_store: Any) -> None:
-        self.view: UserInterface  = view
+    def __init__(self, view, data_manager, results_store, ai_manager, logic_evaluator) -> None:
+        self.view = view
         self.data_manager = data_manager
         self.results_store = results_store
-        self.validator: InputValidator = InputValidator()
-             
-        
+        self.ai_manager = ai_manager
+        self.logic_evaluator = logic_evaluator
+        self.validator = InputValidator()
+                
     def _get_record_ids(self, table: List[Any], records: List[Any]) -> List[int]:
         position = {id(record): n for n, record in enumerate(table, start=1)}
         return [position[id(record)] for record in records]
@@ -418,7 +419,7 @@ class MenuController:
                 payload = self.process_item_for_ai(self.data_manager.inventory.records)
                 if payload:
                     print("\nAsking AI... please wait.")
-                    last_result, last_error = suggest_recipes(payload, today=today, client=client)
+                    last_result, last_error = self.ai_manager.suggest_recipes(payload, today=today)
                     if last_error:
                         print("Assessment failed:", last_error)
                     else:
@@ -630,7 +631,7 @@ class MenuController:
 
         for json_recipe in recipes_from_json:
             json_name = json_recipe.get("name", "").strip()
-            single_accept, single_reject = evaluate_recipes(accepted_recipes, [json_recipe])
+            single_accept, single_reject = self.logic_evaluator.evaluate(accepted_recipes, [json_recipe])
             
             if single_accept:
                 _accept_list.append(single_accept[0])
@@ -646,15 +647,22 @@ class MenuController:
 
 def main(today=None, client=None):
     import data_manager as dm 
+    from logic_manager import RecipeEvaluator 
+    from ai_module.ai_manager import AIManager, GroqProvider
     
     active_view = ConsoleView()
     active_data_mgr = dm.DataManager()         
-    active_results_store = dm.RecipeResultsStore() 
+    active_results_store = dm.RecipeResultsStore()
+    provider = GroqProvider(client) if client is not None else None
+    ai_manager = AIManager(provider=provider)
+    logic_evaluator = RecipeEvaluator()
     
     controller = MenuController(
         view=active_view, 
         data_manager=active_data_mgr, 
-        results_store=active_results_store
+        results_store=active_results_store,
+        ai_manager=ai_manager,
+        logic_evaluator=logic_evaluator
     )
     controller.run(today=today, client=client)
 
