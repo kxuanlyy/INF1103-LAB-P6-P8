@@ -1,5 +1,5 @@
 # main.py
-import io_manager
+import io_manager.io_manager as io_manager
 
 if __name__ == "__main__":
     io_manager.main()
