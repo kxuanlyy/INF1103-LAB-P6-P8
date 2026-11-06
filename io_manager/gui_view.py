@@ -92,3 +92,27 @@ class GuiView(QMainWindow, UserInterface):
         self._log_display.append(f"Ingredients: {match.get('ingredients')}")
         self._log_display.append(f"Instructions: {match.get('instructions')}")
 
+    def print_ai_result(self, result: dict, recipes_path: str) -> None:
+        self._log_display.clear()
+        self._log_display.append(f"=== AI ASSESSMENT FOR: {result['stock_item']['name'].upper()} ===")
+        self._log_display.append(f"Reason: {result.get('reason')}")
+        self._log_display.append(f"Suitability Score: {result.get('suitability_score')}/100")
+        self._log_display.append(f"Confidence: {result.get('confidence'):.0%}")
+        
+        for number, recipe in enumerate(result.get('recipes', []), start=1):
+            self._log_display.append(f"\n  [Recipe {number}] {recipe.get('name').upper()}")
+            self._log_display.append(f"  Ingredients: {', '.join(recipe.get('ingredients', []))}")
+        self._log_display.append(f"\nRecipes saved to: {recipes_path}")
+
+    def print_recipe_processor_header(self) -> None:
+        self._log_display.append("\n🍳 RECIPE VALIDATION PROCESSOR ACTIVE 🍳\n")
+
+    def print_recipe_processor_step(self, accept_flag: bool, name: str, reason: str = None) -> None:
+        status = "✔ ACCEPTED" if accept_flag else f"✖ REJECTED -> {reason}"
+        self._log_display.append(f"  {status}: {name}")
+
+    def print_recipe_processor_summary(self, accept_len: int, reject_len: int, r_file: str, rej_file: str) -> None:
+        self._log_display.append("\n=== SUMMARY REPORT ===")
+        self._log_display.append(f"Accepted Recipes: {accept_len}")
+        self._log_display.append(f"Rejected Recipes: {reject_len}")
+        self._log_display.append(f"Saved: {r_file} | Rejections logged: {rej_file}")
