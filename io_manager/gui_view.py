@@ -165,10 +165,23 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             QLineEdit:hover { border: 1px solid #555555; }
             QLineEdit:focus { border: 1px solid #27ae60; background-color: #1e1e1e; }
             #SearchPanelFrame, QFrame[frameShape="0"] { background-color: transparent; border: none; padding: 2px; }
-            QPushButton#ApplyFilterButton { background-color: #404040  !important; color: #ffffff !important; border: 1px solid #219653 !important; border-radius: 6px; font-weight: bold; text-align: center; padding: 6px 12px; }
-            QPushButton#ApplyFilterButton:hover { background-color: #2ecc71 !important;  border: 1px solid #27ae60 !important; }
-            QPushButton#ApplyFilterButton:pressed { background-color: #1e8449 !important; }             
-        
+            QPushButton#ApplyFilterButton { 
+                background-color: #27ae60 !important; 
+                color: #ffffff !important; 
+                border: 1px solid #219653 !important; 
+                border-radius: 6px; 
+                font-weight: bold; 
+                text-align: center; 
+                padding: 6px 12px; 
+            }
+            QPushButton#ApplyFilterButton:hover { 
+                background-color: #2ecc71 !important; 
+                border: 1px solid #27ae60 !important; 
+            }
+            QPushButton#ApplyFilterButton:pressed { 
+                background-color: #1e8449 !important; 
+            }
+
         """       
         self.setStyleSheet(dark_stylesheet)
 
@@ -193,6 +206,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             btn.setChecked(btn == active_button)
 
     def _on_search_inventory_triggered(self) -> None:
+        self._update_active_navigation_state(self._btn_search_inv)
         # displays the embedded search text bars row layout inside the dashboard
         self._log_display.hide()
         self._inventory_table.show()
@@ -299,7 +313,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._controller.handle_recipe_processor()
 
     def _on_search_recipes_triggered(self) -> None:
-        self._update_active_navigation_state(self._btn_search_inv)
+        self._update_active_navigation_state(self._btn_search_recipes)
         if self._controller:
             self._log_display.append("\n[System]: Starting Recipe Search... Please look at your Terminal window for inputs.")
             self._controller.handle_recipe_search()
