@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 # local project imports
 from ai_module.ai_manager import RECIPES_PATH, suggest_recipes
-from logic_manager.logic_manager import evaluate_recipes
+
 
 
 class UserInterface(ABC):
@@ -647,7 +647,7 @@ class MenuController:
 
 def main(today=None, client=None):
     import data_manager.data_manager as dm 
-    from logic_manager.logic_manager import RecipeEvaluator 
+    from logic_manager.recipeevaluator import RecipeEvaluator 
     from ai_module.ai_manager import AIManager, GroqProvider
     
     active_view = ConsoleView()
