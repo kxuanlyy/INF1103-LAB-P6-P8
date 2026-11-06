@@ -99,15 +99,13 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._main_layout.addWidget(self._display_container)
 
         # Configure inline search panel rows dimensions and padding rules
-        self._search_panel.setFixedHeight(50)
-        self._search_layout.setContentsMargins(5, 5, 5, 5)
+        self._search_panel.setFixedHeight(60)
+        self._search_layout.setContentsMargins(10, 4, 10, 4)
         self._search_layout.setSpacing(10)      
 
         # Lock text boxes to single-row heights
         self._input_food.setPlaceholderText("Filter by Ingredient Name...")
-        self._input_food.setFixedHeight(32)
         self._input_id.setPlaceholderText("Filter by precise ID...")
-        self._input_id.setFixedHeight(32)
         self._btn_submit_search.setFixedWidth(100)
 
         # Assemble embedded component toolbar elements
@@ -273,6 +271,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         # internal callback to bridge data safely controller
         if self._controller and hasattr(self._controller, "data_manager"):
             # Pull records safely from the data framework layer
+            self._search_panel.hide()
             records = self._controller.data_manager.inventory.records
             self.print_current_inventory(records)
 
@@ -290,17 +289,22 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         
         if not extracted_items:
             return False
-            
+
+        self._inventory_table.setColumnCount(3)
+        self._inventory_table.setHorizontalHeaderLabels(["Ingredient Name", "Quantity", "Expiry Date"])
+        self._inventory_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+
+
         self._inventory_table.setRowCount(len(extracted_items))
         for row, record in enumerate(extracted_items):
             # Resolve unique index positions safely 
-            item_id = str(ids[row]) if ids else f"INV-{row+1:04d}"
+            item_id = str(row + 1)
             qty = "" if record.get('quantity') is None else str(record['quantity'])
             
-            self._inventory_table.setItem(row, 0, QTableWidgetItem(item_id))
-            self._inventory_table.setItem(row, 1, QTableWidgetItem(record.get('food', 'Unknown')))
-            self._inventory_table.setItem(row, 2, QTableWidgetItem(qty))
-            self._inventory_table.setItem(row, 3, QTableWidgetItem(record.get('use-by', 'N/A')))
+            self._inventory_table.setVerticalHeaderItem(row, QTableWidgetItem(item_id))
+            self._inventory_table.setItem(row, 0, QTableWidgetItem(record.get('food', 'Unknown')))
+            self._inventory_table.setItem(row, 1, QTableWidgetItem(qty))
+            self._inventory_table.setItem(row, 2, QTableWidgetItem(record.get('use-by', 'N/A')))
         return True
 
     def print_recipes(self, recipe_list: list, ids: list = None) -> bool:
