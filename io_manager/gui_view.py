@@ -1,7 +1,7 @@
 import sys
 import abc
 from io_manager.user_interface import UserInterface
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QTextEdit, QLabel, QFrame, QTableWidget, 
@@ -26,6 +26,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._sidebar_layout = QVBoxLayout(self._sidebar_widget)
         self._status_label = QLabel("FoodRescue Operations")
         
+        self._status_label.setAlignment(Qt.AlignCenter)
+        
         # Action Buttons for all Menu Options
         self._btn_view_inv = QPushButton("📋 View Inventory")
         self._btn_search_inv = QPushButton("🔍 Search Inventory")
@@ -43,6 +45,12 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         # Dynamic swappable components
         self._inventory_table = QTableWidget()
         self._log_display = QTextEdit()
+
+        self._search_panel = QFrame()
+        self._search_layout = QHBoxLayout(self._search_panel)
+        self._input_food = QTextEdit()
+        self._input_id = QTextEdit()
+        self._btn_submit_search = QPushButton("Apply Filter")
 
         self._setup_ui()
 
@@ -89,7 +97,32 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         # Assemble Main Layout
         self._main_layout.addWidget(self._sidebar_widget)
         self._main_layout.addWidget(self._display_container)
-        
+
+        # Configure inline search panel rows dimensions and padding rules
+        self._search_panel.setFixedHeight(50)
+        self._search_layout.setContentsMargins(5, 5, 5, 5)
+        self._search_layout.setSpacing(10)      
+
+        # Lock text boxes to single-row heights
+        self._input_food.setPlaceholderText("Filter by Ingredient Name...")
+        self._input_food.setFixedHeight(32)
+        self._input_id.setPlaceholderText("Filter by precise ID...")
+        self._input_id.setFixedHeight(32)
+        self._btn_submit_search.setFixedWidth(100)
+
+        # Assemble embedded component toolbar elements
+        self._search_layout.addWidget(self._input_food)
+        self._search_layout.addWidget(self._input_id)
+        self._search_layout.addWidget(self._btn_submit_search)
+
+        # Add the widgets to your master right-side viewport panel layout stack
+        self._display_layout.addWidget(self._search_panel)
+        self._display_layout.addWidget(self._inventory_table)
+        self._display_layout.addWidget(self._log_display)
+
+        self._search_panel.hide()
+
+      
         self._log_display.setReadOnly(True)
         self._apply_theme_styles()
         self._connect_signals()
@@ -98,7 +131,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         dark_stylesheet = """
             QMainWindow { background-color: #121212; }
             QFrame { background-color: #1e1e1e; border: 1px solid #2d2d2d; border-radius: 8px; }
-            QLabel { color: #ffffff; font-size: 14px; font-weight: bold; padding-bottom: 10px; border-bottom: 1px solid #2d2d2d; }
+            QLabel {  background: transparent; border: none; color: #ffffff; font-size: 14px; font-weight: bold; padding-bottom: 10px; border-bottom: 10px; }
             QPushButton { background-color: #2a2a2a; color: #e0e0e0; border: 1px solid #3a3a3a; border-radius: 6px; padding: 10px 12px; text-align: left; }
             QPushButton:hover { background-color: #353535; border: 1px solid #4a4a4a; color: #ffffff; }
             QPushButton:pressed { background-color: #27ae60; border: 1px solid #219653; color: #ffffff; }
@@ -121,43 +154,39 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_process_recipes.clicked.connect(self._on_process_recipes_triggered)
         self._btn_view_recipes.clicked.connect(self._on_recipes_view_triggered)
         self._btn_search_recipes.clicked.connect(self._on_search_recipes_triggered)
+        self._btn_submit_search.clicked.connect(self._execute_embedded_search)
         self._btn_exit.clicked.connect(self.close)
 
     def _on_search_inventory_triggered(self) -> None:
-        # captures search strings directly inside a graphical popup dialog box
+        # displays the embedded search text bars row layout inside the dashboard
+        self._log_display.hide()
+        self._inventory_table.show()
+        self._search_panel.show()
+        
+        if self._controller:
+            self.print_current_inventory(self._controller.data_manager.inventory.records)
+
+    def _execute_embedded_search(self) -> None:
+        # extracts data strings inline from GUI text bars n applies active queries
         if not self._controller:
             return
-            
-        search_term, ok = QInputDialog.getText(
-            self, "Search Inventory", "Enter Food Name (or leave blank to skip):"
-        )
-        if not ok:
-            # user cancel
-            return
 
-        id_term, ok_id = QInputDialog.getText(
-            self, "Search Inventory", "Enter exact Item ID number (or leave blank to skip):"
-        )
-        if not ok_id:
-            return
+        # xtract values cleanly directly from your desktop interface boxes
+        food_text = self._input_food.toPlainText().strip()
+        id_text = self._input_id.toPlainText().strip()
 
-        # sanitize inputs to match expected datatypes
-        food_filter = search_term.strip() if search_term.strip() else None
-        
-        id_filter = None
-        if id_term.strip() and id_term.strip().isdigit():
-            id_filter = int(id_term.strip())
+        # sanitize parameter types to pass cleanly to database search modules
+        food_filter = food_text if food_text else None
+        id_filter = int(id_text) if id_text and id_text.isdigit() else None
 
-        # trigger data query dynamically
         results = self._controller.data_manager.inventory.search(food=food_filter, item_id=id_filter)
         
+        # draw rows inside table grid panel
         if results:
-            # look up matching record positions inside global database cache array
             record_ids = self._controller._get_record_ids(self._controller.data_manager.inventory.records, results)
             self.print_current_inventory(results, record_ids)
-            self._log_display.append(f"\n[Search Success]: Found {len(results)} matching item(s).")
         else:
-            QMessageBox.information(self, "Search Results", "No inventory items matched that name or ID.")
+            self._inventory_table.setRowCount(0)
 
     def _on_edit_inventory_triggered(self) -> None:
         if self._controller:
