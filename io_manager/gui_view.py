@@ -52,6 +52,23 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._input_food = QLineEdit()
         self._input_id = QLineEdit()
         self._btn_submit_search = QPushButton("Apply Filter")
+        self._btn_submit_search.setObjectName("ApplyFilterButton")
+
+        # Configure button properties to latch their pressed visual states
+        self._btn_view_inv.setCheckable(True)
+        self._btn_search_inv.setCheckable(True)
+        self._btn_edit_inv.setCheckable(True)
+        self._btn_ask_ai.setCheckable(True)
+        self._btn_process_recipes.setCheckable(True)
+        self._btn_view_recipes.setCheckable(True)
+        self._btn_search_recipes.setCheckable(True)
+        
+        # Group them into a list for easy state clearing loops later
+        self._nav_buttons = [
+            self._btn_view_inv, self._btn_search_inv, self._btn_edit_inv,
+            self._btn_ask_ai, self._btn_process_recipes, self._btn_view_recipes,
+            self._btn_search_recipes
+        ]
 
         self._setup_ui()
 
@@ -97,7 +114,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._inventory_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self._inventory_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._inventory_table.setAlternatingRowColors(True)
-        self._inventory_table.setMaximumHeight(340)
         self._item_details_view.setFixedHeight(220)
 
         # Assemble Main Layout
@@ -137,7 +153,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             QLabel {  background: transparent; border: none; color: #ffffff; font-size: 14px; font-weight: bold; padding-bottom: 10px; border-bottom: 10px; }
             QPushButton { background-color: #2a2a2a; color: #e0e0e0; border: 1px solid #3a3a3a; border-radius: 6px; padding: 10px 12px; text-align: left; }
             QPushButton:hover { background-color: #353535; border: 1px solid #4a4a4a; color: #ffffff; }
-            QPushButton:pressed { background-color: #27ae60; border: 1px solid #219653; color: #ffffff; }
+            QPushButton:pressed, QPushButton:checked { background-color: #2ecc71  ; border: 1px solid #219653; color: #ffffff; }
             QTextEdit { background-color: #1e1e1e; color: #f5f5f5; border: 1px solid #2d2d2d; border-radius: 8px; padding: 12px; font-family: 'Consolas', monospace; }
             QComboBox, QAbstractItemView { background-color: #2a2a2a;  color: #ffffff; selection-background-color: #27ae60;  selection-color: #ffffff;  border: 1px solid #3a3a3a; }
             QTableWidget { background-color: #1e1e1e;  color: #e0e0e0; gridline-color: #2d2d2d; border: 1px solid #2d2d2d;  border-radius: 8px; font-size: 13px; }
@@ -149,9 +165,9 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             QLineEdit:hover { border: 1px solid #555555; }
             QLineEdit:focus { border: 1px solid #27ae60; background-color: #1e1e1e; }
             #SearchPanelFrame, QFrame[frameShape="0"] { background-color: transparent; border: none; padding: 2px; }
-            QFrame > QPushButton { background-color: #27ae60; color: #ffffff; border: 1px solid #219653; border-radius: 6px; font-weight: bold; text-align: center; padding: 6px 12px; }
-            QFrame > QPushButton:hover { background-color: #2ecc71; border: 1px solid #27ae60; }
-            QFrame > QPushButton:pressed { background-color: #1e8449; }            
+            QPushButton#ApplyFilterButton { background-color: #404040  !important; color: #ffffff !important; border: 1px solid #219653 !important; border-radius: 6px; font-weight: bold; text-align: center; padding: 6px 12px; }
+            QPushButton#ApplyFilterButton:hover { background-color: #2ecc71 !important;  border: 1px solid #27ae60 !important; }
+            QPushButton#ApplyFilterButton:pressed { background-color: #1e8449 !important; }             
         
         """       
         self.setStyleSheet(dark_stylesheet)
@@ -171,11 +187,18 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_exit.clicked.connect(self.close)
         self._inventory_table.itemClicked.connect(self._on_table_row_clicked)
 
+    def _update_active_navigation_state(self, active_button: QPushButton) -> None:
+        # unchecks all navigation shortcuts n locks the green background on the active menu choice
+        for btn in self._nav_buttons:
+            btn.setChecked(btn == active_button)
+
     def _on_search_inventory_triggered(self) -> None:
         # displays the embedded search text bars row layout inside the dashboard
         self._log_display.hide()
         self._inventory_table.show()
         self._search_panel.show()
+
+        self._inventory_table.setMaximumHeight(340)
         
         if self._controller:
             self.print_current_inventory(self._controller.data_manager.inventory.records)
@@ -296,6 +319,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             # Pull records safely from the data framework layer
             self._search_panel.hide()
             self._item_details_view.hide()
+            self._inventory_table.setMaximumHeight(16777215)
             records = self._controller.data_manager.inventory.records
             self.print_current_inventory(records)
 
@@ -350,6 +374,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
     def print_current_inventory(self, extracted_items: list, ids: list = None) -> bool:
         self._log_display.hide()
+        self._item_details_view.hide()
         self._inventory_table.show()
         self._inventory_table.setRowCount(0)
         
