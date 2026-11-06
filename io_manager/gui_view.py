@@ -48,6 +48,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         self._search_panel = QFrame()
         self._search_layout = QHBoxLayout(self._search_panel)
+        self._item_details_view = QTextEdit()
         self._input_food = QLineEdit()
         self._input_id = QLineEdit()
         self._btn_submit_search = QPushButton("Apply Filter")
