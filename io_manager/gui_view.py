@@ -120,9 +120,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._search_layout.addWidget(self._btn_submit_search)
 
         # Add the widgets to your master right-side viewport panel layout stack
-        self._display_layout.addWidget(self._search_panel)
-        self._display_layout.addWidget(self._inventory_table)
-        self._display_layout.addWidget(self._log_display)
+        self._display_layout.insertWidget(0, self._search_panel)
 
         self._search_panel.hide()
 
@@ -190,12 +188,19 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         results = self._controller.data_manager.inventory.search(food=food_filter, item_id=id_filter)
         
-        # draw rows inside table grid panel
         if results:
             record_ids = self._controller._get_record_ids(self._controller.data_manager.inventory.records, results)
             self.print_current_inventory(results, record_ids)
+            
+            if len(results) == 1:
+                first_cell = self._inventory_table.item(0, 0)
+                if first_cell:
+                    self._on_table_row_clicked(first_cell)
+            else:
+                self._item_details_view.hide()
         else:
             self._inventory_table.setRowCount(0)
+            self._item_details_view.hide()
 
     def _on_edit_inventory_triggered(self) -> None:
         if self._controller:
@@ -293,6 +298,48 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
     def display_edit_menu(self) -> None: pass
     def display_inventory_search_menu(self) -> None: pass
     def display_recipe_search_menu(self) -> None: pass
+
+    def _on_table_row_clicked(self, item) -> None:
+        # extracts complete underlying data metrics for the clicked row n renders them
+        if not self._controller:
+            return
+
+        row_idx = item.row()
+        header_item = self._inventory_table.verticalHeaderItem(row_idx)
+        if not header_item:
+            return
+
+        try:
+            db_id = int(header_item.text()) - 1
+        except ValueError:
+            return
+            
+        records = self._controller.data_manager.inventory.records
+
+        if 0 <= db_id < len(records):
+            target = records[db_id]
+            self._item_details_view.show()
+            self._item_details_view.clear()
+            
+            allergen = target.get('allergen info', 'None') or 'None'
+            storage = target.get('storage condition', 'Ambient')
+            days_left = target.get('days_to_expiry', 'N/A')
+            expiry_str = f"{days_left} day(s) remaining" if str(days_left).isdigit() else str(days_left)
+
+            # Replicates your terminal string formatting layout perfectly
+            self._item_details_view.append("============================================================")
+            self._item_details_view.append(f"                        FOOD ID: [{db_id + 1}]")
+            self._item_details_view.append("============================================================")
+            self._item_details_view.append(f"Item Name:        {target.get('food', 'Unknown')}")
+            self._item_details_view.append(f"Category:         {target.get('food_category', 'General')}")
+            self._item_details_view.append(f"Stock Quantity:   {target.get('quantity', '0')}")
+            self._item_details_view.append(f"Use-By Date:      {target.get('use-by', 'N/A')}")
+            self._item_details_view.append(f"Days to Expiry:   {expiry_str}")
+            self._item_details_view.append(f"Storage Type:     {storage}")
+            self._item_details_view.append(f"Waste Risk Level: {target.get('waste_risk_level', 'Low')}")
+            self._item_details_view.append(f"Demand Level:     {target.get('demand level', 'Normal')}")
+            self._item_details_view.append(f"Allergen Info:    {allergen}")
+            self._item_details_view.append("============================================================")
 
     def print_current_inventory(self, extracted_items: list, ids: list = None) -> bool:
         self._log_display.hide()
