@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 
-
 class UserInterface(ABC):
     @abstractmethod
     def display_main_menu(self) -> None: pass
