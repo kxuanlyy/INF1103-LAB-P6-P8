@@ -76,3 +76,19 @@ class GuiView(QMainWindow, UserInterface):
             self._log_display.append(f"Instructions: {recipe.get('instructions', '')}\n")
         return True
 
+    def print_item_card(self, choice_num: int, match: dict) -> None:
+        self._log_display.clear()
+        quantity = "Unknown" if match.get('quantity') is None else match['quantity']
+        self._log_display.append(f"=== FOOD CARD ID: [{choice_num}] ===")
+        self._log_display.append(f"Name: {match.get('food')}")
+        self._log_display.append(f"Category: {match.get('food_category')}")
+        self._log_display.append(f"Qty: {quantity}")
+        self._log_display.append(f"Expiry: {match.get('use-by')}")
+
+    def print_recipe_card(self, choice_num: int, match: dict) -> None:
+        self._log_display.clear()
+        self._log_display.append(f"=== RECIPE CARD ID: [{choice_num}] ===")
+        self._log_display.append(f"Name: {match.get('name')}")
+        self._log_display.append(f"Ingredients: {match.get('ingredients')}")
+        self._log_display.append(f"Instructions: {match.get('instructions')}")
+
