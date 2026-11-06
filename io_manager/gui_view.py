@@ -3,8 +3,8 @@ import abc
 from io_manager.user_interface import UserInterface
 from PySide6.QtCore import QObject
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QPushButton, 
-    QTextEdit, QLabel
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+    QPushButton, QTextEdit, QLabel, QFrame
 )
 
 class PySideABCMeta(type(QObject), abc.ABCMeta):
@@ -13,12 +13,28 @@ class PySideABCMeta(type(QObject), abc.ABCMeta):
 class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
     def __init__(self, controller=None) -> None:
         super().__init__()
-        self._controller  = controller
+        self._controller = controller
 
+        # Root Window Canvas Structure
         self._central_widget = QWidget()
-        self._layout = QVBoxLayout(self._central_widget)
-        self._status_label = QLabel("Welcome to FoodRescue! Click an action below.")
-        self._view_btn = QPushButton("1. View Current Inventory Stock")
+        self._main_layout = QHBoxLayout(self._central_widget)
+        
+        # Sidebar Control Column
+        self._sidebar_widget = QFrame()
+        self._sidebar_layout = QVBoxLayout(self._sidebar_widget)
+        self._status_label = QLabel("FoodRescue Operations")
+        
+        # Action Buttons for all Menu Options
+        self._btn_view_inv = QPushButton("📋 View Inventory")
+        self._btn_search_inv = QPushButton("🔍 Search Inventory")
+        self._btn_edit_inv = QPushButton("✏ Edit Items Data")
+        self._btn_ask_ai = QPushButton("🤖 Ask AI Assistant")
+        self._btn_process_recipes = QPushButton("🍳 Process Recipes")
+        self._btn_view_recipes = QPushButton("📖 View Recipes")
+        self._btn_search_recipes = QPushButton("🏷 Search Recipes")
+        self._btn_exit = QPushButton("🚪 Exit Application")
+
+        # Right-side Display Viewport Pane
         self._log_display = QTextEdit()
 
         self._setup_ui()
