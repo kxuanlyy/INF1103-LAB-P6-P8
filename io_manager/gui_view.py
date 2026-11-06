@@ -5,7 +5,7 @@ from PySide6.QtCore import QObject
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QTextEdit, QLabel, QFrame, QTableWidget, 
-    QHeaderView, QInputDialog, QMessageBox
+    QTableWidgetItem, QHeaderView, QInputDialog, QMessageBox
 )
 
 class PySideABCMeta(type(QObject), abc.ABCMeta):
@@ -255,19 +255,28 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
     def display_recipe_search_menu(self) -> None: pass
 
     def print_current_inventory(self, extracted_items: list, ids: list = None) -> bool:
-        self._log_display.clear()
+        self._log_display.hide()
+        self._inventory_table.show()
+        self._inventory_table.setRowCount(0)
+        
         if not extracted_items:
-            self._log_display.append("The inventory list is currently empty.")
             return False
             
-        self._log_display.append(f"{'Ingredient Name':<30} | {'Qty':<10} | {'Expiry Date'}")
-        self._log_display.append("-" * 60)
-        for record in extracted_items:
-            qty = "" if record.get('quantity') is None else record['quantity']
-            self._log_display.append(f"{record.get('food', 'Unknown'):<30} | {str(qty):<10} | {record.get('use-by', 'N/A')}")
+        self._inventory_table.setRowCount(len(extracted_items))
+        for row, record in enumerate(extracted_items):
+            # Resolve unique index positions safely 
+            item_id = str(ids[row]) if ids else f"INV-{row+1:04d}"
+            qty = "" if record.get('quantity') is None else str(record['quantity'])
+            
+            self._inventory_table.setItem(row, 0, QTableWidgetItem(item_id))
+            self._inventory_table.setItem(row, 1, QTableWidgetItem(record.get('food', 'Unknown')))
+            self._inventory_table.setItem(row, 2, QTableWidgetItem(qty))
+            self._inventory_table.setItem(row, 3, QTableWidgetItem(record.get('use-by', 'N/A')))
         return True
 
     def print_recipes(self, recipe_list: list, ids: list = None) -> bool:
+        self._inventory_table.hide()
+        self._log_display.show()
         self._log_display.clear()
         if not recipe_list:
             self._log_display.append("There are no recipes saved yet.")
@@ -281,6 +290,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         return True
 
     def print_item_card(self, choice_num: int, match: dict) -> None:
+        self._inventory_table.hide()
+        self._log_display.show()
         self._log_display.clear()
         quantity = "Unknown" if match.get('quantity') is None else match['quantity']
         self._log_display.append(f"=== FOOD CARD ID: [{choice_num}] ===")
@@ -290,6 +301,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._log_display.append(f"Expiry: {match.get('use-by')}")
 
     def print_recipe_card(self, choice_num: int, match: dict) -> None:
+        self._inventory_table.hide()
+        self._log_display.show()
         self._log_display.clear()
         self._log_display.append(f"=== RECIPE CARD ID: [{choice_num}] ===")
         self._log_display.append(f"Name: {match.get('name')}")
@@ -297,6 +310,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._log_display.append(f"Instructions: {match.get('instructions')}")
 
     def print_ai_result(self, result: dict, recipes_path: str) -> None:
+        self._inventory_table.hide()
+        self._log_display.show()
         self._log_display.clear()
         self._log_display.append(f"=== AI ASSESSMENT FOR: {result['stock_item']['name'].upper()} ===")
         self._log_display.append(f"Reason: {result.get('reason')}")
@@ -309,6 +324,9 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._log_display.append(f"\nRecipes saved to: {recipes_path}")
 
     def print_recipe_processor_header(self) -> None:
+        self._inventory_table.hide()
+        self._log_display.show()
+        self._log_display.clear()
         self._log_display.append("\n🍳 RECIPE VALIDATION PROCESSOR ACTIVE 🍳\n")
 
     def print_recipe_processor_step(self, accept_flag: bool, name: str, reason: str = None) -> None:
