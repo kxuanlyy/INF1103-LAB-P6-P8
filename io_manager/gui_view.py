@@ -1,11 +1,16 @@
 import sys
+import abc
 from io_manager.user_interface import UserInterface
+from PySide6.QtCore import QObject
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QPushButton, 
     QTextEdit, QLabel
 )
 
-class GuiView(QMainWindow, UserInterface):
+class PySideABCMeta(type(QObject), abc.ABCMeta):
+    pass
+
+class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
     def __init__(self, controller=None) -> None:
         super().__init__()
         self._controller  = controller
