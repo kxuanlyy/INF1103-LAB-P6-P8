@@ -41,18 +41,47 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
     def _setup_ui(self) -> None:
         self.setWindowTitle("FoodRescue Enterprise Management Dashboard")
-        self.resize(800, 600)
+        self.resize(1024, 680)
         self.setCentralWidget(self._central_widget)
         
+        self._main_layout.setContentsMargins(15, 15, 15, 15)
+        self._main_layout.setSpacing(15)
+        
+        self._sidebar_widget.setFrameShape(QFrame.StyledPanel)
+        self._sidebar_widget.setFixedWidth(240)
+        self._sidebar_layout.setContentsMargins(10, 10, 10, 10)
+        self._sidebar_layout.setSpacing(8)
+        
+        self._sidebar_layout.addWidget(self._status_label)
+        self._sidebar_layout.addWidget(self._btn_view_inv)
+        self._sidebar_layout.addWidget(self._btn_search_inv)
+        self._sidebar_layout.addWidget(self._btn_edit_inv)
+        self._sidebar_layout.addWidget(self._btn_ask_ai)
+        self._sidebar_layout.addWidget(self._btn_process_recipes)
+        self._sidebar_layout.addWidget(self._btn_view_recipes)
+        self._sidebar_layout.addWidget(self._btn_search_recipes)
+        self._sidebar_layout.addStretch()
+        self._sidebar_layout.addWidget(self._btn_exit)
+        
+        self._main_layout.addWidget(self._sidebar_widget)
+        self._main_layout.addWidget(self._log_display)
+        
         self._log_display.setReadOnly(True)
-        
-        self._layout.addWidget(self._status_label)
-        self._layout.addWidget(self._view_btn)
-        self._layout.addWidget(self._log_display)
-        
-        # safely handles signal connection internally
-        self._view_btn.clicked.connect(self._on_inventory_view_triggered)
-        
+        self._apply_theme_styles()
+        self._connect_signals()
+
+    def _apply_theme_styles(self) -> None:
+        dark_stylesheet = """
+            QMainWindow { background-color: #121212; }
+            QFrame { background-color: #1e1e1e; border: 1px solid #2d2d2d; border-radius: 8px; }
+            QLabel { color: #ffffff; font-size: 14px; font-weight: bold; padding-bottom: 10px; border-bottom: 1px solid #2d2d2d; }
+            QPushButton { background-color: #2a2a2a; color: #e0e0e0; border: 1px solid #3a3a3a; border-radius: 6px; padding: 10px 12px; text-align: left; }
+            QPushButton:hover { background-color: #353535; border: 1px solid #4a4a4a; color: #ffffff; }
+            QPushButton:pressed { background-color: #27ae60; border: 1px solid #219653; color: #ffffff; }
+            QTextEdit { background-color: #1e1e1e; color: #f5f5f5; border: 1px solid #2d2d2d; border-radius: 8px; padding: 12px; font-family: 'Consolas', monospace; }
+        """       
+        self.setStyleSheet(dark_stylesheet)
+
     def set_controller(self, controller) -> None:
        # safely mutates internal controller reference
         self._controller = controller
