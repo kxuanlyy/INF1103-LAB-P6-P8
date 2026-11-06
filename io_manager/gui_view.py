@@ -103,7 +103,13 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             QPushButton:hover { background-color: #353535; border: 1px solid #4a4a4a; color: #ffffff; }
             QPushButton:pressed { background-color: #27ae60; border: 1px solid #219653; color: #ffffff; }
             QTextEdit { background-color: #1e1e1e; color: #f5f5f5; border: 1px solid #2d2d2d; border-radius: 8px; padding: 12px; font-family: 'Consolas', monospace; }
-            QComboBox, QAbstractItemView { background-color: #2a2a2a;   color: #ffffff; selection-background-color: #27ae60;    selection-color: #ffffff;   border: 1px solid #3a3a3a; }
+            QComboBox, QAbstractItemView { background-color: #2a2a2a;  color: #ffffff; selection-background-color: #27ae60;  selection-color: #ffffff;  border: 1px solid #3a3a3a; }
+            QTableWidget { background-color: #1e1e1e;  color: #e0e0e0; gridline-color: #2d2d2d; border: 1px solid #2d2d2d;  border-radius: 8px; font-size: 13px; }
+            QTableWidget::item { padding: 5px; }
+            QTableWidget::item:alternate { background-color: #252525; }
+            QTableWidget::item:selected { background-color: #27ae60; color: #ffffff; }
+            QHeaderView::section { background-color: #2a2a2a; color: #ffffff; padding: 6px; border: 1px solid #2d2d2d; font-weight: bold; font-size: 13px; }
+        
         """       
         self.setStyleSheet(dark_stylesheet)
 
