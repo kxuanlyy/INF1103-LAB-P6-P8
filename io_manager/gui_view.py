@@ -164,6 +164,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_search_recipes.clicked.connect(self._on_search_recipes_triggered)
         self._btn_submit_search.clicked.connect(self._execute_embedded_search)
         self._btn_exit.clicked.connect(self.close)
+        self._inventory_table.itemClicked.connect(self._on_table_row_clicked)
 
     def _on_search_inventory_triggered(self) -> None:
         # displays the embedded search text bars row layout inside the dashboard
@@ -282,6 +283,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         if self._controller and hasattr(self._controller, "data_manager"):
             # Pull records safely from the data framework layer
             self._search_panel.hide()
+            self._item_details_view.hide()
             records = self._controller.data_manager.inventory.records
             self.print_current_inventory(records)
 
@@ -319,6 +321,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
     def print_recipes(self, recipe_list: list, ids: list = None) -> bool:
         self._inventory_table.hide()
+        self._item_details_view.hide()
         self._log_display.show()
         self._log_display.clear()
         if not recipe_list:
@@ -354,6 +357,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
     def print_ai_result(self, result: dict, recipes_path: str) -> None:
         self._inventory_table.hide()
+        self._item_details_view.hide()
         self._log_display.show()
         self._log_display.clear()
         self._log_display.append(f"=== AI ASSESSMENT FOR: {result['stock_item']['name'].upper()} ===")
@@ -368,6 +372,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
     def print_recipe_processor_header(self) -> None:
         self._inventory_table.hide()
+        self._item_details_view.hide()
         self._log_display.show()
         self._log_display.clear()
         self._log_display.append("\n🍳 RECIPE VALIDATION PROCESSOR ACTIVE 🍳\n")
