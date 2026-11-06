@@ -4,6 +4,10 @@ from io_manager.console_view import ConsoleView
 from io_manager.input_validator import InputValidator
 from io_manager.menu_controller import MenuController
 from ai_module.ai_manager import RECIPES_PATH, suggest_recipes
+<<<<<<< HEAD
+=======
+
+>>>>>>> df9f0b6ae62fa85bd77f9b5b354870b79e198d2f
 
 
 def main(today=None, client=None):
