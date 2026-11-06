@@ -4,14 +4,15 @@ from io_manager.user_interface import UserInterface
 from PySide6.QtCore import QObject
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-    QPushButton, QTextEdit, QLabel, QFrame, QInputDialog, 
-    QMessageBox
+    QPushButton, QTextEdit, QLabel, QFrame, QTableWidget, 
+    QHeaderView, QInputDialog, QMessageBox
 )
 
 class PySideABCMeta(type(QObject), abc.ABCMeta):
     pass
 
 class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
+    
     def __init__(self, controller=None) -> None:
         super().__init__()
         self._controller = controller
@@ -35,7 +36,12 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_search_recipes = QPushButton("🏷 Search Recipes")
         self._btn_exit = QPushButton("🚪 Exit Application")
 
-        # Right-side Display Viewport Pane
+        # Right-side Display Component Area (Dynamic Layout)
+        self._display_container = QWidget()
+        self._display_layout = QVBoxLayout(self._display_container)
+        
+        # Dynamic swappable components
+        self._inventory_table = QTableWidget()
         self._log_display = QTextEdit()
 
         self._setup_ui()
@@ -64,8 +70,25 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._sidebar_layout.addStretch()
         self._sidebar_layout.addWidget(self._btn_exit)
         
+
+        self._display_layout.addWidget(self._inventory_table)
+        self._display_layout.addWidget(self._log_display)
+
+        # Hide the grid by default until data populates
+        self._log_display.setReadOnly(True)
+        self._inventory_table.hide()  
+
+        # Configure Table properties
+        self._inventory_table.setColumnCount(4)
+        self._inventory_table.setHorizontalHeaderLabels(["Item ID", "Ingredient Name", "Quantity", "Expiry Date"])
+        self._inventory_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self._inventory_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self._inventory_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._inventory_table.setAlternatingRowColors(True)
+
+        # Assemble Main Layout
         self._main_layout.addWidget(self._sidebar_widget)
-        self._main_layout.addWidget(self._log_display)
+        self._main_layout.addWidget(self._display_container)
         
         self._log_display.setReadOnly(True)
         self._apply_theme_styles()
