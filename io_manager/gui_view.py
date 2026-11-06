@@ -42,11 +42,37 @@ class GuiView(QMainWindow, UserInterface):
             # Pull records safely from the data framework layer
             records = self._controller.data_manager.inventory.records
             self.print_current_inventory(records)
-            
+
     def display_main_menu(self) -> None:
         self.show()
-
+    
     def display_edit_menu(self) -> None: pass
     def display_inventory_search_menu(self) -> None: pass
     def display_recipe_search_menu(self) -> None: pass
+
+    def print_current_inventory(self, extracted_items: list, ids: list = None) -> bool:
+        self._log_display.clear()
+        if not extracted_items:
+            self._log_display.append("The inventory list is currently empty.")
+            return False
+            
+        self._log_display.append(f"{'Ingredient Name':<30} | {'Qty':<10} | {'Expiry Date'}")
+        self._log_display.append("-" * 60)
+        for record in extracted_items:
+            qty = "" if record.get('quantity') is None else record['quantity']
+            self._log_display.append(f"{record.get('food', 'Unknown'):<30} | {str(qty):<10} | {record.get('use-by', 'N/A')}")
+        return True
+
+    def print_recipes(self, recipe_list: list, ids: list = None) -> bool:
+        self._log_display.clear()
+        if not recipe_list:
+            self._log_display.append("There are no recipes saved yet.")
+            return False
+            
+        for x, recipe in enumerate(recipe_list, start=1):
+            self._log_display.append(f"\n[{x}] {recipe.get('name', 'Unknown Recipe')}")
+            self._log_display.append("-" * 40)
+            self._log_display.append(f"Ingredients: {recipe.get('ingredients', '')}")
+            self._log_display.append(f"Instructions: {recipe.get('instructions', '')}\n")
+        return True
 
