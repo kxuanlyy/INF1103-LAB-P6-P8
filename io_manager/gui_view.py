@@ -145,6 +145,13 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             QTableWidget::item:alternate { background-color: #252525; }
             QTableWidget::item:selected { background-color: #27ae60; color: #ffffff; }
             QHeaderView::section { background-color: #2a2a2a; color: #ffffff; padding: 6px; border: 1px solid #2d2d2d; font-weight: bold; font-size: 13px; }
+            QLineEdit { background-color: #252526; color: #ffffff; border: 1px solid #3e3e42; border-radius: 6px; padding: 6px 10px; font-size: 13px; selection-background-color: #27ae60;  }
+            QLineEdit:hover { border: 1px solid #555555; }
+            QLineEdit:focus { border: 1px solid #27ae60; background-color: #1e1e1e; }
+            #SearchPanelFrame, QFrame[frameShape="0"] { background-color: transparent; border: none; padding: 2px; }
+            QFrame > QPushButton { background-color: #27ae60; color: #ffffff; border: 1px solid #219653; border-radius: 6px; font-weight: bold; text-align: center; padding: 6px 12px; }
+            QFrame > QPushButton:hover { background-color: #2ecc71; border: 1px solid #27ae60; }
+            QFrame > QPushButton:pressed { background-color: #1e8449; }            
         
         """       
         self.setStyleSheet(dark_stylesheet)
