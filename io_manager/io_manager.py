@@ -4,7 +4,7 @@ from io_manager.console_view import ConsoleView
 from io_manager.input_validator import InputValidator
 from io_manager.menu_controller import MenuController
 from ai_module.ai_manager import RECIPES_PATH, suggest_recipes
-from logic_manager.logic_manager import evaluate_recipes
+
 
 def main(today=None, client=None):
     import data_manager.data_manager as dm 
