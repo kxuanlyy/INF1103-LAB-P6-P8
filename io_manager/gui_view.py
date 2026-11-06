@@ -4,7 +4,8 @@ from io_manager.user_interface import UserInterface
 from PySide6.QtCore import QObject
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-    QPushButton, QTextEdit, QLabel, QFrame
+    QPushButton, QTextEdit, QLabel, QFrame, QInputDialog, 
+    QMessageBox
 )
 
 class PySideABCMeta(type(QObject), abc.ABCMeta):
@@ -93,9 +94,40 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_exit.clicked.connect(self.close)
 
     def _on_search_inventory_triggered(self) -> None:
-        if self._controller:
-            self._log_display.append("\n[System]: Starting Inventory Search... Please look at your Terminal window for inputs.")
-            self._controller.handle_inventory_search()
+        # captures search strings directly inside a graphical popup dialog box
+        if not self._controller:
+            return
+            
+        search_term, ok = QInputDialog.getText(
+            self, "Search Inventory", "Enter Food Name (or leave blank to skip):"
+        )
+        if not ok:
+            # user cancel
+            return
+
+        id_term, ok_id = QInputDialog.getText(
+            self, "Search Inventory", "Enter exact Item ID number (or leave blank to skip):"
+        )
+        if not ok_id:
+            return
+
+        # sanitize inputs to match expected datatypes
+        food_filter = search_term.strip() if search_term.strip() else None
+        
+        id_filter = None
+        if id_term.strip() and id_term.strip().isdigit():
+            id_filter = int(id_term.strip())
+
+        # trigger data query dynamically
+        results = self._controller.data_manager.inventory.search(food=food_filter, item_id=id_filter)
+        
+        if results:
+            # look up matching record positions inside global database cache array
+            record_ids = self._controller._get_record_ids(self._controller.data_manager.inventory.records, results)
+            self.print_current_inventory(results, record_ids)
+            self._log_display.append(f"\n[Search Success]: Found {len(results)} matching item(s).")
+        else:
+            QMessageBox.information(self, "Search Results", "No inventory items matched that name or ID.")
 
     def _on_edit_inventory_triggered(self) -> None:
         if self._controller:
@@ -103,20 +135,61 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._controller.handle_edit_menu()
 
     def _on_ask_ai_triggered(self) -> None:
-        if self._controller:
-            if not self.print_current_inventory(self._controller.data_manager.inventory.records):
-                return
-            self._log_display.append("\n[System]: Preparing Ask AI item selection... Please look at your Terminal window for inputs.")
-            payload = self._controller.process_item_for_ai(self._controller.data_manager.inventory.records)
-            if payload:
-                self._log_display.append("\n🤖 Asking AI... please wait.")
-                # We can grab today/client from the main system context if initialized
-                last_result, last_error = self._controller.ai_manager.suggest_recipes(payload)
-                if last_error:
-                    self._log_display.append(f"\n[Error] Assessment failed: {last_error}")
-                else:
-                    from ai_module.ai_manager import RECIPES_PATH
-                    self.print_ai_result(last_result, RECIPES_PATH)
+        # selects items via GUI popups and forwards execution context directly to the controller engine
+        if not self._controller:
+            return
+
+        records = self._controller.data_manager.inventory.records
+        if not records:
+            QMessageBox.warning(self, "AI Assistant Blocked", "No inventory data available to process.")
+            return
+
+        # select item via graphical dropdown popup checklist
+        items_list = [f"[{i+1}] {r['food']} (Qty: {r['quantity']})" for i, r in enumerate(records)]
+        selected_item_str, ok = QInputDialog.getItem(
+            self, "Ask AI Assistant", "Select an inventory item to assess:", items_list, 0, False
+        )
+        if not ok or not selected_item_str:
+            return
+
+        # extract selected array index to identify the exact chosen record row entry
+        choice_idx = items_list.index(selected_item_str)
+        selected_record = records[choice_idx]
+
+        # prompt for staff note text observations
+        staff_notes, ok_notes = QInputDialog.getText(
+            self, "Quality Observations", f"Enter structural notes for {selected_record['food']} (or click OK to skip):"
+        )
+        if not ok_notes:
+            return
+        
+        notes = staff_notes.strip() if staff_notes.strip() else "No structural physical defects observed"
+
+        # build data dictionary package structures
+        payload = {
+            "item": selected_record["food"],
+            "category": selected_record["food_category"],
+            "use_by_date": selected_record["use-by"],
+            "file_storage_condition": selected_record["storage condition"],
+            "days_to_expiry": selected_record["days_to_expiry"],
+            "waste_risk_level": selected_record["waste_risk_level"],
+            "allergen_info": selected_record["allergen info"] or "None",
+            "demand_level": selected_record["demand level"].lower(),
+            "quantity": selected_record["quantity"],
+            "staff_observations": notes
+        }
+
+        self._log_display.clear()
+        self._log_display.append("🤖 Contacting AI Model Pipeline Core... Please wait.")
+        sys.modules['PySide6.QtWidgets'].QApplication.processEvents()
+
+        # execute backend model analysis pipelines
+        last_result, last_error = self._controller.ai_manager.suggest_recipes(payload)
+        if last_error:
+            QMessageBox.critical(self, "API Connection Failure", f"Assessment failed: {last_error}")
+        else:
+            from ai_module.ai_manager import RECIPES_PATH
+            self.print_ai_result(last_result, RECIPES_PATH)
 
     def _on_process_recipes_triggered(self) -> None:
         if self._controller:
