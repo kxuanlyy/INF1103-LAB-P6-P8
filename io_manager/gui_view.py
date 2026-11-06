@@ -81,11 +81,14 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         
 
         self._display_layout.addWidget(self._inventory_table)
+        self._display_layout.addWidget(self._item_details_view)
         self._display_layout.addWidget(self._log_display)
 
         # Hide the grid by default until data populates
         self._log_display.setReadOnly(True)
+        self._item_details_view.setReadOnly(True)
         self._inventory_table.hide()  
+        self._item_details_view.hide()
 
         # Configure Table properties
         self._inventory_table.setColumnCount(4)
@@ -94,6 +97,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._inventory_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self._inventory_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._inventory_table.setAlternatingRowColors(True)
+        self._inventory_table.setMaximumHeight(340)
+        self._item_details_view.setFixedHeight(220)
 
         # Assemble Main Layout
         self._main_layout.addWidget(self._sidebar_widget)
