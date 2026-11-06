@@ -4,7 +4,7 @@ from io_manager.user_interface import UserInterface
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-    QPushButton, QTextEdit, QLabel, QFrame, QTableWidget, 
+    QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
     QTableWidgetItem, QHeaderView, QInputDialog, QMessageBox
 )
 
@@ -48,8 +48,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         self._search_panel = QFrame()
         self._search_layout = QHBoxLayout(self._search_panel)
-        self._input_food = QTextEdit()
-        self._input_id = QTextEdit()
+        self._input_food = QLineEdit()
+        self._input_id = QLineEdit()
         self._btn_submit_search = QPushButton("Apply Filter")
 
         self._setup_ui()
@@ -104,8 +104,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._search_layout.setSpacing(10)      
 
         # Lock text boxes to single-row heights
-        self._input_food.setPlaceholderText("Filter by Ingredient Name...")
-        self._input_id.setPlaceholderText("Filter by precise ID...")
+        self._input_food.setPlaceholderText("Filter by Ingredient Name... (or press Enter)")
+        self._input_id.setPlaceholderText("Filter by precise ID... (or press Enter)")
         self._btn_submit_search.setFixedWidth(100)
 
         # Assemble embedded component toolbar elements
@@ -120,6 +120,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         self._search_panel.hide()
 
+        
       
         self._log_display.setReadOnly(True)
         self._apply_theme_styles()
@@ -147,6 +148,9 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
     def _connect_signals(self) -> None:
         self._btn_view_inv.clicked.connect(self._on_inventory_view_triggered)
         self._btn_search_inv.clicked.connect(self._on_search_inventory_triggered)
+        self._input_food.returnPressed.connect(self._execute_embedded_search)
+        self._input_id.returnPressed.connect(self._execute_embedded_search)
+        self._btn_submit_search.clicked.connect(self._execute_embedded_search)
         self._btn_edit_inv.clicked.connect(self._on_edit_inventory_triggered)
         self._btn_ask_ai.clicked.connect(self._on_ask_ai_triggered)
         self._btn_process_recipes.clicked.connect(self._on_process_recipes_triggered)
@@ -170,8 +174,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             return
 
         # xtract values cleanly directly from your desktop interface boxes
-        food_text = self._input_food.toPlainText().strip()
-        id_text = self._input_id.toPlainText().strip()
+        food_text = self._input_food.text().strip()
+        id_text = self._input_id.text().strip()
 
         # sanitize parameter types to pass cleanly to database search modules
         food_filter = food_text if food_text else None
@@ -298,10 +302,10 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._inventory_table.setRowCount(len(extracted_items))
         for row, record in enumerate(extracted_items):
             # Resolve unique index positions safely 
-            item_id = str(row + 1)
+            item_num = str(ids[row]) if ids else str(row + 1)
             qty = "" if record.get('quantity') is None else str(record['quantity'])
             
-            self._inventory_table.setVerticalHeaderItem(row, QTableWidgetItem(item_id))
+            self._inventory_table.setVerticalHeaderItem(row, QTableWidgetItem(item_num))
             self._inventory_table.setItem(row, 0, QTableWidgetItem(record.get('food', 'Unknown')))
             self._inventory_table.setItem(row, 1, QTableWidgetItem(qty))
             self._inventory_table.setItem(row, 2, QTableWidgetItem(record.get('use-by', 'N/A')))
