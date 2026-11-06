@@ -299,6 +299,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._controller.handle_recipe_processor()
 
     def _on_search_recipes_triggered(self) -> None:
+        self._update_active_navigation_state(self._btn_search_inv)
         if self._controller:
             self._log_display.append("\n[System]: Starting Recipe Search... Please look at your Terminal window for inputs.")
             self._controller.handle_recipe_search()
@@ -316,6 +317,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
     def _on_inventory_view_triggered(self) -> None:
         # internal callback to bridge data safely controller
         if self._controller and hasattr(self._controller, "data_manager"):
+            self._update_active_navigation_state(self._btn_view_inv)
             # Pull records safely from the data framework layer
             self._search_panel.hide()
             self._item_details_view.hide()
