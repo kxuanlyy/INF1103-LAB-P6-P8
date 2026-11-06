@@ -82,6 +82,18 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         """       
         self.setStyleSheet(dark_stylesheet)
 
+    def _connect_signals(self) -> None:
+        self._btn_view_inv.clicked.connect(self._on_inventory_view_triggered)
+        self._btn_view_recipes.clicked.connect(self._on_recipes_view_triggered)
+        self._btn_exit.clicked.connect(self.close)
+
+    def _on_recipes_view_triggered(self) -> None:
+        if self._controller and hasattr(self._controller, "data_manager"):
+            self._controller.data_manager.load()
+            records = self._controller.data_manager.recipes.records
+            self.print_recipes(records)
+
+
     def set_controller(self, controller) -> None:
        # safely mutates internal controller reference
         self._controller = controller
