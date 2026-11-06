@@ -14,7 +14,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from ai_module import ai_manager as ai
-import io_manager
+import io_manager.io_manager as io_manager
 
 
 TODAY = date(2026, 10, 1)

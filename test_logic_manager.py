@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 import csv
-import logic_manager
+import logic_manager.logic_manager as logic_manager
 
 
 # Self-contained terminal styling for the test runner

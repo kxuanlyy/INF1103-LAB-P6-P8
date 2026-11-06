@@ -3,7 +3,7 @@
 This module keeps recipe matching separate from data loading and saving.
 """
 
-from data_manager import load_json_files, save_results
+from data_manager.data_manager import load_json_files, save_results
 
 
 class IngredientMatcher:
