@@ -28,7 +28,7 @@ RESPONSE_ATTEMPTS = 2
 INVALID_INPUT_ERROR = "Invalid assessment input. Check the stock records, inventory IDs, and date."
 INVALID_RESPONSE_ERROR = "AI returned an invalid response. Staff review and reassessment required."
 SERVICE_ERROR = "AI service unavailable. Check configuration or connection and retry."
-RECIPES_PATH = Path(__file__).resolve().parent.parent / "recipes.json"
+RECIPES_PATH = Path(__file__).resolve().parent.parent / "data_manager" / "recipes.json"
 SAVE_ERROR = "Could not save recipes.json. Check folder permissions and retry."
 
 RECIPE_SCHEMA = {
