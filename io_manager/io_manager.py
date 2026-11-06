@@ -8,9 +8,7 @@ from typing import Any, Dict, List, Optional
 
 # local project imports
 from ai_module.ai_manager import RECIPES_PATH, suggest_recipes
-from logic_manager.reciperesultservice import RecipeResultService
-from logic_manager.recipeevaluator import RecipeEvaluator
-from logic_manager.ingredientmatcher import IngredientMatcher
+
 
 
 class UserInterface(ABC):
