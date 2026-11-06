@@ -84,15 +84,54 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
     def _connect_signals(self) -> None:
         self._btn_view_inv.clicked.connect(self._on_inventory_view_triggered)
+        self._btn_search_inv.clicked.connect(self._on_search_inventory_triggered)
+        self._btn_edit_inv.clicked.connect(self._on_edit_inventory_triggered)
+        self._btn_ask_ai.clicked.connect(self._on_ask_ai_triggered)
+        self._btn_process_recipes.clicked.connect(self._on_process_recipes_triggered)
         self._btn_view_recipes.clicked.connect(self._on_recipes_view_triggered)
+        self._btn_search_recipes.clicked.connect(self._on_search_recipes_triggered)
         self._btn_exit.clicked.connect(self.close)
+
+    def _on_search_inventory_triggered(self) -> None:
+        if self._controller:
+            self._log_display.append("\n[System]: Starting Inventory Search... Please look at your Terminal window for inputs.")
+            self._controller.handle_inventory_search()
+
+    def _on_edit_inventory_triggered(self) -> None:
+        if self._controller:
+            self._log_display.append("\n[System]: Starting Inventory Editor... Please look at your Terminal window for inputs.")
+            self._controller.handle_edit_menu()
+
+    def _on_ask_ai_triggered(self) -> None:
+        if self._controller:
+            if not self.print_current_inventory(self._controller.data_manager.inventory.records):
+                return
+            self._log_display.append("\n[System]: Preparing Ask AI item selection... Please look at your Terminal window for inputs.")
+            payload = self._controller.process_item_for_ai(self._controller.data_manager.inventory.records)
+            if payload:
+                self._log_display.append("\n🤖 Asking AI... please wait.")
+                # We can grab today/client from the main system context if initialized
+                last_result, last_error = self._controller.ai_manager.suggest_recipes(payload)
+                if last_error:
+                    self._log_display.append(f"\n[Error] Assessment failed: {last_error}")
+                else:
+                    from ai_module.ai_manager import RECIPES_PATH
+                    self.print_ai_result(last_result, RECIPES_PATH)
+
+    def _on_process_recipes_triggered(self) -> None:
+        if self._controller:
+            self._controller.handle_recipe_processor()
+
+    def _on_search_recipes_triggered(self) -> None:
+        if self._controller:
+            self._log_display.append("\n[System]: Starting Recipe Search... Please look at your Terminal window for inputs.")
+            self._controller.handle_recipe_search()
 
     def _on_recipes_view_triggered(self) -> None:
         if self._controller and hasattr(self._controller, "data_manager"):
             self._controller.data_manager.load()
             records = self._controller.data_manager.recipes.records
             self.print_recipes(records)
-
 
     def set_controller(self, controller) -> None:
        # safely mutates internal controller reference
