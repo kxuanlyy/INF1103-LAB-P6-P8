@@ -2,7 +2,8 @@ import sys
 import abc
 from datetime import datetime
 from io_manager.user_interface import UserInterface
-from PySide6.QtCore import QObject, Qt
+from ai_module.ai_manager import RECIPES_PATH
+from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
@@ -12,6 +13,18 @@ from PySide6.QtWidgets import (
 
 class PySideABCMeta(type(QObject), abc.ABCMeta):
     pass
+
+class VisualAIWorker(QObject):
+# isolates backend cloud API connection onto a background room ensuring that the gui framework remains perfectly fluid
+    finished = Signal()
+
+    def __init__(self, controller) -> None:
+        super().__init__()
+        self.controller = controller
+
+    def run(self) -> None:
+        self.controller.handle_ask_ai()
+        self.finished.emit()
 
 class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
     
@@ -121,6 +134,24 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_execute_delete.setObjectName("ExecuteDeleteButton")
         self._btn_execute_delete.setFixedWidth(80)
 
+        # Option 4: AI
+        self._frame_ai_input = QFrame()
+        self._frame_ai_input.setObjectName("AddFrame")
+        self._layout_ai_input = QVBoxLayout(self._frame_ai_input)
+        
+        self._lbl_ai_id_title = QLabel("Enter item id:")
+        self._input_ai_id = QLineEdit()
+        self._input_ai_id.setPlaceholderText("e.g. 1")
+        self._input_ai_id.setFixedWidth(120)
+        
+        self._lbl_ai_notes_title = QLabel("Enter quality observations (leave blank):")
+        self._input_ai_notes = QLineEdit()
+        self._input_ai_notes.setPlaceholderText("No structural physical defects observed")
+        
+        self._btn_execute_ai = QPushButton("Enquire")
+        self._btn_execute_ai.setObjectName("ApplyFilterButton")
+        self._btn_execute_ai.setFixedWidth(100)
+
 
         # Configure button properties to latch their pressed visual states
         self._btn_view_inv.setCheckable(True)
@@ -177,6 +208,15 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._edit_scroll_area.setWidget(self._edit_panel)
         self._edit_scroll_area.setFrameShape(QFrame.NoFrame)
         self._display_layout.addWidget(self._edit_scroll_area)
+
+        self._layout_ai_input.addWidget(self._lbl_ai_id_title)
+        self._layout_ai_input.addWidget(self._input_ai_id)
+        self._layout_ai_input.addWidget(self._lbl_ai_notes_title)
+        self._layout_ai_input.addWidget(self._input_ai_notes)
+        self._layout_ai_input.addWidget(self._btn_execute_ai, 0, Qt.AlignRight)
+        
+        self._display_layout.addWidget(self._frame_ai_input)
+        self._frame_ai_input.hide()
 
         self._edit_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._edit_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -595,6 +635,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._input_edit_id.returnPressed.connect(self._on_edit_id_modified)
         self._btn_execute_update.clicked.connect(self._execute_gui_update)
         self._btn_execute_delete.clicked.connect(self._execute_gui_delete)
+        self._btn_execute_ai.clicked.connect(self._execute_threaded_ai_analysis)
 
     def _show_success_message(self, title: str, text: str) -> None:
         # displays a custom themed alert dialog box for success messages
@@ -658,6 +699,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             # Pull records safely from the data framework layer
             self._search_panel.hide()
             self._edit_scroll_area.hide()
+            self._frame_ai_input.hide()
             self._item_details_view.clear()
             self._item_details_view.hide()
             self._inventory_table.setMaximumHeight(16777215)
@@ -673,6 +715,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._log_display.hide()
         self._item_details_view.hide()
         self._edit_scroll_area.hide()
+        self._frame_ai_input.hide()
         self._inventory_table.show()
         self._search_panel.show()
 
@@ -796,12 +839,13 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._inventory_table.setItem(row, 2, date_item)
         return True
 
-    # Option 3:Edit Inventory Items
+    # Option 3: Edit Inventory Items
     def _on_edit_inventory_triggered(self) -> None:
         self._update_active_navigation_state(self._btn_edit_inv)
         self._search_panel.hide()
         self._item_details_view.hide()
         self._log_display.hide()
+        self._frame_ai_input.hide()
         
         # Keep inventory table visible
         self._inventory_table.setFixedHeight(230)
@@ -964,39 +1008,52 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         else:
             self._show_error_message("Validation Error", "Item ID out of active inventory limits.")
 
-    # NOT DONE YET :/
+    # Option 4: AI Assistant
     def _on_ask_ai_triggered(self) -> None:
         # selects items via GUI popups and forwards execution context directly to the controller engine
         if not self._controller:
             return
 
-        records = self._controller.data_manager.inventory.records
-        if not records:
-            QMessageBox.warning(self, "AI Assistant Blocked", "No inventory data available to process.")
-            return
+        self._update_active_navigation_state(self._btn_ask_ai)
+        self._search_panel.hide()
+        self._item_details_view.hide()
+        self._log_display.hide()
+        self._edit_scroll_area.hide()
 
-        # select item via graphical dropdown popup checklist
-        items_list = [f"[{i+1}] {r['food']} (Qty: {r['quantity']})" for i, r in enumerate(records)]
-        selected_item_str, ok = QInputDialog.getItem(
-            self, "Ask AI Assistant", "Select an inventory item to assess:", items_list, 0, False
-        )
-        if not ok or not selected_item_str:
-            return
-
-        # extract selected array index to identify the exact chosen record row entry
-        choice_idx = items_list.index(selected_item_str)
-        selected_record = records[choice_idx]
-
-        # prompt for staff note text observations
-        staff_notes, ok_notes = QInputDialog.getText(
-            self, "Quality Observations", f"Enter structural notes for {selected_record['food']} (or click OK to skip):"
-        )
-        if not ok_notes:
-            return
+        self._inventory_table.setFixedHeight(340)
+        self._inventory_table.show()
         
-        notes = staff_notes.strip() if staff_notes.strip() else "No structural physical defects observed"
+        self._input_ai_id.clear()
+        self._input_ai_notes.clear()
+        self._frame_ai_input.show()
+        self._btn_execute_ai.setEnabled(True)
 
-        # build data dictionary package structures
+        if hasattr(self._controller, "data_manager"):
+            self._controller.data_manager.load()
+            self.print_current_inventory(self._controller.data_manager.inventory.records)
+
+    def _execute_threaded_ai_analysis(self) -> None:
+        # extracts input fields n initiates the non-blocking worker thread
+        if not self._controller:
+            return
+
+        id_text = self._input_ai_id.text().strip()
+        if not id_text or not id_text.isdigit():
+            self._show_error_message("Validation Error", "Please provide a valid numeric item ID from the list.")
+            return
+
+        idx = int(id_text) - 1
+        records = self._controller.data_manager.inventory.records
+        
+        if not (0 <= idx < len(records)):
+            self._show_error_message("Validation Error", f"Item ID '{id_text}' is out of tracking limits.")
+            return
+
+        selected_record = records[idx]
+        notes_text = self._input_ai_notes.text().strip()
+        notes = notes_text if notes_text else "No structural physical defects observed"
+
+        # Build structural data dictionary bundle parameters to send down to engine
         payload = {
             "item": selected_record["food"],
             "category": selected_record["food_category"],
@@ -1010,27 +1067,97 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             "staff_observations": notes
         }
 
+        # Clear views out and swap viewport into log tracking screen
+        self._frame_ai_input.hide()
+        self._inventory_table.hide()
+        
         self._log_display.clear()
-        self._log_display.append("🤖 Contacting AI Model Pipeline Core... Please wait.")
-        sys.modules['PySide6.QtWidgets'].QApplication.processEvents()
+        self._log_display.show()
+        self._log_display.append(f"🤖 Connecting to AI Cloud Engine for '{selected_record['food']}'...\nPlease wait.")
 
-        # execute backend model analysis pipelines
-        last_result, last_error = self._controller.ai_manager.suggest_recipes(payload)
-        if last_error:
-            QMessageBox.critical(self, "API Connection Failure", f"Assessment failed: {last_error}")
+        # Prevent dual trigger execution loops
+        for btn in self._nav_buttons:
+            btn.setEnabled(False)
+
+        # Isolated worker class utilizing custom signals to fix cross-thread layout crashes
+        class ThreadedAIWorker(QObject):
+            finished = Signal(object, object)
+            def __init__(self, ai_manager, data_payload) -> None:
+                super().__init__()
+                self.ai_manager = ai_manager
+                self.payload = data_payload
+            def run(self) -> None:
+                res, err = self.ai_manager.suggest_recipes(self.payload)
+                self.finished.emit(res, err)
+
+        self._ai_thread = QThread()
+        self._ai_worker = ThreadedAIWorker(self._controller.ai_manager, payload)
+        self._ai_worker.moveToThread(self._ai_thread)
+
+        self._ai_thread.started.connect(self._ai_worker.run)
+        self._ai_worker.finished.connect(self._ai_thread.quit)
+        self._ai_worker.finished.connect(self._ai_worker.deleteLater)
+        self._ai_thread.destroyed.connect(self._ai_thread.deleteLater)
+
+        def completion_callback(last_result, last_error):
+            for btn in self._nav_buttons:
+                btn.setEnabled(True)
+            self._update_active_navigation_state(self._btn_ask_ai)
+            
+            if last_error:
+                QMessageBox.critical(self, "API Connection Failure", f"Assessment failed: {last_error}")
+            else:
+                self.print_ai_result(last_result, RECIPES_PATH)
+                self._controller.data_manager.load() # Sync local file storage cache
+
+        self._ai_worker.finished.connect(completion_callback)
+        self._ai_thread.start()
+
+    # Option 7: Search Recipes
+    def _on_search_recipes_triggered(self) -> None:
+        if not self._controller:
+            return
+
+        self._update_active_navigation_state(self._btn_search_recipes)
+        self._search_panel.hide()
+        self._edit_scroll_area.hide()
+        self._inventory_table.hide()
+        self._item_details_view.hide()
+
+        self._log_display.clear()
+        self._log_display.show()
+
+        # Capture text ingredient parameters through graphical modal prompt field
+        search_query, ok = QInputDialog.getText(
+            self, "Search Recipes", "Enter ingredient tags to filter by (comma-separated, or leave blank):"
+        )
+        if not ok:
+            self._log_display.append("Search operation canceled.")
+            return
+
+        self._controller.data_manager.load()
+        
+        # Construct parameters matching DataManager specifications
+        ingredients_list = [i.strip() for i in search_query.split(",") if i.strip()] if search_query.strip() else None
+        
+        filters = {
+            "ingredient": ingredients_list,
+            "item_id": None
+        }
+        
+        results = self._controller.data_manager.recipes.search(**filters)
+        
+        if results:
+            record_ids = self._controller._get_record_ids(self._controller.data_manager.recipes.records, results)
+            self.print_recipes(results, record_ids)
         else:
-            from ai_module.ai_manager import RECIPES_PATH
-            self.print_ai_result(last_result, RECIPES_PATH)
+            self._log_display.append("⚠️ No matching recipe entries containing those ingredients could be found.")
 
+
+    # NOT DONE YET :/
     def _on_process_recipes_triggered(self) -> None:
         if self._controller:
             self._controller.handle_recipe_processor()
-
-    def _on_search_recipes_triggered(self) -> None:
-        self._update_active_navigation_state(self._btn_search_recipes)
-        if self._controller:
-            self._log_display.append("\n[System]: Starting Recipe Search... Please look at your Terminal window for inputs.")
-            self._controller.handle_recipe_search()
 
     def _on_recipes_view_triggered(self) -> None:
         if self._controller and hasattr(self._controller, "data_manager"):
