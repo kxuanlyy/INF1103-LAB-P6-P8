@@ -1023,8 +1023,49 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._inventory_table.setFixedHeight(340)
         self._inventory_table.show()
         
-        self._input_ai_id.clear()
-        self._input_ai_notes.clear()
+        if self._frame_ai_input.layout() is not None:
+            old_layout = self._frame_ai_input.layout()
+            while old_layout.count():
+                child = old_layout.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+            QWidget().setLayout(old_layout)
+
+        master_layout = QVBoxLayout(self._frame_ai_input)
+        master_layout.setContentsMargins(16, 14, 16, 16)
+        master_layout.setSpacing(10)
+
+        # Main Descriptive Title Header Label block
+        title_lbl = QLabel("🤖 Run AI Waste Risk & Recipe Assessment Module Engine")
+        title_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 4px;")
+        master_layout.addWidget(title_lbl)
+
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(12)
+
+        self._input_ai_id = QLineEdit()
+        self._input_ai_id.setPlaceholderText("Enter Item ID (e.g. 36)...")
+        self._input_ai_id.setFixedWidth(180)
+
+        self._input_ai_notes = QLineEdit()
+        self._input_ai_notes.setPlaceholderText("Enter quality observations / structural notes (optional)...")
+
+        self._btn_execute_ai = QPushButton("Enquire")
+        self._btn_execute_ai.setObjectName("ApplyFilterButton")
+        self._btn_execute_ai.setFixedWidth(100)
+        self._btn_execute_ai.clicked.connect(self._execute_threaded_ai_analysis)
+
+        # Assemble inline components horizontally onto the row layout matrix
+        row_layout.addWidget(self._input_ai_id)
+        row_layout.addWidget(self._input_ai_notes)
+        row_layout.addWidget(self._btn_execute_ai)
+
+        master_layout.addWidget(row_widget)
+        master_layout.addStretch()
+
+        
         self._frame_ai_input.show()
         self._btn_execute_ai.setEnabled(True)
 
