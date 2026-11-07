@@ -518,7 +518,9 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
                 color: #ffffff !important;
                 font-size: 13px;
                 font-weight: normal;
-                min-width: 240px;
+                min-width: 320px;
+                max-width: 500px;
+                qproperty-wordWrap: true;
             }
             QMessageBox QPushButton {
                 background-color: #2a2a2a;
@@ -559,18 +561,21 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
     def _show_success_message(self, title: str, text: str) -> None:
         # displays a custom themed alert dialog box for success messages
         msg = QMessageBox(self)
-        msg.setWindowTitle(title)
-        
+        msg.setWindowTitle(title)        
         msg.setIcon(QMessageBox.Icon.NoIcon)
 
+        content_label = QLabel()
+        content_label.setWordWrap(True)
+
         formatted_rich_text = (
-            f"<div style='vertical-align: middle; display: flex; align-items: center; gap: 12px;'>"
-            f"  <span style='color: #27ae60; font-size: 26px; font-weight: bold; font-family: Arial;'>✔</span>"
-            f"  <span style='color: #ffffff; font-size: 13px; font-weight: normal; margin-left: 10px;'>{text}</span>"
+            f"<div style='vertical-align: middle; display: flex; align-items: center; word-break: break-all;'>"
+            f"  <span style='color: #27ae60; font-size: 24px; font-weight: bold; font-family: Arial;'>✔</span>"
+            f"  <span style='color: #ffffff; font-size: 13px; font-weight: normal; margin-left: 14px;'>{text}</span>"
             f"</div>"
         )
-        msg.setText(formatted_rich_text)        
-        
+
+        content_label.setText(formatted_rich_text)       
+        msg.layout().addWidget(content_label, 0, 1)
         # Apply an inline green border highlight style just to this popup's icon layout box
         msg.setStyleSheet("QMessageBox { border-left: 5px solid #27ae60; }")
         msg.exec()
@@ -579,17 +584,19 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         # displays a custom themed alert dialog box for error messages
         msg = QMessageBox(self)
         msg.setWindowTitle(title)
-        
         msg.setIcon(QMessageBox.Icon.NoIcon)
+
+        content_label = QLabel()
+        content_label.setWordWrap(True)
         
         formatted_rich_text = (
-            f"<div style='vertical-align: middle; display: flex; align-items: center; gap: 12px;'> "
-            f"  <span style='color: #e74c3c; font-size: 26px; font-weight: bold; font-family: Arial;'>✘</span>"
-            f"  <span style='color: #ffffff; font-size: 13px; font-weight: normal; margin-left: 10px;'>{text}</span>"
+            f"<div style='vertical-align: middle; display: flex; align-items: center; word-break: break-all;'> "
+            f"  <span style='color: #e74c3c; font-size: 24px; font-weight: bold; font-family: Arial;'>✘</span>"
+            f"  <span style='color: #ffffff; font-size: 13px; font-weight: normal; margin-left: 14px;'>{text}</span>"
             f"</div>"
         )
-        msg.setText(formatted_rich_text)
-        
+        content_label.setText(formatted_rich_text)
+        msg.layout().addWidget(content_label, 0, 1)
         msg.setStyleSheet("QMessageBox { border-left: 5px solid #e74c3c; }")
         msg.exec()
 
