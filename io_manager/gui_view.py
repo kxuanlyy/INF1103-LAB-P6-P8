@@ -486,7 +486,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_execute_delete.clicked.connect(self._execute_gui_delete)
 
     def _show_success_message(self, title: str, text: str) -> None:
-        # displays a custom themed alert dialog box
+        # displays a custom themed alert dialog box for success messages
         msg = QMessageBox(self)
         msg.setWindowTitle(title)
         
@@ -504,6 +504,25 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         msg.setStyleSheet("QMessageBox { border-left: 5px solid #27ae60; }")
         msg.exec()
 
+    def _show_error_message(self, title: str, text: str) -> None:
+        # displays a custom themed alert dialog box for error messages
+        msg = QMessageBox(self)
+        msg.setWindowTitle(title)
+        
+        msg.setIcon(QMessageBox.Icon.NoIcon)
+        
+        formatted_rich_text = (
+            f"<div style='vertical-align: middle; display: flex; align-items: center; gap: 12px;'> "
+            f"  <span style='color: #e74c3c; font-size: 26px; font-weight: bold; font-family: Arial;'>✘</span>"
+            f"  <span style='color: #ffffff; font-size: 13px; font-weight: normal; margin-left: 10px;'>{text}</span>"
+            f"</div>"
+        )
+        msg.setText(formatted_rich_text)
+        
+        msg.setStyleSheet("QMessageBox { border-left: 5px solid #e74c3c; }")
+        msg.exec()
+
+   
     def _update_active_navigation_state(self, active_button: QPushButton) -> None:
         # unchecks all navigation shortcuts n locks the green background on the active menu choice
         for btn in self._nav_buttons:
@@ -692,21 +711,21 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         date_str = self._add_date.text().strip()
         
         if not name or not qty_str or not date_str:
-            QMessageBox.warning(self, "Validation Error", "Name, Quantity, and Expiry Date fields are mandatory.")
+            self._show_error_message("Validation Error", "Name, Quantity, and Expiry Date fields are mandatory.")
             return
         if not qty_str.isdigit():
-            QMessageBox.warning(self, "Validation Error", "Stock Quantity must be a valid whole number.")
+            self._show_error_message("Validation Error", "Stock Quantity must be a valid whole number.")
             return
 
         try:
             parsed_dt = datetime.strptime(date_str, "%d/%m/%Y")
             today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
             if parsed_dt < today:
-                QMessageBox.warning(self, "Validation Error", "The expiration date cannot be in the past.")
+                self._show_error_message("Validation Error", "The expiration date cannot be in the past.")
                 return
             calculated_days = max(0, (parsed_dt - datetime.today()).days + 1)
         except ValueError:
-            QMessageBox.warning(self, "Validation Error", "Invalid date format. Use DD/MM/YYYY.")
+            self._show_error_message("Validation Error", "Invalid date format. Use DD/MM/YYYY.")
             return
 
         allergens = self._add_allergens.text().strip()
@@ -771,14 +790,18 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         date_str = self._edit_date.text().strip()
 
         if not name or not qty_str or not date_str:
-            QMessageBox.warning(self, "Validation Error", "All primary edit lines must be populated.")
+            self._show_error_message("Validation Error", "All primary edit lines must be populated.")
+            return
+
+        if not qty_str.isdigit():
+            self._show_error_message("Validation Error", "Stock Quantity must be a valid whole number.")
             return
 
         try:
             parsed_dt = datetime.strptime(date_str, "%d/%m/%Y")
             calculated_days = max(0, (parsed_dt - datetime.today()).days + 1)
         except ValueError:
-            QMessageBox.warning(self, "Validation Error", "Invalid date format. Use DD/MM/YYYY.")
+            self._show_error_message("Validation Error", "Invalid date format. Use DD/MM/YYYY.")
             return
 
         details = {
@@ -809,7 +832,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             
         id_str = self._input_delete_id.text().strip()
         if not id_str or not id_str.isdigit():
-            QMessageBox.warning(self, "Validation Error", "Please provide a valid item ID to remove.")
+            self._show_error_message("Validation Error", "Please provide a valid item ID to remove.")
             return
 
         idx = int(id_str) - 1
@@ -825,7 +848,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             except Exception as e:
                 QMessageBox.critical(self, "System Failure", f"Deletion failed: {e}")
         else:
-            QMessageBox.warning(self, "Validation Error", "Item ID out of active inventory limits.")
+            self._show_error_message("Validation Error", "Item ID out of active inventory limits.")
 
     # NOT DONE YET :/
     def _on_ask_ai_triggered(self) -> None:
