@@ -1051,13 +1051,26 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         row_layout.addWidget(self._btn_execute_ai)
         master_layout.addWidget(self._ai_inputs_row)
 
+        status_row = QWidget()
+        status_row_layout = QHBoxLayout(status_row)
+        status_row_layout.setContentsMargins(0, 0, 0, 0)
+        
         self._lbl_ai_loading = QLabel("")
-        self._lbl_ai_loading.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self._lbl_ai_loading.setStyleSheet("font-family: 'Consolas', monospace; font-size: 13px; color: #2ecc71; padding-top: 10px;")
-        master_layout.addWidget(self._lbl_ai_loading)
+        self._lbl_ai_loading.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self._lbl_ai_loading.setStyleSheet("font-family: 'Consolas', monospace; font-size: 13px; color: #2ecc71;")
+        status_row_layout.addWidget(self._lbl_ai_loading)
+        
+        self._btn_more_details = QPushButton("📋 More Details")
+        self._btn_more_details.setObjectName("ApplyFilterButton")
+        self._btn_more_details.setFixedWidth(145)
+        self._btn_more_details.hide()
+        status_row_layout.addWidget(self._btn_more_details)
+        
+        master_layout.addWidget(status_row)
 
         self._log_display.setParent(self._frame_ai_input)
-        self._log_display.setFixedHeight(220)
+        self._log_display.setMinimumHeight(240)
+        self._log_display.setMaximumHeight(16777215)
         master_layout.addWidget(self._log_display)
         self._log_display.hide()
         self._log_display.clear()
@@ -1108,11 +1121,18 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         self._inventory_table.show()
         self._ai_inputs_row.hide()
+        self._btn_more_details.hide()
+
+        self._log_display.setParent(self._frame_ai_input)
+        self._frame_ai_input.layout().addWidget(self._log_display)
+        self._log_display.setMinimumHeight(300)
+        self._log_display.setMaximumHeight(390)
+
         self._lbl_ai_loading.setText(f"⚙️ Processing AI Assessment for '{selected_record['food']}'...\nPlease wait.")
 
         self._log_display.show()
         self._log_display.clear()
-        self._log_display.setFixedHeight(240)
+        self._log_display.setFixedHeight(300)
         self.repaint()
 
         try:
@@ -1125,22 +1145,40 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
                 self._ai_inputs_row.show()
                 return
 
-            # Clear old elements out of your rightviewport display stack as requested
-            self._inventory_table.show()
-            self._item_details_view.hide()
-            self._log_display.show()
-            self._log_display.clear()
+            brief_html = f"""
+            <div style='font-family: Arial; font-size: 13px; color: #e0e0e0; line-height: 1.5;'>
+                <div style='background-color: #27ae60; color: #ffffff; padding: 8px; font-weight: bold; border-radius: 4px; text-align: center; margin-bottom: 10px;'>
+                    🤖 AI DISCOVERY ASSESSMENT MATRIX SAVED 🤖
+                </div>
+                <p><b>✅ Successfully processed item:</b> <span style='color: #2ecc71;'>{selected_record['food'].upper()}</span></p>
+                <p><b>⭐ Waste Risk Checked:</b> {selected_record['waste_risk_level']}</p>
+                <div style='margin-top: 10px; margin-bottom: 10px;'>
+                    <b style='color: #ffffff;'>📝 Suggested Recipes:</b><br/>
+            """
             
-            # Print your clean, concise layout card summary note
-            self._log_display.append("=============================================================")
-            self._log_display.append("         🤖 AI DISCOVERY ASSESSMENT MATRIX SAVED 🤖         ")
-            self._log_display.append("=============================================================")
-            self._log_display.append(f"\n✅ Successfully processed item: {selected_record['food'].upper()}")
-            self._log_display.append(f"⭐ Waste Risk Checked: {selected_record['waste_risk_level']}")
-            self._log_display.append("\n👉 [ Recipes sent to 'Process Recipes' menu option! ]")
-            self._log_display.append("=============================================================")
+            if res and isinstance(res, dict) and res.get('recipes'):
+                for number, recipe in enumerate(res.get('recipes', []), start=1):
+                    brief_html += f"<span style='margin-left: 15px; color: #3498db;'>• [{number}] {recipe.get('name', 'Unknown Recipe').upper()}</span><br/>"
+                
+                self._btn_more_details.setProperty("latest_res", res)
+
+                if not hasattr(self._btn_more_details, '_is_connected'):
+                    self._btn_more_details.clicked.connect(lambda: self.print_ai_result(self._btn_more_details.property("latest_res"), RECIPES_PATH))
+                    self._btn_more_details._is_connected = True
+
+                self._btn_more_details.show()
+            else:
+                brief_html += "<span style='margin-left: 15px; color: #e74c3c;'>None returned.</span><br/>"
+
+            brief_html += """
+                </div>
+                <div style='border-top: 1px solid #333333; padding-top: 8px; color: #f39c12; font-weight: bold;'>
+                    👉 [ Recipes sent to 'Process Recipes' menu option! ]
+                </div>
+            </div>
+            """
+            self._log_display.setHtml(brief_html)
             
-            # Reload persistent data files cleanly and wrap up
             self._controller.data_manager.load()  
             self._lbl_ai_loading.setText("✅ AI Analysis complete!")
 
@@ -1149,6 +1187,79 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._lbl_ai_loading.setText("⚠️ Execution aborted due to system errors.")
             self._ai_inputs_row.show()
 
+    def print_ai_result(self, result: dict, recipes_path: str) -> None:
+        # renders complete terminal profile recipes across full-screen view spaces
+        if hasattr(self, '_btn_more_details'):
+            self._btn_more_details.hide()
+
+        self._log_display.setParent(self._display_container)
+        self._display_layout.addWidget(self._log_display)
+        
+        self._log_display.setMaximumHeight(16777215)
+        self._log_display.setMinimumHeight(650)
+
+        self._inventory_table.hide()
+        self._item_details_view.hide()
+        self._log_display.show()
+        self._log_display.clear()
+
+        html_content = f"""
+        <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
+            
+            <!-- Master Summary Header Cards -->
+            <div style='background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 6px; padding: 15px; margin-bottom: 15px;'>
+                <h2 style='color: #ffffff; margin-top: 0px; font-size: 16px; border-bottom: 2px solid #27ae60; padding-bottom: 5px;'>
+                    📊 AI ANALYSIS METRICS: {result['stock_item']['name'].upper()}
+                </h2>
+                <table width='100%' cellpadding='4' style='color: #e0e0e0;'>
+                    <tr><td><b>📦 Item Name:</b> {result['stock_item']['name']}</td><td><b>📂 Category:</b> {result['category']}</td></tr>
+                    <tr><td><b>📈 Demand Level:</b> {result['demand_level'].capitalize()}</td><td><b>🚨 Spoilage Risk:</b> {result['spoilage_risk'].capitalize()}</td></tr>
+                    <tr><td><b>⭐ Suitability Score:</b> <span style='color: #f1c40f; font-weight: bold;'>{result['suitability_score']}/100</span></td><td><b>🎯 Confidence:</b> {result['confidence']:.0%}</td></tr>
+                </table>
+                <p style='margin-top: 10px; background-color: #252526; padding: 8px; border-radius: 4px; font-style: italic; color: #bdc3c7;'>
+                    <b>💡 Assessment Insight:</b> {result['reason']}
+                </p>
+            </div>
+            
+            <h3 style='color: #ffffff; font-size: 14px; margin-top: 20px; margin-bottom: 10px;'>🍳 RECOMMENDED DISHES BREAKDOWN</h3>
+        """
+
+        for number, recipe in enumerate(result.get('recipes', []), start=1):
+            html_content += f"""
+            <!-- Individual Recipe Cards Display Panels Grid -->
+            <div style='background-color: #1e1e1e; border: 1px solid #3a3a3a; border-left: 5px solid #3498db; border-radius: 6px; padding: 15px; margin-bottom: 15px;'>
+                <h4 style='color: #3498db; margin-top: 0px; font-size: 14px; text-transform: uppercase;'>
+                    🍴 Recipe {number}: {recipe['name']}
+                </h4>
+                <p><b>🛒 Ingredients Checklist:</b><br/>
+                <span style='color: #bdc3c7;'>{", ".join(recipe.get('ingredients', []))}</span></p>
+                
+                <p style='margin-bottom: 5px;'><b>📝 Preparation Steps:</b></p>
+                <div style='color: #ecf0f1; margin-left: 10px;'>
+            """
+            
+            instructions = recipe.get('instructions', [])
+            if isinstance(instructions, list):
+                for step_number, instruction in enumerate(instructions, start=1):
+                    html_content += f"<div style='margin-bottom: 4px;'><b>{step_number}.</b> {instruction}</div>"
+            else:
+                html_content += f"<div>{instructions}</div>"
+
+            html_content += """
+                </div>
+            </div>
+            """
+
+        html_content += f"""
+            <div style='background-color: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 4px; text-align: center; margin-top: 15px; font-family: monospace;'>
+                📁 Data logs committed securely to: {recipes_path}
+            </div>
+        </div>
+        """
+        
+        self._log_display.setHtml(html_content)
+
+    # Option 5: Process Recipes
     def _on_process_recipes_triggered(self) -> None:
         if not self._controller:
             return
@@ -1278,20 +1389,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._log_display.append(f"Ingredients: {match.get('ingredients')}")
         self._log_display.append(f"Instructions: {match.get('instructions')}")
 
-    def print_ai_result(self, result: dict, recipes_path: str) -> None:
-        self._inventory_table.hide()
-        self._item_details_view.hide()
-        self._log_display.show()
-        self._log_display.clear()
-        self._log_display.append(f"=== AI ASSESSMENT FOR: {result['stock_item']['name'].upper()} ===")
-        self._log_display.append(f"Reason: {result.get('reason')}")
-        self._log_display.append(f"Suitability Score: {result.get('suitability_score')}/100")
-        self._log_display.append(f"Confidence: {result.get('confidence'):.0%}")
-        
-        for number, recipe in enumerate(result.get('recipes', []), start=1):
-            self._log_display.append(f"\n  [Recipe {number}] {recipe.get('name').upper()}")
-            self._log_display.append(f"  Ingredients: {', '.join(recipe.get('ingredients', []))}")
-        self._log_display.append(f"\nRecipes saved to: {recipes_path}")
 
     def print_recipe_processor_header(self) -> None:
         self._inventory_table.hide()
