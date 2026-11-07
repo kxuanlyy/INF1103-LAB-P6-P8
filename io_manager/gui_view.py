@@ -107,17 +107,19 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_execute_update.setObjectName("ApplyFilterButton")
         self._btn_execute_update.setFixedWidth(80)
 
-         # Delete item (b)
+        # Delete item (b)
         self._frame_delete = QFrame()
         self._frame_delete.setObjectName("DeleteFrame")
         self._layout_delete = QHBoxLayout(self._frame_delete)
         self._lbl_delete_title = QLabel("Delete:")
+
         self._input_delete_id = QLineEdit(); 
         self._input_delete_id.setPlaceholderText("e.g. 1")
         self._input_delete_id.setFixedWidth(120)
+
         self._btn_execute_delete = QPushButton("Delete")
-        self._btn_execute_delete.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
-        self._btn_execute_delete.setFixedWidth(100)
+        self._btn_execute_delete.setObjectName("ExecuteDeleteButton")
+        self._btn_execute_delete.setFixedWidth(80)
 
 
         # Configure button properties to latch their pressed visual states
@@ -286,12 +288,20 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         edit_grid_layout.addWidget(QLabel("Allergen Info:"), 3, 2)
         edit_grid_layout.addWidget(self._edit_allergens, 3, 3)
 
-        self._edit_form_widget.setLayout(self._edit_form_layout)
+        QWidget().setLayout(self._edit_form_layout) 
+        self._edit_form_layout = QVBoxLayout(self._edit_form_widget)
+        self._edit_form_layout.setContentsMargins(0, 0, 0, 0)
         self._edit_form_layout.addWidget(edit_grid_widget)
+
         self._edit_form_layout.addWidget(self._btn_execute_update, 0, Qt.AlignRight)
         self._layout_edit.addWidget(self._edit_form_widget)
 
         # Delete Section Layout
+        self._layout_delete.setAlignment(Qt.AlignVCenter)
+        self._layout_delete.setContentsMargins(10, 5, 10, 5)
+        self._layout_delete.setSpacing(10)
+        self._lbl_delete_title.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
         self._layout_delete.addWidget(self._lbl_delete_title)
         self._layout_delete.addWidget(self._input_delete_id)
         self._layout_delete.addStretch()
@@ -356,10 +366,10 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
                 margin-bottom: 4px;
             }
             QFrame#AddFrame, QFrame#EditFrame, QFrame#DeleteFrame {
-                background-color: #1a1a1a;        /* Slightly darker cards for layered depth */
-                border: 1px solid #333333;        /* A more pronounced border outline */
-                padding: 16px;                    /* Extra internal breathing room padding */
-                margin-top: 8px;                  /* Clear spacing between each stacked card */
+                background-color: #1a1a1a;
+                border: 1px solid #333333;
+                padding: 16px;
+                margin-top: 8px;
                 border-radius: 10px;
             }
             #SearchPanelFrame, QFrame[frameShape="0"] { 
@@ -389,8 +399,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
                 color: #ffffff; 
                 font-size: 13px; 
                 font-weight: bold; 
-                padding: 0px;
-                margin: 0px;
+                padding: 0px !important;
+                margin: 0px !important;
             }
             QTextEdit { 
                 background-color: #1e1e1e; 
@@ -460,6 +470,32 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
                 background-color: #2ecc71; 
                 border: 1px solid #219653; 
                 color: #ffffff; 
+            }
+            QPushButton#ApplyFilterButton { 
+                background-color: #27ae60 !important; 
+                color: #ffffff !important; 
+                border: 1px solid #219653 !important; 
+                border-radius: 6px; 
+                font-weight: bold; 
+                text-align: center; 
+                padding: 6px 16px; 
+                min-width: 80px;
+            }
+            QPushButton#ExecuteDeleteButton {
+                background-color: #c0392b !important;
+                color: #ffffff !important;
+                border: 1px solid #a93226 !important;
+                border-radius: 6px;
+                font-weight: bold;
+                text-align: center !important;
+                padding: 6px 16px;
+            }
+            QPushButton#ExecuteDeleteButton:hover {
+                background-color: #e74c3c !important;
+                border: 1px solid #c0392b !important;
+            }
+            QPushButton#ExecuteDeleteButton:pressed {
+                background-color: #922b21 !important;
             }
 
             /* database table */
@@ -535,6 +571,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
                 background-color: #353535;
                 color: #ffffff;
             }
+
+
         """       
         self.setStyleSheet(dark_stylesheet)
 
