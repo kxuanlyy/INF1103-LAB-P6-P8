@@ -101,6 +101,17 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_execute_update.setObjectName("ApplyFilterButton")
         self._btn_execute_update.setFixedWidth(80)
 
+         # Delete item (b)
+        self._frame_delete = QFrame()
+        self._layout_delete = QHBoxLayout(self._frame_delete)
+        self._lbl_delete_title = QLabel("Delete:")
+        self._input_delete_id = QLineEdit(); self._input_delete_id.setPlaceholderText("Delete item id:")
+        self._input_delete_id.setFixedWidth(120)
+        self._btn_execute_delete = QPushButton("Delete")
+        self._btn_execute_delete.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
+        self._btn_execute_delete.setFixedWidth(100)
+
+
         # Configure button properties to latch their pressed visual states
         self._btn_view_inv.setCheckable(True)
         self._btn_search_inv.setCheckable(True)
@@ -231,9 +242,16 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._edit_form_layout.addWidget(self._btn_execute_update, 0, Qt.AlignRight)
         self._layout_edit.addWidget(self._edit_form_widget)
 
+        # Delete Section Layout
+        self._layout_delete.addWidget(self._lbl_delete_title)
+        self._layout_delete.addWidget(self._input_delete_id)
+        self._layout_delete.addStretch()
+        self._layout_delete.addWidget(self._btn_execute_delete)
+
         # Assemble inside the master edit layout
         self._edit_panel_layout.addWidget(self._frame_add)
         self._edit_panel_layout.addWidget(self._frame_edit)
+        self._edit_panel_layout.addWidget(self._frame_delete)
         self._edit_panel_layout.addStretch()
         self._edit_form_widget.hide()  # Invisible until valid entry
 
@@ -241,7 +259,10 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._inventory_table.setColumnCount(3)
         self._inventory_table.setHorizontalHeaderLabels(["Ingredient Name", "Quantity", "Expiry Date"])
         self._inventory_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self._inventory_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        header = self._inventory_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents) 
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.Stretch)
         self._inventory_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._inventory_table.setAlternatingRowColors(True)
         self._item_details_view.setFixedHeight(220)
@@ -437,6 +458,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._inventory_table.verticalHeader().sectionClicked.connect(self._on_header_section_clicked)
         self._input_edit_id.textChanged.connect(self._on_edit_id_modified)
         self._btn_execute_update.clicked.connect(self._execute_gui_update)
+        self._btn_execute_delete.clicked.connect(self._execute_gui_delete)
 
     def _update_active_navigation_state(self, active_button: QPushButton) -> None:
         # unchecks all navigation shortcuts n locks the green background on the active menu choice
@@ -457,8 +479,10 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._update_active_navigation_state(self._btn_view_inv)
             # Pull records safely from the data framework layer
             self._search_panel.hide()
+            self._edit_panel.hide() 
             self._item_details_view.clear()
             self._item_details_view.hide()
+            self._inventory_table.show()
             self._inventory_table.setMaximumHeight(16777215)
             records = self._controller.data_manager.inventory.records
             self.print_current_inventory(records)
@@ -468,6 +492,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._update_active_navigation_state(self._btn_search_inv)
         # displays the embedded search text bars row layout inside the dashboard
         self._log_display.hide()
+        self._item_details_view.hide()
+        self._edit_panel.hide()
         self._inventory_table.show()
         self._search_panel.show()
 
@@ -564,8 +590,11 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         self._inventory_table.setColumnCount(3)
         self._inventory_table.setHorizontalHeaderLabels(["Ingredient Name", "Quantity", "Expiry Date"])
-        self._inventory_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
 
+        header = self._inventory_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)            
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents) 
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  
 
         self._inventory_table.setRowCount(len(extracted_items))
         for row, record in enumerate(extracted_items):
@@ -574,9 +603,18 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             qty = "" if record.get('quantity') is None else str(record['quantity'])
             
             self._inventory_table.setVerticalHeaderItem(row, QTableWidgetItem(item_num))
-            self._inventory_table.setItem(row, 0, QTableWidgetItem(record.get('food', 'Unknown')))
-            self._inventory_table.setItem(row, 1, QTableWidgetItem(qty))
-            self._inventory_table.setItem(row, 2, QTableWidgetItem(record.get('use-by', 'N/A')))
+            # Ingrediant Name
+            name_item = QTableWidgetItem(record.get('food', 'Unknown'))
+            name_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self._inventory_table.setItem(row, 0, name_item)
+            # Quantity
+            qty_item = QTableWidgetItem(qty)
+            qty_item.setTextAlignment(Qt.AlignCenter)
+            self._inventory_table.setItem(row, 1, qty_item)
+            # Expiry Date
+            date_item = QTableWidgetItem(record.get('use-by', 'N/A'))
+            date_item.setTextAlignment(Qt.AlignCenter)
+            self._inventory_table.setItem(row, 2, date_item)
         return True
 
 
@@ -592,7 +630,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._inventory_table.setMaximumHeight(260)
         self._edit_panel.show()
         
-        if self._controller:
+        if self._controller and hasattr(self._controller, "data_manager"):
+            self._controller.data_manager.load()
             self.print_current_inventory(self._controller.data_manager.inventory.records)
         self._update_active_navigation_state(self._btn_edit_inv)
         self._search_panel.hide()
@@ -607,7 +646,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self.print_current_inventory(self._controller.data_manager.inventory.records)
 
     def _execute_gui_add(self) -> None:
-        """Extracts and validates input variables when adding new stock items."""
+        # Extracts and validates input variables when adding new stock items
         if not self._controller: return
         name = self._add_name.text().strip()
         qty_str = self._add_qty.text().strip()
@@ -654,7 +693,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             QMessageBox.critical(self, "System Failure", f"Could not sync file records: {e}")
 
     def _on_edit_id_modified(self, text: str) -> None:
-        """Fires when the ID changes. Pre-populates fields as transparent reminders."""
+       # fires when the ID changes. Pre-populates fields as transparent reminders
         text = text.strip()
         if not text or not text.isdigit() or not self._controller:
             self._lbl_edit_title.setText("Edit:")
@@ -666,7 +705,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         
         if 0 <= idx < len(records):
             target = records[idx]
-            self._lbl_edit_title.setText(f"Edit <{target.get('food', '')}>:")
+            self._lbl_edit_title.setText(f"Edit {target.get('food', '')}:")
             
             # Map database record fields directly into inputs
             self._edit_name.setText(target.get('food', ''))
@@ -684,7 +723,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._edit_form_widget.hide()
 
     def _execute_gui_update(self) -> None:
-        """Validates entry modifications and commits changes to files."""
+       # validates entry modifications and commits changes to files
         if not self._controller: return
         idx = int(self._input_edit_id.text().strip()) - 1
         
@@ -724,6 +763,31 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         except Exception as e:
             QMessageBox.critical(self, "System Failure", f"Could not write configuration updates: {e}")
 
+    def _execute_gui_delete(self) -> None:
+        # removes the record by its row tracking index index
+        if not self._controller: 
+            return
+            
+        id_str = self._input_delete_id.text().strip()
+        if not id_str or not id_str.isdigit():
+            QMessageBox.warning(self, "Validation Error", "Please provide a valid item ID to remove.")
+            return
+
+        idx = int(id_str) - 1
+        records = self._controller.data_manager.inventory.records
+        
+        if 0 <= idx < len(records):
+            removed_name = records[idx]['food']
+            try:
+                self._controller.data_manager.inventory.delete(idx)
+                QMessageBox.information(self, "Success", f"[SUCCESS] Removed '{removed_name}' from the inventory.")
+                self._input_delete_id.clear()
+                self.print_current_inventory(self._controller.data_manager.inventory.records)
+            except Exception as e:
+                QMessageBox.critical(self, "System Failure", f"Deletion failed: {e}")
+        else:
+            QMessageBox.warning(self, "Validation Error", "Item ID out of active inventory limits.")
+    
     def _on_ask_ai_triggered(self) -> None:
         # selects items via GUI popups and forwards execution context directly to the controller engine
         if not self._controller:
