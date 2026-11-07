@@ -2,8 +2,12 @@ import sys
 import io
 import abc
 from datetime import datetime
+import csv
+import os
 from io_manager.user_interface import UserInterface
+from data_manager.data_manager import results_store
 from ai_module.ai_manager import RECIPES_PATH
+from logic_manager.reciperesultservice import RecipeResultService
 from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
@@ -1283,22 +1287,186 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._log_display.clear()
         
         # fire up the backend recipe processor engine matrix
-        self.print_recipe_processor_header()
+        self._log_display.setHtml(
+            "<div style='font-family: Arial, sans-serif; font-size: 13px; color: #bdc3c7; padding: 10px;'>"
+            "⚙️ <b>Initializing Recipe Validation Engine...</b><br/>⏳ Processing recipes... please wait...</div>"
+        )
+        self.repaint()
         try:
-            # invokes MenuController.handle_recipe_processor() which routes to logic evaluator rules
-            self._controller.handle_recipe_processor()
+            service = RecipeResultService()
+            report = service.create_results()
+            if isinstance(report, dict) and "error" in report:
+                self._show_error_message("Data Processing Issue", report["error"])
+                return
+
+            self._controller.data_manager.load()
+            folder = results_store.get_folder_path()
+            r_file = str(folder / "recipe_results.csv")
+            rej_file = str(folder / "rejected.txt")
+
+            table_html = """
+            <table width='100%' cellpadding='8' cellspacing='0' style='border-collapse: collapse; font-family: Arial, sans-serif; font-size: 13px; margin-top: 15px; color: #f5f5f5;'>
+                <thead>
+                    <tr style='background-color: #2a2a2a;'>
+                        <th width='20%' style='border: 1px solid #2d2d2d; text-align: left; padding: 10px; color: #ffffff; font-weight: bold;'>Status</th>
+                        <th width='35%' style='border: 1px solid #2d2d2d; text-align: left; padding: 10px; color: #ffffff; font-weight: bold;'>Recipe Name</th>
+                        <th width='45%' style='border: 1px solid #2d2d2d; text-align: left; padding: 10px; color: #ffffff; font-weight: bold;'>Evaluation Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+            """
+            row_idx = 0
+
+            if os.path.exists(r_file):
+                with open(r_file, mode='r', encoding='utf-8') as f:
+                    reader = csv.reader(f)
+                    next(reader, None)  # Skip CSV header line if present
+                    for row in reader:
+                        if row:
+                            recipe_name = row[0].strip().title()
+                            bg_color = "#252525" if row_idx % 2 == 0 else "#1e1e1e"
+                            table_html += f"""
+                            <tr style='background-color: {bg_color}; font-family: Arial, sans-serif;'>
+                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #2ecc71; font-weight: bold;'>[✓] ACCEPTED</span></td>
+                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><b>{recipe_name}</b></td>
+                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #a0a0a0;'>Passed business rules verification (Matched template)</span></td>
+                            </tr>
+                            """
+                            row_idx += 1
+
+            if os.path.exists(rej_file):
+                with open(rej_file, mode='r', encoding='utf-8') as f:
+                    for line in f:
+                        clean_line = line.strip()
+                        if not clean_line or "Total rejected" in clean_line:
+                            continue
+                            
+                        recipe_name = "Unknown Rejected Recipe"
+                        reason = "Ingredients do not match valid accepted criteria"
+                        
+                        if " | Reason: " in clean_line:
+                            parts = clean_line.split(" | Reason: ", 1)
+                            raw_name = parts[0].replace("Rejected recipe:", "").replace("Rejected recipe :", "")
+                            recipe_name = raw_name.strip().title()
+                            reason = parts[1].strip()
+                        else:
+                            clean_line = clean_line.replace("Rejected recipe:", "").strip()
+                            recipe_name = clean_line.title()
+
+                        bg_color = "#252525" if row_idx % 2 == 0 else "#1e1e1e"
+                        table_html += f"""
+                        <tr style='background-color: {bg_color}; font-family: Arial, sans-serif;'>
+                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #e74c3c; font-weight: bold;'>[✗] REJECTED</span></td>
+                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><b>{recipe_name}</b></td>
+                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #f1c40f;'>⚠️ {reason}</span></td>
+                        </tr>
+                        """
+                        row_idx += 1
+
+            if row_idx == 0:
+                table_html += """
+                <tr style='font-family: Arial, sans-serif;'>
+                    <td colspan='3' style='border: 1px solid #2d2d2d; text-align: center; padding: 15px; color: #bdc3c7;'>
+                        ⚠️ No validation data records found. Run an evaluation via 'Ask AI Assistant' first!
+                    </td>
+                </tr>
+                """
+
+            table_html += "</tbody></table>"
+
+            full_html = f"""
+            <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
+                <div style='background-color: #2c3e50; color: #ffffff; padding: 12px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 16px; margin-bottom: 15px;'>
+                    ⚙️ RECIPE VALIDATION PROCESSOR ACTIVE
+                </div>
+                
+                {table_html}
+                
+                <div style='margin-top: 25px; background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 6px; padding: 15px;'>
+                    <h3 style='color: #ffffff; margin-top: 0px; margin-bottom: 12px; font-size: 16px; border-bottom: 2px solid #2ecc71; padding-bottom: 6px;'>
+                        📊 Summary Report
+                    </h3>
+                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #2ecc71; font-weight: bold;'>🟢 Accepted Recipes :</span> <b>{report.get("accepted", 0)}</b></p>
+                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #e74c3c; font-weight: bold;'>🔴 Rejected Recipes :</span> <b>{report.get("rejected", 0)}</b></p>
+                    
+                    <div style='margin-top: 14px; padding-top: 10px; border-top: 1px dashed #3a3a3a; font-size: 12px; color: #bdc3c7;'>
+                        <p style='margin: 0 0 6px 0; color: #ffffff; font-weight: bold;'>📂 Saved Outputs Location:</p>
+                        <p style='margin: 4px 0; font-family: monospace; color: #2ecc71; word-break: break-all;'><b>├── Accepted:</b> {r_file}</p>
+                        <p style='margin: 4px 0; font-family: monospace; color: #e74c3c; word-break: break-all;'><b>└── Rejections:</b> {rej_file}</p>
+                    </div>
+                </div>
+            </div>
+            """
+            self._log_display.setHtml(full_html)
             
-            # Show a friendly desktop completion alert box
             self._show_success_message(
                 "Processor Update", 
-                "Recipe files evaluated against system matrices successfully!"
-            )
+                f"Validation finished!\nAccepted: {report.get('accepted', 0)} | Rejected: {report.get('rejected', 0)}"
+            )           
         except Exception as e:
             self._show_error_message("System Error", f"Could not complete validation pass: {str(e)}")
 
+    def print_recipe_processor_header(self) -> None:
+        self._inventory_table.hide()
+        self._item_details_view.hide()
+        self._log_display.show()
+        self._log_display.clear()
 
+        header_html = """
+        <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
+            <div style='background-color: #2c3e50; color: #ffffff; padding: 10px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 14px;'>
+                ⚙️ RECIPE VALIDATION PROCESSOR ACTIVE
+            </div>
+            <p style='color: #bdc3c7; font-size: 13px; font-weight: bold; margin-top: 15px; margin-bottom: 15px;'>
+                ⏳ Processing recipes... please wait...
+            </p>
+            <div style='border-top: 1px solid #333333; padding-top: 5px; margin-bottom: 10px;'></div>
+        </div>
+        """
+        self._log_display.insertHtml(header_html)
+        self.repaint()
 
+    def print_recipe_processor_step(self, accept_flag: bool, name: str, reason: str = None) -> None:
+        if accept_flag:
+            step_html = f"""
+            <div style='font-family: Arial, sans-serif; margin-bottom: 8px; font-size: 13px;'>
+                <span style='color: #2ecc71; font-weight: bold;'>[✓] ACCEPTED:</span> 
+                <b style='color: #ffffff;'>{name}</b> <span style='color: #7f8c8d; font-size: 11px;'>(Matched template)</span>
+            </div>
+            """
+        else:
+            step_html = f"""
+            <div style='font-family: Arial, sans-serif; margin-bottom: 8px; font-size: 13px;'>
+                <span style='color: #e74c3c; font-weight: bold;'>[✗] REJECTED:</span> 
+                <b style='color: #ffffff;'>{name}</b><br/>
+                <span style='color: #f1c40f; margin-left: 20px; font-size: 12px;'>└── ⚠️ Reason: {reason if reason else 'Does not match valid accepted criteria'}</span>
+            </div>
+            """
+        self._log_display.insertHtml(step_html)
+        self.repaint()
 
+    def print_recipe_processor_summary(self, accept_len: int, reject_len: int, r_file: str, rej_file: str) -> None:
+        summary_html = f"""
+        <div style='font-family: Arial, sans-serif; font-size: 13px; margin-top: 25px; color: #f5f5f5;'>
+            <div style='border-top: 1px solid #333333; margin-top: 15px; margin-bottom: 15px;'></div>
+            
+            <div style='background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 6px; padding: 15px;'>
+                <h3 style='color: #ffffff; margin-top: 0px; margin-bottom: 12px; font-size: 14px; border-bottom: 2px solid #2ecc71; padding-bottom: 4px;'>
+                    📊 SUMMARY REPORT
+                </h3>
+                <p style='margin: 6px 0; font-size: 13px;'><span style='color: #2ecc71; font-weight: bold;'>🟢 Accepted Recipes :</span> <b>{accept_len}</b></p>
+                <p style='margin: 6px 0; font-size: 13px;'><span style='color: #e74c3c; font-weight: bold;'>🔴 Rejected Recipes :</span> <b>{reject_len}</b></p>
+                
+                <div style='margin-top: 14px; padding-top: 10px; border-top: 1px dashed #3a3a3a; font-size: 12px; color: #bdc3c7;'>
+                    <p style='margin: 0 0 6px 0; color: #ffffff; font-weight: bold;'>📂 Saved Outputs Location:</p>
+                    <p style='margin: 4px 0; font-family: monospace; color: #2ecc71; word-break: break-all;'><b>├── Accepted:</b> {r_file}</p>
+                    <p style='margin: 4px 0; font-family: monospace; color: #e74c3c; word-break: break-all;'><b>└── Rejections:</b> {rej_file}</p>
+                </div>
+            </div>
+        </div>
+        """
+        self._log_display.insertHtml(summary_html)
+ 
     # Option 7: Search Recipes
     def _on_search_recipes_triggered(self) -> None:
         if not self._controller:
@@ -1339,8 +1507,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         else:
             self._log_display.append("⚠️ No matching recipe entries containing those ingredients could be found.")
 
-
-    # NOT DONE YET :/
+   # NOT DONE YET :/
 
 
     def _on_recipes_view_triggered(self) -> None:
@@ -1390,19 +1557,5 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._log_display.append(f"Instructions: {match.get('instructions')}")
 
 
-    def print_recipe_processor_header(self) -> None:
-        self._inventory_table.hide()
-        self._item_details_view.hide()
-        self._log_display.show()
-        self._log_display.clear()
-        self._log_display.append("\n🍳 RECIPE VALIDATION PROCESSOR ACTIVE 🍳\n")
 
-    def print_recipe_processor_step(self, accept_flag: bool, name: str, reason: str = None) -> None:
-        status = "✔ ACCEPTED" if accept_flag else f"✖ REJECTED -> {reason}"
-        self._log_display.append(f"  {status}: {name}")
 
-    def print_recipe_processor_summary(self, accept_len: int, reject_len: int, r_file: str, rej_file: str) -> None:
-        self._log_display.append("\n=== SUMMARY REPORT ===")
-        self._log_display.append(f"Accepted Recipes: {accept_len}")
-        self._log_display.append(f"Rejected Recipes: {reject_len}")
-        self._log_display.append(f"Saved: {r_file} | Rejections logged: {rej_file}")
