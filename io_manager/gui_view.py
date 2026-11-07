@@ -1149,6 +1149,45 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._lbl_ai_loading.setText("⚠️ Execution aborted due to system errors.")
             self._ai_inputs_row.show()
 
+    def _on_process_recipes_triggered(self) -> None:
+        if not self._controller:
+            return
+        # Update active menu button and hide all other split-screen panels
+        self._update_active_navigation_state(self._btn_process_recipes)
+        self._search_panel.hide()
+        self._edit_scroll_area.hide()
+        self._frame_ai_input.hide()
+        self._item_details_view.hide()
+        self._inventory_table.hide()
+
+        # reset text display box back onto the main screen container layer
+        self._log_display.setParent(self._display_container)
+        self._display_layout.addWidget(self._log_display)
+        
+        # clear any fixed heights so log display takes the maximum full-screen height space
+        self._log_display.setMaximumHeight(16777215)
+        self._log_display.setMinimumHeight(0)
+        
+        self._log_display.show()
+        self._log_display.clear()
+        
+        # fire up the backend recipe processor engine matrix
+        self.print_recipe_processor_header()
+        try:
+            # invokes MenuController.handle_recipe_processor() which routes to logic evaluator rules
+            self._controller.handle_recipe_processor()
+            
+            # Show a friendly desktop completion alert box
+            self._show_success_message(
+                "Processor Update", 
+                "Recipe files evaluated against system matrices successfully!"
+            )
+        except Exception as e:
+            self._show_error_message("System Error", f"Could not complete validation pass: {str(e)}")
+
+
+
+
     # Option 7: Search Recipes
     def _on_search_recipes_triggered(self) -> None:
         if not self._controller:
@@ -1191,9 +1230,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
 
     # NOT DONE YET :/
-    def _on_process_recipes_triggered(self) -> None:
-        if self._controller:
-            self._controller.handle_recipe_processor()
+
 
     def _on_recipes_view_triggered(self) -> None:
         if self._controller and hasattr(self._controller, "data_manager"):
