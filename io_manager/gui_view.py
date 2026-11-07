@@ -1,4 +1,5 @@
 import sys
+import io
 import abc
 from datetime import datetime
 from io_manager.user_interface import UserInterface
@@ -13,18 +14,6 @@ from PySide6.QtWidgets import (
 
 class PySideABCMeta(type(QObject), abc.ABCMeta):
     pass
-
-class VisualAIWorker(QObject):
-# isolates backend cloud API connection onto a background room ensuring that the gui framework remains perfectly fluid
-    finished = Signal()
-
-    def __init__(self, controller) -> None:
-        super().__init__()
-        self.controller = controller
-
-    def run(self) -> None:
-        self.controller.handle_ask_ai()
-        self.finished.emit()
 
 class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
     
@@ -213,7 +202,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._layout_ai_input.addWidget(self._input_ai_id)
         self._layout_ai_input.addWidget(self._lbl_ai_notes_title)
         self._layout_ai_input.addWidget(self._input_ai_notes)
-        self._layout_ai_input.addWidget(self._btn_execute_ai, 0, Qt.AlignRight)
+        self._layout_ai_input.addWidget(self._btn_execute_ai, alignment=Qt.AlignRight)
         
         self._display_layout.addWidget(self._frame_ai_input)
         self._frame_ai_input.hide()
@@ -1112,45 +1101,43 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         }
 
         self._ai_inputs_row.hide()
-        self._lbl_ai_loading.setText(f"🤖 Connecting to AI Cloud Engine for '{selected_record['food']}'...\nPlease wait.")
+        self._lbl_ai_loading.setText(f"🤖 Processing AI Assessment for '{selected_record['food']}'...\nPlease wait.")
 
-        # Prevent dual trigger execution loops
-        for btn in self._nav_buttons:
-            btn.setEnabled(False)
+        self.repaint()
 
-        # Isolated worker class utilizing custom signals to fix cross-thread layout crashes
-        class ThreadedAIWorker(QObject):
-            finished = Signal(object, object)
-            def __init__(self, ai_manager, data_payload) -> None:
-                super().__init__()
-                self.ai_manager = ai_manager
-                self.payload = data_payload
-            def run(self) -> None:
-                res, err = self.ai_manager.suggest_recipes(self.payload)
-                self.finished.emit(res, err)
-
-        self._ai_thread = QThread()
-        self._ai_worker = ThreadedAIWorker(self._controller.ai_manager, payload)
-        self._ai_worker.moveToThread(self._ai_thread)
-
-        self._ai_thread.started.connect(self._ai_worker.run)
-        self._ai_worker.finished.connect(self._ai_thread.quit)
-        self._ai_worker.finished.connect(self._ai_worker.deleteLater)
-        self._ai_thread.destroyed.connect(self._ai_thread.deleteLater)
-
-        def completion_callback(last_result, last_error):
-            for btn in self._nav_buttons:
-                btn.setEnabled(True)
-            self._update_active_navigation_state(self._btn_ask_ai)
+        try:
+            # Run the AI manager engine cleanly on the main loop where QTextDocument belongs
+            res, err = self._controller.ai_manager.suggest_recipes(payload)
             
-            if last_error:
-                QMessageBox.critical(self, "API Connection Failure", f"Assessment failed: {last_error}")
-            else:
-                self.print_ai_result(last_result, RECIPES_PATH)
-                self._controller.data_manager.load() # Sync local file storage cache
+            if err:
+                QMessageBox.critical(self, "API Connection Failure", f"Assessment failed: {err}")
+                self._lbl_ai_loading.setText("⚠️ Failed to load AI data.")
+                self._ai_inputs_row.show()
+                return
 
-        self._ai_worker.finished.connect(completion_callback)
-        self._ai_thread.start()
+            # Clear old elements out of your rightviewport display stack as requested
+            self._inventory_table.hide()
+            self._item_details_view.hide()
+            self._log_display.show()
+            self._log_display.clear()
+            
+            # Print your clean, concise layout card summary note
+            self._log_display.append("=============================================================")
+            self._log_display.append("         🤖 AI DISCOVERY ASSESSMENT MATRIX SAVED 🤖         ")
+            self._log_display.append("=============================================================")
+            self._log_display.append(f"\n✅ Successfully processed item: {selected_record['food'].upper()}")
+            self._log_display.append(f"⭐ Waste Risk Checked: {selected_record['waste_risk_level']}")
+            self._log_display.append("\n👉 [ Recipes sent to 'Process Recipes' menu option! ]")
+            self._log_display.append("=============================================================")
+            
+            # Reload persistent data files cleanly and wrap up
+            self._controller.data_manager.load()  
+            self._lbl_ai_loading.setText("✅ AI Analysis complete!")
+
+        except Exception as e:
+            self._show_error_message("System Error", f"AI exploration pipeline encountered a problem: {str(e)}")
+            self._lbl_ai_loading.setText("⚠️ Execution aborted due to system errors.")
+            self._ai_inputs_row.show()
 
     # Option 7: Search Recipes
     def _on_search_recipes_triggered(self) -> None:
@@ -1207,7 +1194,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
     def display_edit_menu(self) -> None: pass
     def display_inventory_search_menu(self) -> None: pass
     def display_recipe_search_menu(self) -> None: pass
-
 
     def print_recipes(self, recipe_list: list, ids: list = None) -> bool:
         self._inventory_table.hide()
