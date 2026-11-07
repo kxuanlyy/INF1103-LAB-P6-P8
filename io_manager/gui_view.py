@@ -1006,7 +1006,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._update_active_navigation_state(self._btn_ask_ai)
         self._search_panel.hide()
         self._item_details_view.hide()
-        self._log_display.hide()
         self._edit_scroll_area.hide()
 
         self._inventory_table.setFixedHeight(340)
@@ -1016,7 +1015,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             old_layout = self._frame_ai_input.layout()
             while old_layout.count():
                 child = old_layout.takeAt(0)
-                if child.widget():
+                if child.widget() and child.widget() != self._log_display:
                     child.widget().deleteLater()
             QWidget().setLayout(old_layout)
 
@@ -1056,6 +1055,13 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._lbl_ai_loading.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self._lbl_ai_loading.setStyleSheet("font-family: 'Consolas', monospace; font-size: 13px; color: #2ecc71; padding-top: 10px;")
         master_layout.addWidget(self._lbl_ai_loading)
+
+        self._log_display.setParent(self._frame_ai_input)
+        self._log_display.setFixedHeight(220)
+        master_layout.addWidget(self._log_display)
+        self._log_display.hide()
+        self._log_display.clear()
+
         master_layout.addStretch()
 
         self._frame_ai_input.show()
@@ -1100,9 +1106,13 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             "staff_observations": notes
         }
 
+        self._inventory_table.show()
         self._ai_inputs_row.hide()
-        self._lbl_ai_loading.setText(f"🤖 Processing AI Assessment for '{selected_record['food']}'...\nPlease wait.")
+        self._lbl_ai_loading.setText(f"⚙️ Processing AI Assessment for '{selected_record['food']}'...\nPlease wait.")
 
+        self._log_display.show()
+        self._log_display.clear()
+        self._log_display.setFixedHeight(240)
         self.repaint()
 
         try:
@@ -1116,7 +1126,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
                 return
 
             # Clear old elements out of your rightviewport display stack as requested
-            self._inventory_table.hide()
+            self._inventory_table.show()
             self._item_details_view.hide()
             self._log_display.show()
             self._log_display.clear()
