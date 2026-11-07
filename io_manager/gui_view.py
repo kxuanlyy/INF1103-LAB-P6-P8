@@ -1,11 +1,12 @@
 import sys
 import abc
+from datetime import datetime
 from io_manager.user_interface import UserInterface
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
-    QTableWidgetItem, QHeaderView, QInputDialog, QMessageBox
+    QTableWidgetItem, QHeaderView, QInputDialog, QMessageBox, QComboBox
 )
 
 class PySideABCMeta(type(QObject), abc.ABCMeta):
@@ -53,6 +54,52 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_submit_search = QPushButton("Apply Filter")
         self._btn_submit_search.setObjectName("ApplyFilterButton")
 
+        # Edit Operations
+        self._edit_panel = QWidget()
+        self._edit_panel_layout = QVBoxLayout(self._edit_panel)        
+
+        # Add Item (a)
+        self._frame_add = QFrame()
+        self._layout_add = QVBoxLayout(self._frame_add)
+        self._lbl_add_title = QLabel("Add Item:")
+        
+        self._layout_add_inputs = QHBoxLayout()
+        self._add_name = QLineEdit(); self._add_name.setPlaceholderText("Ingredient Name")
+        self._add_qty = QLineEdit(); self._add_qty.setPlaceholderText("Stock Qty")
+        self._add_date = QLineEdit(); self._add_date.setPlaceholderText("Use-By (DD/MM/YYYY)")
+        self._add_category = QComboBox(); self._add_category.addItems(["Dairy", "Meat & Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"])
+        self._add_storage = QComboBox(); self._add_storage.addItems(["Chilled", "Frozen", "Ambient"])
+        self._add_risk = QComboBox(); self._add_risk.addItems(["Low", "Medium", "High"])
+        self._add_demand = QComboBox(); self._add_demand.addItems(["Low", "Medium", "High"])
+        self._add_allergens = QLineEdit(); self._add_allergens.setPlaceholderText("Allergens")
+        
+        self._btn_execute_add = QPushButton("Add")
+        self._btn_execute_add.setObjectName("ApplyFilterButton")
+        self._btn_execute_add.setFixedWidth(80)
+
+        # Edit item (c)
+        self._frame_edit = QFrame()
+        self._layout_edit = QVBoxLayout(self._frame_edit)
+        self._lbl_edit_title = QLabel("Edit:")
+        self._input_edit_id = QLineEdit(); self._input_edit_id.setPlaceholderText("Edit item id:")
+        self._input_edit_id.setFixedWidth(120)
+        
+        # Inner Dynamic Fields for Edit Sub-Form
+        self._edit_form_widget = QWidget()
+        self._edit_form_layout = QHBoxLayout(self._edit_form_widget)
+        self._edit_name = QLineEdit(); self._edit_name.setPlaceholderText("Ingredient Name")
+        self._edit_qty = QLineEdit(); self._edit_qty.setPlaceholderText("Stock Qty")
+        self._edit_date = QLineEdit(); self._edit_date.setPlaceholderText("Use-By (DD/MM/YYYY)")
+        self._edit_category = QComboBox(); self._edit_category.addItems(["Dairy", "Meat & Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"])
+        self._edit_storage = QComboBox(); self._edit_storage.addItems(["Chilled", "Frozen", "Ambient"])
+        self._edit_risk = QComboBox(); self._edit_risk.addItems(["Low", "Medium", "High"])
+        self._edit_demand = QComboBox(); self._edit_demand.addItems(["Low", "Medium", "High"])
+        self._edit_allergens = QLineEdit(); self._edit_allergens.setPlaceholderText("Allergens")
+         
+        self._btn_execute_update = QPushButton("Edit")
+        self._btn_execute_update.setObjectName("ApplyFilterButton")
+        self._btn_execute_update.setFixedWidth(80)
+
         # Configure button properties to latch their pressed visual states
         self._btn_view_inv.setCheckable(True)
         self._btn_search_inv.setCheckable(True)
@@ -99,12 +146,47 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._display_layout.addWidget(self._inventory_table)
         self._display_layout.addWidget(self._item_details_view)
         self._display_layout.addWidget(self._log_display)
+        self._display_layout.addWidget(self._edit_panel)
 
         # Hide the grid by default until data populates
         self._log_display.setReadOnly(True)
         self._item_details_view.setReadOnly(True)
         self._inventory_table.hide()  
         self._item_details_view.hide()
+        self._edit_panel.hide()
+
+        # Add Section Layout
+        self._layout_add.addWidget(self._lbl_add_title)
+        self._layout_add_inputs.addWidget(self._add_name)
+        self._layout_add_inputs.addWidget(self._add_category)
+        self._layout_add_inputs.addWidget(self._add_date)
+        self._layout_add_inputs.addWidget(self._add_storage)
+        self._layout_add_inputs.addWidget(self._add_risk)
+        self._layout_add_inputs.addWidget(self._add_demand)
+        self._layout_add_inputs.addWidget(self._add_qty)
+        self._layout_add_inputs.addWidget(self._add_allergens)
+        self._layout_add_inputs.addWidget(self._btn_execute_add)
+        self._layout_add.addLayout(self._layout_add_inputs)
+
+        # Edit Section Layout
+        self._layout_edit.addWidget(self._lbl_edit_title)
+        self._layout_edit.addWidget(self._input_edit_id)
+        self._edit_form_layout.addWidget(self._edit_name)
+        self._edit_form_layout.addWidget(self._edit_category)
+        self._edit_form_layout.addWidget(self._edit_date)
+        self._edit_form_layout.addWidget(self._edit_storage)
+        self._edit_form_layout.addWidget(self._edit_risk)
+        self._edit_form_layout.addWidget(self._edit_demand)
+        self._edit_form_layout.addWidget(self._edit_qty)
+        self._edit_form_layout.addWidget(self._edit_allergens)
+        self._edit_form_layout.addWidget(self._btn_execute_update)
+        self._layout_edit.addWidget(self._edit_form_widget)
+
+        # Assemble inside the master edit layout
+        self._edit_panel_layout.addWidget(self._frame_add)
+        self._edit_panel_layout.addWidget(self._frame_edit)
+        self._edit_panel_layout.addStretch()
+        self._edit_form_widget.hide()  # Invisible until valid entry
 
         # Setup Inventory View Columns
         self._inventory_table.setColumnCount(3)
@@ -173,6 +255,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._input_id.returnPressed.connect(self._execute_embedded_search)
         self._btn_submit_search.clicked.connect(self._execute_embedded_search)
         self._btn_edit_inv.clicked.connect(self._on_edit_inventory_triggered)
+        self._btn_execute_add.clicked.connect(self._execute_gui_add)
         self._btn_ask_ai.clicked.connect(self._on_ask_ai_triggered)
         self._btn_process_recipes.clicked.connect(self._on_process_recipes_triggered)
         self._btn_view_recipes.clicked.connect(self._on_recipes_view_triggered)
@@ -181,6 +264,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_exit.clicked.connect(self.close)
         self._inventory_table.itemClicked.connect(self._on_table_row_clicked)
         self._inventory_table.verticalHeader().sectionClicked.connect(self._on_header_section_clicked)
+        self._input_edit_id.textChanged.connect(self._on_edit_id_modified)
+        self._btn_execute_update.clicked.connect(self._execute_gui_update)
 
     def _update_active_navigation_state(self, active_button: QPushButton) -> None:
         # unchecks all navigation shortcuts n locks the green background on the active menu choice
@@ -324,12 +409,149 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         return True
 
 
-
     # NOT DONE YET :/
     def _on_edit_inventory_triggered(self) -> None:
+        self._update_active_navigation_state(self._btn_edit_inv)
+        self._search_panel.hide()
+        self._item_details_view.hide()
+        self._log_display.hide()
+        
+        # Keep inventory table visible
+        self._inventory_table.show()
+        self._inventory_table.setMaximumHeight(260)
+        self._edit_panel.show()
+        
         if self._controller:
-            self._log_display.append("\n[System]: Starting Inventory Editor... Please look at your Terminal window for inputs.")
-            self._controller.handle_edit_menu()
+            self.print_current_inventory(self._controller.data_manager.inventory.records)
+        self._update_active_navigation_state(self._btn_edit_inv)
+        self._search_panel.hide()
+        self._item_details_view.hide()
+        self._log_display.hide()
+        
+        self._inventory_table.show()
+        self._inventory_table.setMaximumHeight(260)
+        self._edit_panel.show()
+        
+        if self._controller:
+            self.print_current_inventory(self._controller.data_manager.inventory.records)
+
+    def _execute_gui_add(self) -> None:
+        """Extracts and validates input variables when adding new stock items."""
+        if not self._controller: return
+        name = self._add_name.text().strip()
+        qty_str = self._add_qty.text().strip()
+        date_str = self._add_date.text().strip()
+        
+        if not name or not qty_str or not date_str:
+            QMessageBox.warning(self, "Validation Error", "Name, Quantity, and Expiry Date fields are mandatory.")
+            return
+        if not qty_str.isdigit():
+            QMessageBox.warning(self, "Validation Error", "Stock Quantity must be a valid whole number.")
+            return
+
+        try:
+            parsed_dt = datetime.strptime(date_str, "%d/%m/%Y")
+            today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+            if parsed_dt < today:
+                QMessageBox.warning(self, "Validation Error", "The expiration date cannot be in the past.")
+                return
+            calculated_days = max(0, (parsed_dt - datetime.today()).days + 1)
+        except ValueError:
+            QMessageBox.warning(self, "Validation Error", "Invalid date format. Use DD/MM/YYYY.")
+            return
+
+        allergens = self._add_allergens.text().strip()
+        details = {
+            "food": name,
+            "food_category": self._add_category.currentText(),
+            "use_by": date_str,
+            "storage_condition": self._add_storage.currentText(),
+            "days_to_expiry": calculated_days,
+            "waste_risk_level": self._add_risk.currentText(),
+            "allergen_info": allergens if allergens else "None",
+            "demand_level": self._add_demand.currentText(),
+            "quantity": int(qty_str)
+        }
+
+        try:
+            self._controller.data_manager.inventory.add(**details)
+            QMessageBox.information(self, "Success", f"Success: '{name}' successfully added.")
+            # Clear input fields upon success
+            self._add_name.clear(); self._add_qty.clear(); self._add_date.clear(); self._add_allergens.clear()
+            self.print_current_inventory(self._controller.data_manager.inventory.records)
+        except Exception as e:
+            QMessageBox.critical(self, "System Failure", f"Could not sync file records: {e}")
+
+    def _on_edit_id_modified(self, text: str) -> None:
+        """Fires when the ID changes. Pre-populates fields as transparent reminders."""
+        text = text.strip()
+        if not text or not text.isdigit() or not self._controller:
+            self._lbl_edit_title.setText("Edit:")
+            self._edit_form_widget.hide()
+            return
+
+        idx = int(text) - 1
+        records = self._controller.data_manager.inventory.records
+        
+        if 0 <= idx < len(records):
+            target = records[idx]
+            self._lbl_edit_title.setText(f"Edit <{target.get('food', '')}>:")
+            
+            # Map database record fields directly into inputs
+            self._edit_name.setText(target.get('food', ''))
+            self._edit_qty.setText(str(target.get('quantity', '0')))
+            self._edit_date.setText(target.get('use-by', ''))
+            self._edit_category.setCurrentText(target.get('food_category', 'Other'))
+            self._edit_storage.setCurrentText(target.get('storage condition', 'Ambient'))
+            self._edit_risk.setCurrentText(target.get('waste_risk_level', 'Low'))
+            self._edit_demand.setCurrentText(target.get('demand level', 'Low').capitalize())
+            self._edit_allergens.setText(target.get('allergen info', 'None'))
+            
+            self._edit_form_widget.show()
+        else:
+            self._lbl_edit_title.setText("Edit (ID out of bounds):")
+            self._edit_form_widget.hide()
+
+    def _execute_gui_update(self) -> None:
+        """Validates entry modifications and commits changes to files."""
+        if not self._controller: return
+        idx = int(self._input_edit_id.text().strip()) - 1
+        
+        name = self._edit_name.text().strip()
+        qty_str = self._edit_qty.text().strip()
+        date_str = self._edit_date.text().strip()
+
+        if not name or not qty_str or not date_str:
+            QMessageBox.warning(self, "Validation Error", "All primary edit lines must be populated.")
+            return
+
+        try:
+            parsed_dt = datetime.strptime(date_str, "%d/%m/%Y")
+            calculated_days = max(0, (parsed_dt - datetime.today()).days + 1)
+        except ValueError:
+            QMessageBox.warning(self, "Validation Error", "Invalid date format. Use DD/MM/YYYY.")
+            return
+
+        details = {
+            "food": name,
+            "food_category": self._edit_category.currentText(),
+            "use_by": date_str,
+            "storage_condition": self._edit_storage.currentText(),
+            "days_to_expiry": calculated_days,
+            "waste_risk_level": self._edit_risk.currentText(),
+            "allergen_info": self._edit_allergens.text().strip(),
+            "demand_level": self._edit_demand.currentText(),
+            "quantity": int(qty_str)
+        }
+
+        try:
+            self._controller.data_manager.inventory.update(idx, **details)
+            QMessageBox.information(self, "Success", f"Success: Updated data for '{name}'.")
+            self._input_edit_id.clear()
+            self._edit_form_widget.hide()
+            self.print_current_inventory(self._controller.data_manager.inventory.records)
+        except Exception as e:
+            QMessageBox.critical(self, "System Failure", f"Could not write configuration updates: {e}")
 
     def _on_ask_ai_triggered(self) -> None:
         # selects items via GUI popups and forwards execution context directly to the controller engine
