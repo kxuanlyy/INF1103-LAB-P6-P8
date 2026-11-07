@@ -6,7 +6,8 @@ from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
-    QTableWidgetItem, QHeaderView, QInputDialog, QMessageBox, QComboBox
+    QTableWidgetItem, QHeaderView, QInputDialog, QMessageBox, 
+    QComboBox, QGridLayout
 )
 
 class PySideABCMeta(type(QObject), abc.ABCMeta):
@@ -157,29 +158,77 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         # Add Section Layout
         self._layout_add.addWidget(self._lbl_add_title)
-        self._layout_add_inputs.addWidget(self._add_name)
-        self._layout_add_inputs.addWidget(self._add_category)
-        self._layout_add_inputs.addWidget(self._add_date)
-        self._layout_add_inputs.addWidget(self._add_storage)
-        self._layout_add_inputs.addWidget(self._add_risk)
-        self._layout_add_inputs.addWidget(self._add_demand)
-        self._layout_add_inputs.addWidget(self._add_qty)
-        self._layout_add_inputs.addWidget(self._add_allergens)
-        self._layout_add_inputs.addWidget(self._btn_execute_add)
-        self._layout_add.addLayout(self._layout_add_inputs)
+        # Split fields into a two-column clean row layout configuration grid
+        add_grid_widget = QWidget()
+        add_grid_layout = QGridLayout(add_grid_widget)
+        add_grid_layout.setContentsMargins(10, 10, 10, 10)
+        add_grid_layout.setSpacing(10)
+        
+        # Column 1
+        add_grid_layout.addWidget(QLabel("Ingredient Name:"), 0, 0)
+        add_grid_layout.addWidget(self._add_name, 0, 1)
+        add_grid_layout.addWidget(QLabel("Category:"), 1, 0)
+        add_grid_layout.addWidget(self._add_category, 1, 1)
+        add_grid_layout.addWidget(QLabel("Use-By Date:"), 2, 0)
+        add_grid_layout.addWidget(self._add_date, 2, 1)
+        add_grid_layout.addWidget(QLabel("Storage Type:"), 3, 0)
+        add_grid_layout.addWidget(self._add_storage, 3, 1)
+        
+        # Column 2
+        add_grid_layout.addWidget(QLabel("Waste Risk Level:"), 0, 2)
+        add_grid_layout.addWidget(self._add_risk, 0, 3)
+        add_grid_layout.addWidget(QLabel("Demand Level:"), 1, 2)
+        add_grid_layout.addWidget(self._add_demand, 1, 3)
+        add_grid_layout.addWidget(QLabel("Stock Quantity:"), 2, 2)
+        add_grid_layout.addWidget(self._add_qty, 2, 3)
+        add_grid_layout.addWidget(QLabel("Allergen Info:"), 3, 2)
+        add_grid_layout.addWidget(self._add_allergens, 3, 3)
+        
+        self._layout_add.addWidget(add_grid_widget)
+        self._layout_add.addWidget(self._btn_execute_add, 0, Qt.AlignRight)
 
         # Edit Section Layout
         self._layout_edit.addWidget(self._lbl_edit_title)
-        self._layout_edit.addWidget(self._input_edit_id)
-        self._edit_form_layout.addWidget(self._edit_name)
-        self._edit_form_layout.addWidget(self._edit_category)
-        self._edit_form_layout.addWidget(self._edit_date)
-        self._edit_form_layout.addWidget(self._edit_storage)
-        self._edit_form_layout.addWidget(self._edit_risk)
-        self._edit_form_layout.addWidget(self._edit_demand)
-        self._edit_form_layout.addWidget(self._edit_qty)
-        self._edit_form_layout.addWidget(self._edit_allergens)
-        self._edit_form_layout.addWidget(self._btn_execute_update)
+
+        # Search Entry Bar Form Row
+        edit_id_row = QWidget()
+        edit_id_layout = QHBoxLayout(edit_id_row)
+        edit_id_layout.setContentsMargins(10, 0, 10, 0)
+        edit_id_layout.addWidget(QLabel("Enter Item ID to Edit:"))
+        edit_id_layout.addWidget(self._input_edit_id)
+        edit_id_layout.addStretch()
+        self._layout_edit.addWidget(edit_id_row)
+        
+        # Subform Grid
+        edit_grid_widget = QWidget()
+        edit_grid_layout = QGridLayout(edit_grid_widget)
+        edit_grid_layout.setContentsMargins(10, 10, 10, 10)
+        edit_grid_layout.setSpacing(10)
+        
+        # Column 1
+        edit_grid_layout.addWidget(QLabel("Ingredient Name:"), 0, 0)
+        edit_grid_layout.addWidget(self._edit_name, 0, 1)
+        edit_grid_layout.addWidget(QLabel("Category:"), 1, 0)
+        edit_grid_layout.addWidget(self._edit_category, 1, 1)
+        edit_grid_layout.addWidget(QLabel("Use-By Date:"), 2, 0)
+        edit_grid_layout.addWidget(self._edit_date, 2, 1)
+        edit_grid_layout.addWidget(QLabel("Storage Type:"), 3, 0)
+        edit_grid_layout.addWidget(self._edit_storage, 3, 1)
+        
+        # Column 2
+        edit_grid_layout.addWidget(QLabel("Waste Risk Level:"), 0, 2)
+        edit_grid_layout.addWidget(self._edit_risk, 0, 3)
+        edit_grid_layout.addWidget(QLabel("Demand Level:"), 1, 2)
+        edit_grid_layout.addWidget(self._edit_demand, 1, 3)
+        edit_grid_layout.addWidget(QLabel("Stock Quantity:"), 2, 2)
+        edit_grid_layout.addWidget(self._edit_qty, 2, 3)
+        edit_grid_layout.addWidget(QLabel("Allergen Info:"), 3, 2)
+        edit_grid_layout.addWidget(self._edit_allergens, 3, 3)
+
+        QWidget().setLayout(self._edit_form_layout) 
+        self._edit_form_layout = QVBoxLayout(self._edit_form_widget)
+        self._edit_form_layout.addWidget(edit_grid_widget)
+        self._edit_form_layout.addWidget(self._btn_execute_update, 0, Qt.AlignRight)
         self._layout_edit.addWidget(self._edit_form_widget)
 
         # Assemble inside the master edit layout
@@ -224,27 +273,149 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
     def _apply_theme_styles(self) -> None:
         dark_stylesheet = """
-            QMainWindow { background-color: #121212; }
-            QFrame { background-color: #1e1e1e; border: 1px solid #2d2d2d; border-radius: 8px; }
-            QLabel {  background: transparent; border: none; color: #ffffff; font-size: 14px; font-weight: bold; padding-bottom: 10px; border-bottom: 10px; }
-            QPushButton { background-color: #2a2a2a; color: #e0e0e0; border: 1px solid #3a3a3a; border-radius: 6px; padding: 10px 12px; text-align: left; }
-            QPushButton:hover { background-color: #353535; border: 1px solid #4a4a4a; color: #ffffff; }
-            QPushButton:pressed, QPushButton:checked { background-color: #2ecc71  ; border: 1px solid #219653; color: #ffffff; }
-            QTextEdit { background-color: #1e1e1e; color: #f5f5f5; border: 1px solid #2d2d2d; border-radius: 8px; padding: 12px; font-family: 'Consolas', monospace; }
-            QComboBox, QAbstractItemView { background-color: #2a2a2a;  color: #ffffff; selection-background-color: #27ae60;  selection-color: #ffffff;  border: 1px solid #3a3a3a; }
-            QTableWidget { background-color: #1e1e1e;  color: #e0e0e0; gridline-color: #2d2d2d; border: 1px solid #2d2d2d;  border-radius: 8px; font-size: 13px; }
-            QTableWidget::item { padding: 5px; }
-            QTableWidget::item:alternate { background-color: #252525; }
-            QTableWidget::item:selected { background-color: #27ae60; color: #ffffff; }
-            QHeaderView::section { background-color: #2a2a2a; color: #ffffff; padding: 6px; border: 1px solid #2d2d2d; font-weight: bold; font-size: 13px; }
-            QLineEdit { background-color: #252526; color: #ffffff; border: 1px solid #3e3e42; border-radius: 6px; padding: 6px 10px; font-size: 13px; selection-background-color: #27ae60;  }
-            QLineEdit:hover { border: 1px solid #555555; }
-            QLineEdit:focus { border: 1px solid #27ae60; background-color: #1e1e1e; }
-            #SearchPanelFrame, QFrame[frameShape="0"] { background-color: transparent; border: none; padding: 2px; }
-            QPushButton#ApplyFilterButton { background-color: #27ae60 !important; color: #ffffff !important; border: 1px solid #219653 !important; border-radius: 6px; font-weight: bold; text-align: center; padding: 6px 12px; }
-            QPushButton#ApplyFilterButton:hover { background-color: #2ecc71 !important; border: 1px solid #27ae60 !important; }
-            QPushButton#ApplyFilterButton:pressed { background-color: #1e8449 !important; }
+            /* primary window canvas n system frames */
+            QMainWindow { 
+                background-color: #121212; 
+            }
+            QFrame { 
+                background-color: #1e1e1e; 
+                border: 1px solid #2d2d2d; 
+                border-radius: 8px; 
+                padding: 12px;
+                margin-bottom: 4px;
+            }
+            #SearchPanelFrame, QFrame[frameShape="0"] { 
+                background-color: transparent; 
+                border: none; 
+                padding: 2px; 
+            }
 
+            /* text interaction views n form labels */
+            QLabel {  
+                background: transparent; 
+                border: none; 
+                color: #ffffff; 
+                font-size: 13px; 
+                font-weight: bold; 
+                padding: 0px;
+                margin: 0px;
+            }
+            QTextEdit { 
+                background-color: #1e1e1e; 
+                color: #f5f5f5; 
+                border: 1px solid #2d2d2d; 
+                border-radius: 8px; 
+                padding: 6px 12px; 
+                font-family: 'Consolas', 'Courier New', monospace; 
+                font-size: 12px;
+                line-height: 14px;
+            }
+
+            /* input n selection widget*/
+            QLineEdit { 
+                background-color: #252526; 
+                color: #ffffff; 
+                border: 1px solid #3e3e42; 
+                border-radius: 6px; 
+                padding: 6px 10px; 
+                font-size: 13px; 
+                selection-background-color: #27ae60;  
+            }
+            QLineEdit:hover { 
+                border: 1px solid #555555; 
+            }
+            QLineEdit:focus { 
+                border: 1px solid #27ae60; 
+                background-color: #1e1e1e; 
+            }
+            QComboBox { 
+                background-color: #252526; 
+                color: #ffffff; 
+                border: 1px solid #3e3e42; 
+                border-radius: 6px; 
+                padding: 5px 10px; 
+                font-size: 13px;
+                min-width: 130px;
+            }
+            QComboBox::drop-down {
+                border: none;
+                padding-right: 4px;
+            }
+            QAbstractItemView { 
+                background-color: #2a2a2a;  
+                color: #ffffff; 
+                border: 1px solid #3a3a3a;
+                selection-background-color: #27ae60;  
+                selection-color: #ffffff;  
+            }
+
+            /* nav action buttons*/
+            QPushButton { 
+                background-color: #2a2a2a; 
+                color: #e0e0e0; 
+                border: 1px solid #3a3a3a; 
+                border-radius: 6px; 
+                padding: 10px 12px; 
+                text-align: left; 
+                font-size: 13px;
+            }
+            QPushButton:hover { 
+                background-color: #353535; 
+                border: 1px solid #4a4a4a; 
+                color: #ffffff; 
+            }
+            QPushButton:pressed, QPushButton:checked { 
+                background-color: #2ecc71; 
+                border: 1px solid #219653; 
+                color: #ffffff; 
+            }
+
+            /* database table */
+            QTableWidget { 
+                background-color: #1e1e1e;  
+                color: #e0e0e0; 
+                gridline-color: #2d2d2d; 
+                border: 1px solid #2d2d2d;  
+                border-radius: 8px; 
+                font-size: 13px; 
+            }
+            QTableWidget::item { 
+                padding: 6px; 
+            }
+            QTableWidget::item:alternate { 
+                background-color: #252525; 
+            }
+            QTableWidget::item:selected { 
+                background-color: #27ae60; 
+                color: #ffffff; 
+            }
+            QHeaderView::section { 
+                background-color: #2a2a2a; 
+                color: #ffffff; 
+                padding: 6px; 
+                border: 1px solid #2d2d2d; 
+                font-weight: bold; 
+                font-size: 13px; 
+            }
+
+            /* form execution anchors */
+            QPushButton#ApplyFilterButton { 
+                background-color: #27ae60 !important; 
+                color: #ffffff !important; 
+                border: 1px solid #219653 !important; 
+                border-radius: 6px; 
+                font-weight: bold; 
+                text-align: center; 
+                padding: 6px 16px; 
+                min-width: 80px;
+            }
+            QPushButton#ApplyFilterButton:hover { 
+                background-color: #2ecc71 !important; 
+                border: 1px solid #27ae60 !important; 
+            }
+            QPushButton#ApplyFilterButton:pressed { 
+                background-color: #1e8449 !important; 
+            }
         """       
         self.setStyleSheet(dark_stylesheet)
 
