@@ -1040,8 +1040,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         title_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 4px;")
         master_layout.addWidget(title_lbl)
 
-        row_widget = QWidget()
-        row_layout = QHBoxLayout(row_widget)
+        self._ai_inputs_row = QWidget()
+        row_layout = QHBoxLayout(self._ai_inputs_row)
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(12)
 
@@ -1061,11 +1061,14 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         row_layout.addWidget(self._input_ai_id)
         row_layout.addWidget(self._input_ai_notes)
         row_layout.addWidget(self._btn_execute_ai)
+        master_layout.addWidget(self._ai_inputs_row)
 
-        master_layout.addWidget(row_widget)
+        self._lbl_ai_loading = QLabel("")
+        self._lbl_ai_loading.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self._lbl_ai_loading.setStyleSheet("font-family: 'Consolas', monospace; font-size: 13px; color: #2ecc71; padding-top: 10px;")
+        master_layout.addWidget(self._lbl_ai_loading)
         master_layout.addStretch()
 
-        
         self._frame_ai_input.show()
         self._btn_execute_ai.setEnabled(True)
 
@@ -1108,13 +1111,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             "staff_observations": notes
         }
 
-        # Clear views out and swap viewport into log tracking screen
-        self._frame_ai_input.hide()
-        self._inventory_table.hide()
-        
-        self._log_display.clear()
-        self._log_display.show()
-        self._log_display.append(f"🤖 Connecting to AI Cloud Engine for '{selected_record['food']}'...\nPlease wait.")
+        self._ai_inputs_row.hide()
+        self._lbl_ai_loading.setText(f"🤖 Connecting to AI Cloud Engine for '{selected_record['food']}'...\nPlease wait.")
 
         # Prevent dual trigger execution loops
         for btn in self._nav_buttons:
