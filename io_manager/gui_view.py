@@ -1,5 +1,3 @@
-import sys
-import io
 import abc
 from datetime import datetime
 import csv
@@ -621,7 +619,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_process_recipes.clicked.connect(self._on_process_recipes_triggered)
         self._btn_view_recipes.clicked.connect(self._on_recipes_view_triggered)
         self._btn_search_recipes.clicked.connect(self._on_search_recipes_triggered)
-        self._btn_submit_search.clicked.connect(self._execute_embedded_search)
         self._btn_exit.clicked.connect(self.close)
         self._inventory_table.itemClicked.connect(self._on_table_row_clicked)
         self._inventory_table.verticalHeader().sectionClicked.connect(self._on_header_section_clicked)
@@ -1327,7 +1324,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
                             bg_color = "#252525" if row_idx % 2 == 0 else "#1e1e1e"
                             table_html += f"""
                             <tr style='background-color: {bg_color}; font-family: Arial, sans-serif;'>
-                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #2ecc71; font-weight: bold;'>[✓] ACCEPTED</span></td>
+                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #2ecc71; font-weight: bold;'>[✓] Accepted</span></td>
                                 <td style='border: 1px solid #2d2d2d; padding: 8px;'><b>{recipe_name}</b></td>
                                 <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #a0a0a0;'>Passed business rules verification (Matched template)</span></td>
                             </tr>
@@ -1356,7 +1353,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
                         bg_color = "#252525" if row_idx % 2 == 0 else "#1e1e1e"
                         table_html += f"""
                         <tr style='background-color: {bg_color}; font-family: Arial, sans-serif;'>
-                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #e74c3c; font-weight: bold;'>[✗] REJECTED</span></td>
+                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #e74c3c; font-weight: bold;'>[✗] Rejected</span></td>
                             <td style='border: 1px solid #2d2d2d; padding: 8px;'><b>{recipe_name}</b></td>
                             <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #f1c40f;'>⚠️ {reason}</span></td>
                         </tr>
@@ -1377,7 +1374,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             full_html = f"""
             <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
                 <div style='background-color: #2c3e50; color: #ffffff; padding: 12px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 16px; margin-bottom: 15px;'>
-                    ⚙️ RECIPE VALIDATION PROCESSOR ACTIVE
+                    ⚙️ RECIPE VALIDATION PROCESSOR ACTIVE ⚙️
                 </div>
                 
                 {table_html}
@@ -1399,6 +1396,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             """
             self._log_display.setHtml(full_html)
             
+            # show a desktop completion alert box
             self._show_success_message(
                 "Processor Update", 
                 f"Validation finished!\nAccepted: {report.get('accepted', 0)} | Rejected: {report.get('rejected', 0)}"
@@ -1406,67 +1404,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         except Exception as e:
             self._show_error_message("System Error", f"Could not complete validation pass: {str(e)}")
 
-    def print_recipe_processor_header(self) -> None:
-        self._inventory_table.hide()
-        self._item_details_view.hide()
-        self._log_display.show()
-        self._log_display.clear()
-
-        header_html = """
-        <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
-            <div style='background-color: #2c3e50; color: #ffffff; padding: 10px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 14px;'>
-                ⚙️ RECIPE VALIDATION PROCESSOR ACTIVE
-            </div>
-            <p style='color: #bdc3c7; font-size: 13px; font-weight: bold; margin-top: 15px; margin-bottom: 15px;'>
-                ⏳ Processing recipes... please wait...
-            </p>
-            <div style='border-top: 1px solid #333333; padding-top: 5px; margin-bottom: 10px;'></div>
-        </div>
-        """
-        self._log_display.insertHtml(header_html)
-        self.repaint()
-
-    def print_recipe_processor_step(self, accept_flag: bool, name: str, reason: str = None) -> None:
-        if accept_flag:
-            step_html = f"""
-            <div style='font-family: Arial, sans-serif; margin-bottom: 8px; font-size: 13px;'>
-                <span style='color: #2ecc71; font-weight: bold;'>[✓] ACCEPTED:</span> 
-                <b style='color: #ffffff;'>{name}</b> <span style='color: #7f8c8d; font-size: 11px;'>(Matched template)</span>
-            </div>
-            """
-        else:
-            step_html = f"""
-            <div style='font-family: Arial, sans-serif; margin-bottom: 8px; font-size: 13px;'>
-                <span style='color: #e74c3c; font-weight: bold;'>[✗] REJECTED:</span> 
-                <b style='color: #ffffff;'>{name}</b><br/>
-                <span style='color: #f1c40f; margin-left: 20px; font-size: 12px;'>└── ⚠️ Reason: {reason if reason else 'Does not match valid accepted criteria'}</span>
-            </div>
-            """
-        self._log_display.insertHtml(step_html)
-        self.repaint()
-
-    def print_recipe_processor_summary(self, accept_len: int, reject_len: int, r_file: str, rej_file: str) -> None:
-        summary_html = f"""
-        <div style='font-family: Arial, sans-serif; font-size: 13px; margin-top: 25px; color: #f5f5f5;'>
-            <div style='border-top: 1px solid #333333; margin-top: 15px; margin-bottom: 15px;'></div>
-            
-            <div style='background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 6px; padding: 15px;'>
-                <h3 style='color: #ffffff; margin-top: 0px; margin-bottom: 12px; font-size: 14px; border-bottom: 2px solid #2ecc71; padding-bottom: 4px;'>
-                    📊 SUMMARY REPORT
-                </h3>
-                <p style='margin: 6px 0; font-size: 13px;'><span style='color: #2ecc71; font-weight: bold;'>🟢 Accepted Recipes :</span> <b>{accept_len}</b></p>
-                <p style='margin: 6px 0; font-size: 13px;'><span style='color: #e74c3c; font-weight: bold;'>🔴 Rejected Recipes :</span> <b>{reject_len}</b></p>
-                
-                <div style='margin-top: 14px; padding-top: 10px; border-top: 1px dashed #3a3a3a; font-size: 12px; color: #bdc3c7;'>
-                    <p style='margin: 0 0 6px 0; color: #ffffff; font-weight: bold;'>📂 Saved Outputs Location:</p>
-                    <p style='margin: 4px 0; font-family: monospace; color: #2ecc71; word-break: break-all;'><b>├── Accepted:</b> {r_file}</p>
-                    <p style='margin: 4px 0; font-family: monospace; color: #e74c3c; word-break: break-all;'><b>└── Rejections:</b> {rej_file}</p>
-                </div>
-            </div>
-        </div>
-        """
-        self._log_display.insertHtml(summary_html)
- 
     # Option 7: Search Recipes
     def _on_search_recipes_triggered(self) -> None:
         if not self._controller:
@@ -1509,16 +1446,11 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
    # NOT DONE YET :/
 
-
     def _on_recipes_view_triggered(self) -> None:
         if self._controller and hasattr(self._controller, "data_manager"):
             self._controller.data_manager.load()
             records = self._controller.data_manager.recipes.records
             self.print_recipes(records)
-
-    def display_edit_menu(self) -> None: pass
-    def display_inventory_search_menu(self) -> None: pass
-    def display_recipe_search_menu(self) -> None: pass
 
     def print_recipes(self, recipe_list: list, ids: list = None) -> bool:
         self._inventory_table.hide()
