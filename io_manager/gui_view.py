@@ -61,6 +61,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         # Add Item (a)
         self._frame_add = QFrame()
+        self._frame_add.setObjectName("AddFrame")
         self._layout_add = QVBoxLayout(self._frame_add)
         self._lbl_add_title = QLabel("Add Item:")
         
@@ -80,6 +81,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         # Edit item (c)
         self._frame_edit = QFrame()
+        self._frame_edit.setObjectName("EditFrame")
         self._layout_edit = QVBoxLayout(self._frame_edit)
         self._lbl_edit_title = QLabel("Edit:")
         self._input_edit_id = QLineEdit(); self._input_edit_id.setPlaceholderText("Edit item id:")
@@ -103,6 +105,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
          # Delete item (b)
         self._frame_delete = QFrame()
+        self._frame_delete.setObjectName("DeleteFrame")
         self._layout_delete = QHBoxLayout(self._frame_delete)
         self._lbl_delete_title = QLabel("Delete:")
         self._input_delete_id = QLineEdit(); self._input_delete_id.setPlaceholderText("Delete item id:")
@@ -132,7 +135,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
     def _setup_ui(self) -> None:
         self.setWindowTitle("FoodRescue Enterprise Management Dashboard")
-        self.resize(1024, 680)
+        self.resize(1024, 820)
         self.setCentralWidget(self._central_widget)
         
         self._main_layout.setContentsMargins(15, 15, 15, 15)
@@ -236,8 +239,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         edit_grid_layout.addWidget(QLabel("Allergen Info:"), 3, 2)
         edit_grid_layout.addWidget(self._edit_allergens, 3, 3)
 
-        QWidget().setLayout(self._edit_form_layout) 
-        self._edit_form_layout = QVBoxLayout(self._edit_form_widget)
+        self._edit_form_widget.setLayout(self._edit_form_layout)
         self._edit_form_layout.addWidget(edit_grid_widget)
         self._edit_form_layout.addWidget(self._btn_execute_update, 0, Qt.AlignRight)
         self._layout_edit.addWidget(self._edit_form_widget)
@@ -265,6 +267,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         header.setSectionResizeMode(2, QHeaderView.Stretch)
         self._inventory_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._inventory_table.setAlternatingRowColors(True)
+        self._inventory_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self._item_details_view.setFixedHeight(220)
 
         # Setup Embed Filter Controls
@@ -304,6 +307,13 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
                 border-radius: 8px; 
                 padding: 12px;
                 margin-bottom: 4px;
+            }
+            QFrame#AddFrame, QFrame#EditFrame, QFrame#DeleteFrame {
+                background-color: #1a1a1a;        /* Slightly darker cards for layered depth */
+                border: 1px solid #333333;        /* A more pronounced border outline */
+                padding: 16px;                    /* Extra internal breathing room padding */
+                margin-top: 8px;                  /* Clear spacing between each stacked card */
+                border-radius: 10px;
             }
             #SearchPanelFrame, QFrame[frameShape="0"] { 
                 background-color: transparent; 
@@ -688,19 +698,15 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._log_display.hide()
         
         # Keep inventory table visible
+        self._inventory_table.setMaximumHeight(16777215)
         self._inventory_table.show()
-        self._inventory_table.setMaximumHeight(260)
         self._edit_panel.show()
+
+        self._display_layout.setStretchFactor(self._inventory_table, 1)
+        self._display_layout.setStretchFactor(self._edit_panel, 2)
         
         if self._controller and hasattr(self._controller, "data_manager"):
             self._controller.data_manager.load()
-            self.print_current_inventory(self._controller.data_manager.inventory.records)
-        self._update_active_navigation_state(self._btn_edit_inv)
-        self._search_panel.hide()
-        self._item_details_view.hide()
-        self._log_display.hide()
-        
-        if self._controller:
             self.print_current_inventory(self._controller.data_manager.inventory.records)
 
     def _execute_gui_add(self) -> None:
