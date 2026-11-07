@@ -437,6 +437,31 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             QPushButton#ApplyFilterButton:pressed { 
                 background-color: #1e8449 !important; 
             }
+
+            /* dialog noti (QMessageBox) */
+            QMessageBox {
+                background-color: #1e1e1e;
+                border: 1px solid #2d2d2d;
+            }
+            QMessageBox QLabel {
+                color: #ffffff !important;
+                font-size: 13px;
+                font-weight: normal;
+                min-width: 240px;
+            }
+            QMessageBox QPushButton {
+                background-color: #2a2a2a;
+                color: #e0e0e0;
+                border: 1px solid #3a3a3a;
+                border-radius: 6px;
+                padding: 5px 18px;
+                text-align: center;
+                min-width: 65px;
+            }
+            QMessageBox QPushButton:hover {
+                background-color: #353535;
+                color: #ffffff;
+            }
         """       
         self.setStyleSheet(dark_stylesheet)
 
@@ -459,6 +484,25 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._input_edit_id.textChanged.connect(self._on_edit_id_modified)
         self._btn_execute_update.clicked.connect(self._execute_gui_update)
         self._btn_execute_delete.clicked.connect(self._execute_gui_delete)
+
+    def _show_success_message(self, title: str, text: str) -> None:
+        # displays a custom themed alert dialog box
+        msg = QMessageBox(self)
+        msg.setWindowTitle(title)
+        
+        msg.setIcon(QMessageBox.Icon.NoIcon)
+
+        formatted_rich_text = (
+            f"<div style='vertical-align: middle; display: flex; align-items: center; gap: 12px;'>"
+            f"  <span style='color: #27ae60; font-size: 26px; font-weight: bold; font-family: Arial;'>✔</span>"
+            f"  <span style='color: #ffffff; font-size: 13px; font-weight: normal; margin-left: 10px;'>{text}</span>"
+            f"</div>"
+        )
+        msg.setText(formatted_rich_text)        
+        
+        # Apply an inline green border highlight style just to this popup's icon layout box
+        msg.setStyleSheet("QMessageBox { border-left: 5px solid #27ae60; }")
+        msg.exec()
 
     def _update_active_navigation_state(self, active_button: QPushButton) -> None:
         # unchecks all navigation shortcuts n locks the green background on the active menu choice
@@ -598,11 +642,11 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         self._inventory_table.setRowCount(len(extracted_items))
         for row, record in enumerate(extracted_items):
-            # Resolve unique index positions safely 
             item_num = str(ids[row]) if ids else str(row + 1)
             qty = "" if record.get('quantity') is None else str(record['quantity'])
             
             self._inventory_table.setVerticalHeaderItem(row, QTableWidgetItem(item_num))
+
             # Ingrediant Name
             name_item = QTableWidgetItem(record.get('food', 'Unknown'))
             name_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -617,8 +661,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._inventory_table.setItem(row, 2, date_item)
         return True
 
-
-    # NOT DONE YET :/
+    # Option 3:Edit Inventory Items
     def _on_edit_inventory_triggered(self) -> None:
         self._update_active_navigation_state(self._btn_edit_inv)
         self._search_panel.hide()
@@ -637,10 +680,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._search_panel.hide()
         self._item_details_view.hide()
         self._log_display.hide()
-        
-        self._inventory_table.show()
-        self._inventory_table.setMaximumHeight(260)
-        self._edit_panel.show()
         
         if self._controller:
             self.print_current_inventory(self._controller.data_manager.inventory.records)
@@ -685,7 +724,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         try:
             self._controller.data_manager.inventory.add(**details)
-            QMessageBox.information(self, "Success", f"Success: '{name}' successfully added.")
+            self._show_success_message("Success", f"Success: '{name}' successfully added.")
             # Clear input fields upon success
             self._add_name.clear(); self._add_qty.clear(); self._add_date.clear(); self._add_allergens.clear()
             self.print_current_inventory(self._controller.data_manager.inventory.records)
@@ -756,7 +795,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         try:
             self._controller.data_manager.inventory.update(idx, **details)
-            QMessageBox.information(self, "Success", f"Success: Updated data for '{name}'.")
+            self._show_success_message("Success", f"Success: Updated data for '{name}'.")
             self._input_edit_id.clear()
             self._edit_form_widget.hide()
             self.print_current_inventory(self._controller.data_manager.inventory.records)
@@ -780,14 +819,15 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             removed_name = records[idx]['food']
             try:
                 self._controller.data_manager.inventory.delete(idx)
-                QMessageBox.information(self, "Success", f"[SUCCESS] Removed '{removed_name}' from the inventory.")
+                self._show_success_message("Success", f"Success: Removed '{removed_name}' from the inventory.")
                 self._input_delete_id.clear()
                 self.print_current_inventory(self._controller.data_manager.inventory.records)
             except Exception as e:
                 QMessageBox.critical(self, "System Failure", f"Deletion failed: {e}")
         else:
             QMessageBox.warning(self, "Validation Error", "Item ID out of active inventory limits.")
-    
+
+    # NOT DONE YET :/
     def _on_ask_ai_triggered(self) -> None:
         # selects items via GUI popups and forwards execution context directly to the controller engine
         if not self._controller:
