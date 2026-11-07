@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
     QTableWidgetItem, QHeaderView, QInputDialog, QMessageBox, 
-    QComboBox, QGridLayout
+    QComboBox, QGridLayout, QScrollArea
 )
 
 class PySideABCMeta(type(QObject), abc.ABCMeta):
@@ -57,7 +57,10 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
         # Edit Operations
         self._edit_panel = QWidget()
-        self._edit_panel_layout = QVBoxLayout(self._edit_panel)        
+        self._edit_panel_layout = QVBoxLayout(self._edit_panel)
+
+        self._edit_panel_layout.setContentsMargins(0, 0, 15, 10)
+        self._edit_panel_layout.setSpacing(12)
 
         # Add Item (a)
         self._frame_add = QFrame()
@@ -84,7 +87,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._frame_edit.setObjectName("EditFrame")
         self._layout_edit = QVBoxLayout(self._frame_edit)
         self._lbl_edit_title = QLabel("Edit:")
-        self._input_edit_id = QLineEdit(); self._input_edit_id.setPlaceholderText("Edit item id:")
+        self._input_edit_id = QLineEdit(); 
+        self._input_edit_id.setPlaceholderText("e.g. 1")
         self._input_edit_id.setFixedWidth(120)
         
         # Inner Dynamic Fields for Edit Sub-Form
@@ -108,7 +112,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._frame_delete.setObjectName("DeleteFrame")
         self._layout_delete = QHBoxLayout(self._frame_delete)
         self._lbl_delete_title = QLabel("Delete:")
-        self._input_delete_id = QLineEdit(); self._input_delete_id.setPlaceholderText("Delete item id:")
+        self._input_delete_id = QLineEdit(); 
+        self._input_delete_id.setPlaceholderText("e.g. 1")
         self._input_delete_id.setFixedWidth(120)
         self._btn_execute_delete = QPushButton("Delete")
         self._btn_execute_delete.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
@@ -135,7 +140,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
     def _setup_ui(self) -> None:
         self.setWindowTitle("FoodRescue Enterprise Management Dashboard")
-        self.resize(1024, 820)
+        self.resize(1120, 860)
         self.setCentralWidget(self._central_widget)
         
         self._main_layout.setContentsMargins(15, 15, 15, 15)
@@ -161,14 +166,56 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._display_layout.addWidget(self._inventory_table)
         self._display_layout.addWidget(self._item_details_view)
         self._display_layout.addWidget(self._log_display)
-        self._display_layout.addWidget(self._edit_panel)
+
+        self._edit_panel_layout.setContentsMargins(0, 0, 12, 10)
+        self._edit_panel_layout.setSpacing(12)
+
+        self._edit_scroll_area = QScrollArea()
+        self._edit_scroll_area.setWidgetResizable(True)
+        self._edit_scroll_area.setWidget(self._edit_panel)
+        self._edit_scroll_area.setFrameShape(QFrame.NoFrame)
+        self._display_layout.addWidget(self._edit_scroll_area)
+
+        self._edit_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._edit_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+        self._edit_scroll_area.setStyleSheet("""
+            QScrollArea { 
+                border: none; 
+                background-color: #121212 !important; 
+            }
+            QScrollBar:vertical {
+                background-color: #1e1e1e; /* Matches your QFrame card panel background color */
+                border-left: 1px solid #2d2d2d; /* Subtle divider separator line */
+                width: 10px;
+                margin: 0px;
+            }            
+            QScrollBar::handle:vertical {
+                background-color: #2a2a2a; /* Matches the default button layout color shades */
+                border: 1px solid #3a3a3a;
+                border-radius: 4px;
+                min-height: 25px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #27ae60; /* Matches your active theme green accent hue color */
+                border: 1px solid #219653;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+        """)
 
         # Hide the grid by default until data populates
         self._log_display.setReadOnly(True)
         self._item_details_view.setReadOnly(True)
         self._inventory_table.hide()  
         self._item_details_view.hide()
-        self._edit_panel.hide()
+        self._edit_scroll_area.hide()
 
         # Add Section Layout
         self._layout_add.addWidget(self._lbl_add_title)
@@ -319,6 +366,20 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
                 background-color: transparent; 
                 border: none; 
                 padding: 2px; 
+            }
+            QScrollArea, QScrollArea > QWidget > QWidget {
+                background-color: #121212 !important;
+                border: none;
+            }
+            QScrollArea QWidget {
+                background-color: transparent;
+            }
+            QFrame#AddFrame, QFrame#EditFrame, QFrame#DeleteFrame {
+                background-color: #1a1a1a !important;
+                border: 1px solid #333333;
+                border-radius: 10px;
+                padding: 16px;
+                margin-top: 8px;
             }
 
             /* text interaction views n form labels */
@@ -491,7 +552,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_exit.clicked.connect(self.close)
         self._inventory_table.itemClicked.connect(self._on_table_row_clicked)
         self._inventory_table.verticalHeader().sectionClicked.connect(self._on_header_section_clicked)
-        self._input_edit_id.textChanged.connect(self._on_edit_id_modified)
+        self._input_edit_id.returnPressed.connect(self._on_edit_id_modified)
         self._btn_execute_update.clicked.connect(self._execute_gui_update)
         self._btn_execute_delete.clicked.connect(self._execute_gui_delete)
 
@@ -532,7 +593,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         msg.setStyleSheet("QMessageBox { border-left: 5px solid #e74c3c; }")
         msg.exec()
 
-   
     def _update_active_navigation_state(self, active_button: QPushButton) -> None:
         # unchecks all navigation shortcuts n locks the green background on the active menu choice
         for btn in self._nav_buttons:
@@ -552,11 +612,12 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._update_active_navigation_state(self._btn_view_inv)
             # Pull records safely from the data framework layer
             self._search_panel.hide()
-            self._edit_panel.hide() 
+            self._edit_scroll_area.hide()
             self._item_details_view.clear()
             self._item_details_view.hide()
-            self._inventory_table.show()
             self._inventory_table.setMaximumHeight(16777215)
+            self._inventory_table.setMinimumHeight(0)
+            self._inventory_table.show()
             records = self._controller.data_manager.inventory.records
             self.print_current_inventory(records)
 
@@ -566,7 +627,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         # displays the embedded search text bars row layout inside the dashboard
         self._log_display.hide()
         self._item_details_view.hide()
-        self._edit_panel.hide()
+        self._edit_scroll_area.hide()
         self._inventory_table.show()
         self._search_panel.show()
 
@@ -698,9 +759,11 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._log_display.hide()
         
         # Keep inventory table visible
-        self._inventory_table.setMaximumHeight(16777215)
+        self._inventory_table.setFixedHeight(230)
         self._inventory_table.show()
-        self._edit_panel.show()
+
+        self._edit_form_widget.hide()        
+        self._edit_scroll_area.show()
 
         self._display_layout.setStretchFactor(self._inventory_table, 1)
         self._display_layout.setStretchFactor(self._edit_panel, 2)
@@ -756,9 +819,9 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         except Exception as e:
             QMessageBox.critical(self, "System Failure", f"Could not sync file records: {e}")
 
-    def _on_edit_id_modified(self, text: str) -> None:
+    def _on_edit_id_modified(self) -> None:
        # fires when the ID changes. Pre-populates fields as transparent reminders
-        text = text.strip()
+        text = self._input_edit_id.text().strip()
         if not text or not text.isdigit() or not self._controller:
             self._lbl_edit_title.setText("Edit:")
             self._edit_form_widget.hide()
