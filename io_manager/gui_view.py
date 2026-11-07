@@ -17,15 +17,14 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         super().__init__()
         self._controller = controller
 
-        # Root Window Canvas Structure
+        # Canvas Setup
         self._central_widget = QWidget()
         self._main_layout = QHBoxLayout(self._central_widget)
         
-        # Sidebar Control Column
+        # Sidebar Control
         self._sidebar_widget = QFrame()
         self._sidebar_layout = QVBoxLayout(self._sidebar_widget)
-        self._status_label = QLabel("FoodRescue Operations")
-        
+        self._status_label = QLabel("FoodRescue Operations")     
         self._status_label.setAlignment(Qt.AlignCenter)
         
         # Action Buttons for all Menu Options
@@ -38,17 +37,17 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_search_recipes = QPushButton("🏷 Search Recipes")
         self._btn_exit = QPushButton("🚪 Exit Application")
 
-        # Right-side Display Component Area (Dynamic Layout)
+        # Right Display Component Area (Dynamic Layout)
         self._display_container = QWidget()
         self._display_layout = QVBoxLayout(self._display_container)
-        
-        # Dynamic swappable components
+    
         self._inventory_table = QTableWidget()
+        self._item_details_view = QTextEdit()
         self._log_display = QTextEdit()
 
+        # Search Bar Tool
         self._search_panel = QFrame()
         self._search_layout = QHBoxLayout(self._search_panel)
-        self._item_details_view = QTextEdit()
         self._input_food = QLineEdit()
         self._input_id = QLineEdit()
         self._btn_submit_search = QPushButton("Apply Filter")
@@ -107,24 +106,19 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._inventory_table.hide()  
         self._item_details_view.hide()
 
-        # Configure Table properties
-        self._inventory_table.setColumnCount(4)
-        self._inventory_table.setHorizontalHeaderLabels(["Item ID", "Ingredient Name", "Quantity", "Expiry Date"])
+        # Setup Inventory View Columns
+        self._inventory_table.setColumnCount(3)
+        self._inventory_table.setHorizontalHeaderLabels(["Ingredient Name", "Quantity", "Expiry Date"])
         self._inventory_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self._inventory_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self._inventory_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self._inventory_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._inventory_table.setAlternatingRowColors(True)
         self._item_details_view.setFixedHeight(220)
 
-        # Assemble Main Layout
-        self._main_layout.addWidget(self._sidebar_widget)
-        self._main_layout.addWidget(self._display_container)
-
-        # Configure inline search panel rows dimensions and padding rules
+        # Setup Embed Filter Controls
         self._search_panel.setFixedHeight(60)
         self._search_layout.setContentsMargins(10, 4, 10, 4)
         self._search_layout.setSpacing(10)      
-
         # Lock text boxes to single-row heights
         self._input_food.setPlaceholderText("Filter by Ingredient Name... (or press Enter)")
         self._input_id.setPlaceholderText("Filter by precise ID... (or press Enter)")
@@ -134,13 +128,13 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._search_layout.addWidget(self._input_food)
         self._search_layout.addWidget(self._input_id)
         self._search_layout.addWidget(self._btn_submit_search)
-
         # Add the widgets to your master right-side viewport panel layout stack
         self._display_layout.insertWidget(0, self._search_panel)
-
         self._search_panel.hide()
 
-        
+        # Assemble Main Layout
+        self._main_layout.addWidget(self._sidebar_widget)
+        self._main_layout.addWidget(self._display_container)
       
         self._log_display.setReadOnly(True)
         self._apply_theme_styles()
@@ -165,22 +159,9 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             QLineEdit:hover { border: 1px solid #555555; }
             QLineEdit:focus { border: 1px solid #27ae60; background-color: #1e1e1e; }
             #SearchPanelFrame, QFrame[frameShape="0"] { background-color: transparent; border: none; padding: 2px; }
-            QPushButton#ApplyFilterButton { 
-                background-color: #27ae60 !important; 
-                color: #ffffff !important; 
-                border: 1px solid #219653 !important; 
-                border-radius: 6px; 
-                font-weight: bold; 
-                text-align: center; 
-                padding: 6px 12px; 
-            }
-            QPushButton#ApplyFilterButton:hover { 
-                background-color: #2ecc71 !important; 
-                border: 1px solid #27ae60 !important; 
-            }
-            QPushButton#ApplyFilterButton:pressed { 
-                background-color: #1e8449 !important; 
-            }
+            QPushButton#ApplyFilterButton { background-color: #27ae60 !important; color: #ffffff !important; border: 1px solid #219653 !important; border-radius: 6px; font-weight: bold; text-align: center; padding: 6px 12px; }
+            QPushButton#ApplyFilterButton:hover { background-color: #2ecc71 !important; border: 1px solid #27ae60 !important; }
+            QPushButton#ApplyFilterButton:pressed { background-color: #1e8449 !important; }
 
         """       
         self.setStyleSheet(dark_stylesheet)
@@ -199,12 +180,34 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_submit_search.clicked.connect(self._execute_embedded_search)
         self._btn_exit.clicked.connect(self.close)
         self._inventory_table.itemClicked.connect(self._on_table_row_clicked)
+        self._inventory_table.verticalHeader().sectionClicked.connect(self._on_header_section_clicked)
 
     def _update_active_navigation_state(self, active_button: QPushButton) -> None:
         # unchecks all navigation shortcuts n locks the green background on the active menu choice
         for btn in self._nav_buttons:
             btn.setChecked(btn == active_button)
 
+    def set_controller(self, controller) -> None:
+       # safely mutates internal controller reference
+        self._controller = controller
+    
+    def display_main_menu(self) -> None:
+        self.show()
+ 
+    # Option 1: View inventory Stocks
+    def _on_inventory_view_triggered(self) -> None:
+        # internal callback to bridge data safely controller
+        if self._controller and hasattr(self._controller, "data_manager"):
+            self._update_active_navigation_state(self._btn_view_inv)
+            # Pull records safely from the data framework layer
+            self._search_panel.hide()
+            self._item_details_view.clear()
+            self._item_details_view.hide()
+            self._inventory_table.setMaximumHeight(16777215)
+            records = self._controller.data_manager.inventory.records
+            self.print_current_inventory(records)
+
+    # Option 2: Search Inventory
     def _on_search_inventory_triggered(self) -> None:
         self._update_active_navigation_state(self._btn_search_inv)
         # displays the embedded search text bars row layout inside the dashboard
@@ -237,15 +240,92 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self.print_current_inventory(results, record_ids)
             
             if len(results) == 1:
-                first_cell = self._inventory_table.item(0, 0)
-                if first_cell:
-                    self._on_table_row_clicked(first_cell)
+                    self._load_food_profile_by_row(0)
             else:
                 self._item_details_view.hide()
         else:
             self._inventory_table.setRowCount(0)
             self._item_details_view.hide()
 
+    def _on_table_row_clicked(self, item) -> None:
+        if item:
+            self._load_food_profile_by_row(item.row())
+
+    def _on_header_section_clicked(self, row_idx: int) -> None:
+        self._load_food_profile_by_row(row_idx)
+
+    # Item Details Card Loader
+    def _load_food_profile_by_row(self, row_idx: int) -> None:
+        # extracts complete underlying data metrics for the clicked row n renders them
+        if not self._controller or not self._search_panel.isVisible():
+            return
+
+        header_item = self._inventory_table.verticalHeaderItem(row_idx)
+        if not header_item:
+            return
+
+        try:
+            db_id = int(header_item.text()) - 1
+        except ValueError:
+            return
+            
+        records = self._controller.data_manager.inventory.records
+
+        if 0 <= db_id < len(records):
+            target = records[db_id]
+            self._item_details_view.show()
+            self._item_details_view.clear()
+            
+            allergen = target.get('allergen info', 'None') or 'None'
+            storage = target.get('storage condition', 'Ambient')
+            days_left = target.get('days_to_expiry', 'N/A')
+            expiry_str = f"{days_left} day(s) remaining" if str(days_left).isdigit() else str(days_left)
+
+            # Replicates your terminal string formatting layout perfectly
+            self._item_details_view.append("============================================================")
+            self._item_details_view.append(f"                        FOOD ID: [{db_id + 1}]")
+            self._item_details_view.append("============================================================")
+            self._item_details_view.append(f"Item Name:        {target.get('food', 'Unknown')}")
+            self._item_details_view.append(f"Category:         {target.get('food_category', 'General')}")
+            self._item_details_view.append(f"Stock Quantity:   {target.get('quantity', '0')}")
+            self._item_details_view.append(f"Use-By Date:      {target.get('use-by', 'N/A')}")
+            self._item_details_view.append(f"Days to Expiry:   {expiry_str}")
+            self._item_details_view.append(f"Storage Type:     {storage}")
+            self._item_details_view.append(f"Waste Risk Level: {target.get('waste_risk_level', 'Low')}")
+            self._item_details_view.append(f"Demand Level:     {target.get('demand level', 'Normal')}")
+            self._item_details_view.append(f"Allergen Info:    {allergen}")
+            self._item_details_view.append("============================================================")
+
+    # Data Renders
+    def print_current_inventory(self, extracted_items: list, ids: list = None) -> bool:
+        self._log_display.hide()
+        self._item_details_view.hide()
+        self._inventory_table.show()
+        self._inventory_table.setRowCount(0)
+        
+        if not extracted_items:
+            return False
+
+        self._inventory_table.setColumnCount(3)
+        self._inventory_table.setHorizontalHeaderLabels(["Ingredient Name", "Quantity", "Expiry Date"])
+        self._inventory_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+
+
+        self._inventory_table.setRowCount(len(extracted_items))
+        for row, record in enumerate(extracted_items):
+            # Resolve unique index positions safely 
+            item_num = str(ids[row]) if ids else str(row + 1)
+            qty = "" if record.get('quantity') is None else str(record['quantity'])
+            
+            self._inventory_table.setVerticalHeaderItem(row, QTableWidgetItem(item_num))
+            self._inventory_table.setItem(row, 0, QTableWidgetItem(record.get('food', 'Unknown')))
+            self._inventory_table.setItem(row, 1, QTableWidgetItem(qty))
+            self._inventory_table.setItem(row, 2, QTableWidgetItem(record.get('use-by', 'N/A')))
+        return True
+
+
+
+    # NOT DONE YET :/
     def _on_edit_inventory_triggered(self) -> None:
         if self._controller:
             self._log_display.append("\n[System]: Starting Inventory Editor... Please look at your Terminal window for inputs.")
@@ -324,95 +404,10 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             records = self._controller.data_manager.recipes.records
             self.print_recipes(records)
 
-    def set_controller(self, controller) -> None:
-       # safely mutates internal controller reference
-        self._controller = controller
-
-    def _on_inventory_view_triggered(self) -> None:
-        # internal callback to bridge data safely controller
-        if self._controller and hasattr(self._controller, "data_manager"):
-            self._update_active_navigation_state(self._btn_view_inv)
-            # Pull records safely from the data framework layer
-            self._search_panel.hide()
-            self._item_details_view.hide()
-            self._inventory_table.setMaximumHeight(16777215)
-            records = self._controller.data_manager.inventory.records
-            self.print_current_inventory(records)
-
-    def display_main_menu(self) -> None:
-        self.show()
-    
     def display_edit_menu(self) -> None: pass
     def display_inventory_search_menu(self) -> None: pass
     def display_recipe_search_menu(self) -> None: pass
 
-    def _on_table_row_clicked(self, item) -> None:
-        # extracts complete underlying data metrics for the clicked row n renders them
-        if not self._controller:
-            return
-
-        row_idx = item.row()
-        header_item = self._inventory_table.verticalHeaderItem(row_idx)
-        if not header_item:
-            return
-
-        try:
-            db_id = int(header_item.text()) - 1
-        except ValueError:
-            return
-            
-        records = self._controller.data_manager.inventory.records
-
-        if 0 <= db_id < len(records):
-            target = records[db_id]
-            self._item_details_view.show()
-            self._item_details_view.clear()
-            
-            allergen = target.get('allergen info', 'None') or 'None'
-            storage = target.get('storage condition', 'Ambient')
-            days_left = target.get('days_to_expiry', 'N/A')
-            expiry_str = f"{days_left} day(s) remaining" if str(days_left).isdigit() else str(days_left)
-
-            # Replicates your terminal string formatting layout perfectly
-            self._item_details_view.append("============================================================")
-            self._item_details_view.append(f"                        FOOD ID: [{db_id + 1}]")
-            self._item_details_view.append("============================================================")
-            self._item_details_view.append(f"Item Name:        {target.get('food', 'Unknown')}")
-            self._item_details_view.append(f"Category:         {target.get('food_category', 'General')}")
-            self._item_details_view.append(f"Stock Quantity:   {target.get('quantity', '0')}")
-            self._item_details_view.append(f"Use-By Date:      {target.get('use-by', 'N/A')}")
-            self._item_details_view.append(f"Days to Expiry:   {expiry_str}")
-            self._item_details_view.append(f"Storage Type:     {storage}")
-            self._item_details_view.append(f"Waste Risk Level: {target.get('waste_risk_level', 'Low')}")
-            self._item_details_view.append(f"Demand Level:     {target.get('demand level', 'Normal')}")
-            self._item_details_view.append(f"Allergen Info:    {allergen}")
-            self._item_details_view.append("============================================================")
-
-    def print_current_inventory(self, extracted_items: list, ids: list = None) -> bool:
-        self._log_display.hide()
-        self._item_details_view.hide()
-        self._inventory_table.show()
-        self._inventory_table.setRowCount(0)
-        
-        if not extracted_items:
-            return False
-
-        self._inventory_table.setColumnCount(3)
-        self._inventory_table.setHorizontalHeaderLabels(["Ingredient Name", "Quantity", "Expiry Date"])
-        self._inventory_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-
-
-        self._inventory_table.setRowCount(len(extracted_items))
-        for row, record in enumerate(extracted_items):
-            # Resolve unique index positions safely 
-            item_num = str(ids[row]) if ids else str(row + 1)
-            qty = "" if record.get('quantity') is None else str(record['quantity'])
-            
-            self._inventory_table.setVerticalHeaderItem(row, QTableWidgetItem(item_num))
-            self._inventory_table.setItem(row, 0, QTableWidgetItem(record.get('food', 'Unknown')))
-            self._inventory_table.setItem(row, 1, QTableWidgetItem(qty))
-            self._inventory_table.setItem(row, 2, QTableWidgetItem(record.get('use-by', 'N/A')))
-        return True
 
     def print_recipes(self, recipe_list: list, ids: list = None) -> bool:
         self._inventory_table.hide()
