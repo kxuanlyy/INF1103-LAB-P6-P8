@@ -1,26 +1,41 @@
-import abc
 from datetime import datetime
 import csv
 import os
-from io_manager.user_interface import UserInterface
 from data_manager.data_manager import results_store
 from ai_module.ai_manager import RECIPES_PATH
 from logic_manager.reciperesultservice import RecipeResultService
-from PySide6.QtCore import QObject, Qt
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
-    QTableWidgetItem, QHeaderView, QInputDialog, QMessageBox, 
+    QTableWidgetItem, QHeaderView, QMessageBox, 
     QComboBox, QGridLayout, QScrollArea
 )
+class AIWorker(QThread):
+    # Custom signals to safely send results or errors back to the main UI thread
+    result_ready = Signal(dict)
+    error_occurred = Signal(str)
 
-class PySideABCMeta(type(QObject), abc.ABCMeta):
-    pass
+    def __init__(self, ai_manager, payload: dict) -> None:
+        super().__init__()
+        self.ai_manager = ai_manager
+        self.payload = payload
 
-class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
+    def run(self) -> None:
+        # Executes the blocking API network request on a separate thread
+        try:
+            res, err = self.ai_manager.suggest_recipes(self.payload)
+            if err:
+                self.error_occurred.emit(err)
+            else:
+                self.result_ready.emit(res)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+class GuiView(QMainWindow):
     
     def __init__(self, controller=None) -> None:
-        super().__init__()
+        QMainWindow.__init__(self)
         self._controller = controller
 
         # Canvas Setup
@@ -1148,7 +1163,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         notes_text = self._input_ai_notes.text().strip()
         notes = notes_text if notes_text else "No structural physical defects observed"
 
-        # Build structural data dictionary bundle parameters to send down to engine
         payload = {
             "item": selected_record["food"],
             "category": selected_record["food_category"],
@@ -1165,70 +1179,56 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._inventory_table.show()
         self._ai_inputs_row.hide()
         self._btn_more_details.hide()
-
         self._log_display.setParent(self._frame_ai_input)
         self._frame_ai_input.layout().addWidget(self._log_display)
-        self._log_display.setMinimumHeight(300)
-        self._log_display.setMaximumHeight(390)
-
         self._lbl_ai_loading.setText(f"⚙️ Processing AI Assessment for '{selected_record['food']}'...\nPlease wait.")
-
         self._log_display.show()
         self._log_display.clear()
         self._log_display.setFixedHeight(300)
-        self.repaint()
 
-        try:
-            # Run the AI manager engine cleanly on the main loop where QTextDocument belongs
-            res, err = self._controller.ai_manager.suggest_recipes(payload)
-            
-            if err:
-                QMessageBox.critical(self, "API Connection Failure", f"Assessment failed: {err}")
-                self._lbl_ai_loading.setText("⚠️ Failed to load AI data.")
-                self._ai_inputs_row.show()
-                return
+        self._ai_thread = AIWorker(self._controller.ai_manager, payload)
 
-            brief_html = f"""
-            <div style='font-family: Arial; font-size: 13px; color: #e0e0e0; line-height: 1.5;'>
-                <div style='background-color: #27ae60; color: #ffffff; padding: 8px; font-weight: bold; border-radius: 4px; text-align: center; margin-bottom: 10px;'>
-                    🤖 AI DISCOVERY ASSESSMENT MATRIX SAVED 🤖
-                </div>
-                <p><b>✅ Successfully processed item:</b> <span style='color: #2ecc71;'>{selected_record['food'].upper()}</span></p>
-                <p><b>⭐ Waste Risk Checked:</b> {selected_record['waste_risk_level']}</p>
-                <div style='margin-top: 10px; margin-bottom: 10px;'>
-                    <b style='color: #ffffff;'>📝 Suggested Recipes:</b><br/>
-            """
-            
-            if res and isinstance(res, dict) and res.get('recipes'):
-                for number, recipe in enumerate(res.get('recipes', []), start=1):
-                    brief_html += f"<span style='margin-left: 15px; color: #3498db;'>• [{number}] {recipe.get('name', 'Unknown Recipe').upper()}</span><br/>"
-                
-                self._btn_more_details.setProperty("latest_res", res)
+        self._ai_thread.result_ready.connect(lambda res: self._handle_ai_success(res, selected_record))
+        self._ai_thread.error_occurred.connect(self._handle_ai_failure)
 
-                if not hasattr(self._btn_more_details, '_is_connected'):
-                    self._btn_more_details.clicked.connect(lambda: self.print_ai_result(self._btn_more_details.property("latest_res"), RECIPES_PATH))
-                    self._btn_more_details._is_connected = True
+        self._ai_thread.finished.connect(self._ai_thread.deleteLater)
 
-                self._btn_more_details.show()
-            else:
-                brief_html += "<span style='margin-left: 15px; color: #e74c3c;'>None returned.</span><br/>"
+        self._ai_thread.start()
 
-            brief_html += """
-                </div>
-                <div style='border-top: 1px solid #333333; padding-top: 8px; color: #f39c12; font-weight: bold;'>
-                    👉 [ Recipes sent to 'Process Recipes' menu option! ]
-                </div>
+    def _handle_ai_success(self, res: dict, selected_record: dict) -> None:
+        # Handles updating the main text UI view elements once the thread exits successfully
+        brief_html = f"""
+        <div style='font-family: Arial; font-size: 13px; color: #e0e0e0; line-height: 1.5;'>
+            <div style='background-color: #27ae60; color: #ffffff; padding: 8px; font-weight: bold; border-radius: 4px; text-align: center; margin-bottom: 10px;'>
+                🤖 AI DISCOVERY ASSESSMENT MATRIX SAVED 🤖
             </div>
-            """
-            self._log_display.setHtml(brief_html)
-            
-            self._controller.data_manager.load()  
-            self._lbl_ai_loading.setText("✅ AI Analysis complete!")
+            <p><b>✅ Successfully processed item:</b> <span style='color: #2ecc71;'>{selected_record['food'].upper()}</span></p>
+            <p><b>⭐ Waste Risk Checked:</b> {selected_record['waste_risk_level']}</p>
+            <div style='margin-top: 10px; margin-bottom: 10px;'>
+                <b style='color: #ffffff;'>📝 Suggested Recipes:</b><br/>
+        """
+        
+        if res and isinstance(res, dict) and res.get('recipes'):
+            for number, recipe in enumerate(res.get('recipes', []), start=1):
+                brief_html += f"<span style='margin-left: 15px; color: #3498db;'>• [{number}] {recipe.get('name', 'Unknown Recipe').upper()}</span><br/>"
+            self._btn_more_details.setProperty("latest_res", res)
+            if not hasattr(self._btn_more_details, '_is_connected'):
+                self._btn_more_details.clicked.connect(lambda: self.print_ai_result(self._btn_more_details.property("latest_res"), RECIPES_PATH))
+                self._btn_more_details._is_connected = True
+            self._btn_more_details.show()
+        else:
+            brief_html += "<span style='margin-left: 15px; color: #e74c3c;'>None returned.</span><br/>"
 
-        except Exception as e:
-            self._show_error_message("System Error", f"AI exploration pipeline encountered a problem: {str(e)}")
-            self._lbl_ai_loading.setText("⚠️ Execution aborted due to system errors.")
-            self._ai_inputs_row.show()
+        brief_html += """</div><div style='border-top: 1px solid #333333; padding-top: 8px; color: #f39c12; font-weight: bold;'>👉 [ Recipes sent to 'Process Recipes' menu option! ]</div></div>"""
+        self._log_display.setHtml(brief_html)
+        self._controller.data_manager.load()  
+        self._lbl_ai_loading.setText("✅ AI Analysis complete!")
+
+    def _handle_ai_failure(self, err_msg: str) -> None:
+        # Handles displaying connection exceptions without crashing the UI loop thread
+        QMessageBox.critical(self, "API Connection Failure", f"Assessment failed: {err_msg}")
+        self._lbl_ai_loading.setText("⚠️ Failed to load AI data.")
+        self._ai_inputs_row.show()
 
     def print_ai_result(self, result: dict, recipes_path: str) -> None:
         # renders complete terminal profile recipes across full-screen view spaces
@@ -1668,7 +1668,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             
             self._item_details_view.setHtml(html_card)
 
-    # Option 7: Exit Application
+    # Option 8: Exit Application
     def _execute_graceful_exit(self) -> None:
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Confirm Exit")
