@@ -81,7 +81,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._layout_add = QVBoxLayout(self._frame_add)
         self._lbl_add_title = QLabel("Add Item:")
         
-        self._layout_add_inputs = QHBoxLayout()
         self._add_name = QLineEdit(); self._add_name.setPlaceholderText("Ingredient Name")
         self._add_qty = QLineEdit(); self._add_qty.setPlaceholderText("Stock Qty")
         self._add_date = QLineEdit(); self._add_date.setPlaceholderText("Use-By (DD/MM/YYYY)")
@@ -343,8 +342,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         edit_grid_layout.addWidget(QLabel("Allergen Info:"), 3, 2)
         edit_grid_layout.addWidget(self._edit_allergens, 3, 3)
 
-        QWidget().setLayout(self._edit_form_layout) 
-        self._edit_form_layout = QVBoxLayout(self._edit_form_widget)
         self._edit_form_layout.setContentsMargins(0, 0, 0, 0)
         self._edit_form_layout.addWidget(edit_grid_widget)
 
@@ -423,9 +420,11 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             QFrame#AddFrame, QFrame#EditFrame, QFrame#DeleteFrame {
                 background-color: #1a1a1a;
                 border: 1px solid #333333;
+                border-radius: 10px;
                 padding: 16px;
                 margin-top: 8px;
                 border-radius: 10px;
+                margin-top: 8px;
             }
             #SearchPanelFrame, QFrame[frameShape="0"] { 
                 background-color: transparent; 
@@ -438,13 +437,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             }
             QScrollArea QWidget {
                 background-color: transparent;
-            }
-            QFrame#AddFrame, QFrame#EditFrame, QFrame#DeleteFrame {
-                background-color: #1a1a1a !important;
-                border: 1px solid #333333;
-                border-radius: 10px;
-                padding: 16px;
-                margin-top: 8px;
             }
 
             /* text interaction views n form labels */
@@ -643,16 +635,17 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_process_recipes.clicked.connect(self._on_process_recipes_triggered)
         self._btn_view_recipes.clicked.connect(self._on_recipes_view_triggered)
         self._btn_search_recipes.clicked.connect(self._on_search_recipes_triggered)
-        self._btn_exit.clicked.connect(self.close)
         self._inventory_table.itemClicked.connect(self._on_table_row_clicked)
         self._inventory_table.verticalHeader().sectionClicked.connect(self._on_header_section_clicked)
         self._input_edit_id.returnPressed.connect(self._on_edit_id_modified)
         self._btn_execute_update.clicked.connect(self._execute_gui_update)
         self._btn_execute_delete.clicked.connect(self._execute_gui_delete)
+        self._input_delete_id.returnPressed.connect(self._execute_gui_delete)
         self._btn_execute_ai.clicked.connect(self._execute_threaded_ai_analysis)
         self._input_recipe_ingredient.returnPressed.connect(self._execute_embedded_recipe_search)
         self._input_recipe_id.returnPressed.connect(self._execute_embedded_recipe_search)        
         self._btn_submit_recipe_search.clicked.connect(self._execute_embedded_recipe_search)
+        self._btn_exit.clicked.connect(self._execute_graceful_exit)
 
     def _show_success_message(self, title: str, text: str) -> None:
         # displays a custom themed alert dialog box for success messages
@@ -1024,13 +1017,25 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         
         if 0 <= idx < len(records):
             removed_name = records[idx]['food']
-            try:
-                self._controller.data_manager.inventory.delete(idx)
-                self._show_success_message("Success", f"Success: Removed '{removed_name}' from the inventory.")
-                self._input_delete_id.clear()
-                self.print_current_inventory(self._controller.data_manager.inventory.records)
-            except Exception as e:
-                QMessageBox.critical(self, "System Failure", f"Deletion failed: {e}")
+            
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Confirm Record Deletion")
+            msg_box.setStyleSheet(
+                "QMessageBox { border-left: 5px solid #c0392b; } "
+                "QLabel { min-width: 480px; color: #ffffff; font-size: 13px; }"
+            )
+            msg_box.setText(f"Are you sure you want to permanently remove '{removed_name}' (ID: {id_str}) from active stock logs?")
+            msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            msg_box.setDefaultButton(QMessageBox.No)
+            
+            if msg_box.exec() == QMessageBox.Yes:
+                try:
+                    self._controller.data_manager.inventory.delete(idx)
+                    self._show_success_message("Success", f"Success: Removed '{removed_name}' from the inventory.")
+                    self._input_delete_id.clear()
+                    self.print_current_inventory(self._controller.data_manager.inventory.records)
+                except Exception as e:
+                    QMessageBox.critical(self, "System Failure", f"Deletion failed: {e}")
         else:
             self._show_error_message("Validation Error", "Item ID out of active inventory limits.")
 
@@ -1662,3 +1667,21 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             """
             
             self._item_details_view.setHtml(html_card)
+
+    # Option 7: Exit Application
+    def _execute_graceful_exit(self) -> None:
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Confirm Exit")
+        
+        msg_box.setStyleSheet(
+            "QMessageBox { border-left: 5px solid #27ae60; } "
+            "QLabel { min-width: 440px; color: #ffffff; font-size: 13px; }"
+        )
+        msg_box.setText("Are you sure you want to exit and close the management dashboard?")
+        msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg_box.setDefaultButton(QMessageBox.No)
+        
+        if msg_box.exec() == QMessageBox.Yes:
+            if self._controller and hasattr(self._controller, "data_manager"):
+                self._controller.data_manager.save_all()
+            self.close()
