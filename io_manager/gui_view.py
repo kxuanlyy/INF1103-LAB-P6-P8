@@ -160,6 +160,12 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._btn_search_recipes
         ]
 
+        self._recipes_scroll_area = QScrollArea()
+        self._recipes_grid_widget = QWidget()
+        self._recipes_grid_layout = QGridLayout(self._recipes_grid_widget)
+        self._metrics_summary_panel = QFrame()
+
+
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -1404,6 +1410,90 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         except Exception as e:
             self._show_error_message("System Error", f"Could not complete validation pass: {str(e)}")
 
+    # Option 6: Fetches all stored recipe logs  
+    def _on_recipes_view_triggered(self):
+        if not self._controller:
+            return        
+        # Update active menu button and hide all other split-screen panels
+        self._update_active_navigation_state(self._btn_view_recipes)
+        self._search_panel.hide()
+        self._edit_scroll_area.hide()
+        self._frame_ai_input.hide()
+        self._item_details_view.hide()
+        self._inventory_table.hide()
+
+        self._log_display.setParent(self._display_container)
+        self._display_layout.addWidget(self._log_display)
+        
+        self._log_display.setMaximumHeight(16777215)
+        self._log_display.setMinimumHeight(0)
+        
+        self._log_display.show()
+        self._log_display.clear()
+        
+        try:
+            self._controller.data_manager.load()
+            saved_recipes = self._controller.data_manager.recipes.records
+            
+            if not saved_recipes:
+                self._log_display.setHtml(
+                    "<div style='font-family: Arial, sans-serif; font-size: 14px; color: #bdc3c7; "
+                    "background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 6px; "
+                    "padding: 15px; text-align: center;'>"
+                    "ℹ️ <b>No historical recipes found in database logs.</b><br/>"
+                    "<span style='font-size: 12px; color: #777777;'>"
+                    "Run an assessment query via the AI Assistant or Process Recipes first!</span></div>"
+                )
+                return
+
+            html_content = """
+            <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
+                <div style='background-color: #2c3e50; color: #ffffff; padding: 12px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 15px; margin-bottom: 18px;'>
+                    📖 HISTORICAL RECIPE REGISTRY LOGS
+                </div>
+            """
+
+            for number, recipe in enumerate(saved_recipes, start=1):
+                recipe_name = recipe.get('name', 'Unknown Recipe').upper()
+                ingredients = recipe.get('ingredients', 'None listed')
+                instructions = recipe.get('instructions', 'No execution steps provided.')
+                
+                formatted_steps = ""
+                if "Step " in instructions or "1. " in instructions:
+                    formatted_steps = f"<div style='color: #ecf0f1; white-space: pre-wrap;'>{instructions}</div>"
+                else:
+                    steps = [s.strip() for s in instructions.split(". ") if s.strip()]
+                    for step_idx, step_text in enumerate(steps, start=1):
+                        # Ensure trailing periods remain intact
+                        clean_step = step_text if step_text.endswith(".") else f"{step_text}."
+                        formatted_steps += f"<div style='margin-bottom: 4px;'><b>{step_idx}.</b> {clean_step}</div>"
+
+                html_content += f"""
+                <div style='background-color: #1e1e1e; border: 1px solid #2d2d2d; border-left: 5px solid #27ae60; border-radius: 6px; padding: 16px; margin-bottom: 15px;'>
+                    <div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2d2d2d; padding-bottom: 6px; margin-bottom: 10px;'>
+                        <span style='color: #27ae60; font-size: 14px; font-weight: bold;'>🍴 [{number}] {recipe_name}</span>
+                    </div>
+                    
+                    <p style='margin: 4px 0 10px 0;'>
+                        <b style='color: #ffffff;'>🛒 Ingredients Checklist:</b><br/>
+                        <span style='color: #bdc3c7; font-family: monospace; font-size: 12px;'>{ingredients}</span>
+                    </p>
+                    
+                    <div style='margin-top: 8px;'>
+                        <b style='color: #ffffff;'>📝 Preparation Steps:</b>
+                        <div style='color: #ecf0f1; margin-left: 5px; margin-top: 4px;'>
+                            {formatted_steps}
+                        </div>
+                    </div>
+                </div>
+                """
+
+            html_content += "</div>"
+            self._log_display.setHtml(html_content)
+            
+        except Exception as e:
+            self._show_error_message("System Error", f"Could not load recipe history: {str(e)}")
+
     # Option 7: Search Recipes
     def _on_search_recipes_triggered(self) -> None:
         if not self._controller:
@@ -1446,12 +1536,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
    # NOT DONE YET :/
 
-    def _on_recipes_view_triggered(self) -> None:
-        if self._controller and hasattr(self._controller, "data_manager"):
-            self._controller.data_manager.load()
-            records = self._controller.data_manager.recipes.records
-            self.print_recipes(records)
-
     def print_recipes(self, recipe_list: list, ids: list = None) -> bool:
         self._inventory_table.hide()
         self._item_details_view.hide()
@@ -1487,7 +1571,3 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._log_display.append(f"Name: {match.get('name')}")
         self._log_display.append(f"Ingredients: {match.get('ingredients')}")
         self._log_display.append(f"Instructions: {match.get('instructions')}")
-
-
-
-
