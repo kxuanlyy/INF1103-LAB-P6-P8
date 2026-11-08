@@ -6,7 +6,7 @@ from io_manager.user_interface import UserInterface
 from data_manager.data_manager import results_store
 from ai_module.ai_manager import RECIPES_PATH
 from logic_manager.reciperesultservice import RecipeResultService
-from PySide6.QtCore import QObject, Qt, QThread, Signal
+from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
@@ -58,6 +58,15 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._input_id = QLineEdit()
         self._btn_submit_search = QPushButton("Apply Filter")
         self._btn_submit_search.setObjectName("ApplyFilterButton")
+
+        # Recipe Search Bar Tool Panel
+        self._recipe_search_panel = QFrame()
+        self._recipe_search_layout = QHBoxLayout(self._recipe_search_panel)
+        self._input_recipe_ingredient = QLineEdit()
+        self._input_recipe_id = QLineEdit()
+        self._btn_submit_recipe_search = QPushButton("Apply Filter")
+        self._btn_submit_recipe_search.setObjectName("ApplyFilterButton")
+
 
         # Edit Operations
         self._edit_panel = QWidget()
@@ -159,13 +168,6 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._btn_ask_ai, self._btn_process_recipes, self._btn_view_recipes,
             self._btn_search_recipes
         ]
-
-        self._recipes_scroll_area = QScrollArea()
-        self._recipes_grid_widget = QWidget()
-        self._recipes_grid_layout = QGridLayout(self._recipes_grid_widget)
-        self._metrics_summary_panel = QFrame()
-
-
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -196,6 +198,22 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._display_layout.addWidget(self._inventory_table)
         self._display_layout.addWidget(self._item_details_view)
         self._display_layout.addWidget(self._log_display)
+
+        # Setup Recipe Search Panel Controls for option 7
+        self._recipe_search_panel.setFixedHeight(60)
+        self._recipe_search_layout.setContentsMargins(10, 4, 10, 4)
+        self._recipe_search_layout.setSpacing(10)      
+        self._input_recipe_ingredient.setPlaceholderText("Filter by Ingredient Name...")
+        self._input_recipe_id.setPlaceholderText("Filter by Recipe ID...")
+        self._btn_submit_recipe_search.setFixedWidth(100)
+
+        self._recipe_search_layout.addWidget(self._input_recipe_ingredient)
+        self._recipe_search_layout.addWidget(self._input_recipe_id)
+        self._recipe_search_layout.addWidget(self._btn_submit_recipe_search)
+        self._display_layout.insertWidget(0, self._recipe_search_panel)
+        self._recipe_search_panel.hide()
+
+
 
         self._edit_panel_layout.setContentsMargins(0, 0, 12, 10)
         self._edit_panel_layout.setSpacing(12)
@@ -632,6 +650,9 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._btn_execute_update.clicked.connect(self._execute_gui_update)
         self._btn_execute_delete.clicked.connect(self._execute_gui_delete)
         self._btn_execute_ai.clicked.connect(self._execute_threaded_ai_analysis)
+        self._input_recipe_ingredient.returnPressed.connect(self._execute_embedded_recipe_search)
+        self._input_recipe_id.returnPressed.connect(self._execute_embedded_recipe_search)        
+        self._btn_submit_recipe_search.clicked.connect(self._execute_embedded_recipe_search)
 
     def _show_success_message(self, title: str, text: str) -> None:
         # displays a custom themed alert dialog box for success messages
@@ -698,6 +719,8 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._frame_ai_input.hide()
             self._item_details_view.clear()
             self._item_details_view.hide()
+            self._recipe_search_panel.hide()
+
             self._inventory_table.setMaximumHeight(16777215)
             self._inventory_table.setMinimumHeight(0)
             self._inventory_table.show()
@@ -748,11 +771,17 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
             self._item_details_view.hide()
 
     def _on_table_row_clicked(self, item) -> None:
-        if item:
+        if not item: return
+        if self._btn_search_recipes.isChecked():
+            self._load_recipe_profile_by_row(item.row())
+        else:
             self._load_food_profile_by_row(item.row())
 
     def _on_header_section_clicked(self, row_idx: int) -> None:
-        self._load_food_profile_by_row(row_idx)
+        if self._btn_search_recipes.isChecked():
+            self._load_recipe_profile_by_row(row_idx)
+        else:
+            self._load_food_profile_by_row(row_idx)
 
     # Item Details Card Loader
     def _load_food_profile_by_row(self, row_idx: int) -> None:
@@ -842,6 +871,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._item_details_view.hide()
         self._log_display.hide()
         self._frame_ai_input.hide()
+        self._recipe_search_panel.hide()
         
         # Keep inventory table visible
         self._inventory_table.setFixedHeight(230)
@@ -1014,6 +1044,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._search_panel.hide()
         self._item_details_view.hide()
         self._edit_scroll_area.hide()
+        self._recipe_search_panel.hide()
 
         self._inventory_table.setFixedHeight(340)
         self._inventory_table.show()
@@ -1277,6 +1308,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._frame_ai_input.hide()
         self._item_details_view.hide()
         self._inventory_table.hide()
+        self._recipe_search_panel.hide()
 
         # reset text display box back onto the main screen container layer
         self._log_display.setParent(self._display_container)
@@ -1421,6 +1453,7 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
         self._frame_ai_input.hide()
         self._item_details_view.hide()
         self._inventory_table.hide()
+        self._recipe_search_panel.hide()
 
         self._log_display.setParent(self._display_container)
         self._display_layout.addWidget(self._log_display)
@@ -1496,78 +1529,136 @@ class GuiView(QMainWindow, UserInterface, metaclass=PySideABCMeta):
 
     # Option 7: Search Recipes
     def _on_search_recipes_triggered(self) -> None:
-        if not self._controller:
-            return
-
         self._update_active_navigation_state(self._btn_search_recipes)
         self._search_panel.hide()
         self._edit_scroll_area.hide()
-        self._inventory_table.hide()
+        self._frame_ai_input.hide()
+        self._log_display.hide()
+        
+        self._inventory_table.show()
+        self._recipe_search_panel.show()
         self._item_details_view.hide()
 
-        self._log_display.clear()
-        self._log_display.show()
+        self._inventory_table.setMaximumHeight(340)
+        self._inventory_table.setMinimumHeight(180)
 
-        # Capture text ingredient parameters through graphical modal prompt field
-        search_query, ok = QInputDialog.getText(
-            self, "Search Recipes", "Enter ingredient tags to filter by (comma-separated, or leave blank):"
-        )
-        if not ok:
-            self._log_display.append("Search operation canceled.")
+        self._item_details_view.setMinimumHeight(450)
+        self._item_details_view.setMaximumHeight(16777215)
+
+        self._display_layout.setStretchFactor(self._inventory_table, 1)
+        self._display_layout.setStretchFactor(self._item_details_view, 5)
+        
+        if self._controller:
+            self._controller.data_manager.load()
+            self.print_recipes_table(self._controller.data_manager.recipes.records)
+
+    def _execute_embedded_recipe_search(self) -> None:
+        if not self._controller:
             return
 
-        self._controller.data_manager.load()
+        # Extract values cleanly directly from interface boxes
+        ingredient_text = self._input_recipe_ingredient.text().strip()
+        id_text = self._input_recipe_id.text().strip()
         
-        # Construct parameters matching DataManager specifications
-        ingredients_list = [i.strip() for i in search_query.split(",") if i.strip()] if search_query.strip() else None
-        
-        filters = {
-            "ingredient": ingredients_list,
-            "item_id": None
-        }
-        
-        results = self._controller.data_manager.recipes.search(**filters)
+        ingredients_list = [i.strip() for i in ingredient_text.split(",") if i.strip()] if ingredient_text else None
+        id_filter = int(id_text) if id_text and id_text.isdigit() else None
+
+        results = self._controller.data_manager.recipes.search(ingredient=ingredients_list, item_id=id_filter)
         
         if results:
             record_ids = self._controller._get_record_ids(self._controller.data_manager.recipes.records, results)
-            self.print_recipes(results, record_ids)
+            self.print_recipes_table(results, record_ids)
+            if len(results) == 1:
+                self._load_recipe_profile_by_row(0)
+            else:
+                self._item_details_view.hide()
         else:
-            self._log_display.append("⚠️ No matching recipe entries containing those ingredients could be found.")
+            self._inventory_table.setRowCount(0)
+            self._item_details_view.hide()
 
-   # NOT DONE YET :/
-
-    def print_recipes(self, recipe_list: list, ids: list = None) -> bool:
-        self._inventory_table.hide()
+    def print_recipes_table(self, recipe_list: list, ids: list = None) -> bool:
+        self._log_display.hide()
         self._item_details_view.hide()
-        self._log_display.show()
-        self._log_display.clear()
-        if not recipe_list:
-            self._log_display.append("There are no recipes saved yet.")
-            return False
+        self._inventory_table.show()
+        self._inventory_table.setRowCount(0)
+        if not recipe_list: return False
+
+        self._inventory_table.setColumnCount(1)
+        self._inventory_table.setHorizontalHeaderLabels(["Recipe Name"])
+        self._inventory_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+
+        self._inventory_table.setRowCount(len(recipe_list))
+        for row, record in enumerate(recipe_list):
+            item_num = str(ids[row]) if ids else str(row + 1)
+            self._inventory_table.setVerticalHeaderItem(row, QTableWidgetItem(item_num))
             
-        for x, recipe in enumerate(recipe_list, start=1):
-            self._log_display.append(f"\n[{x}] {recipe.get('name', 'Unknown Recipe')}")
-            self._log_display.append("-" * 40)
-            self._log_display.append(f"Ingredients: {recipe.get('ingredients', '')}")
-            self._log_display.append(f"Instructions: {recipe.get('instructions', '')}\n")
+            name_item = QTableWidgetItem(record.get('name', 'Unknown Recipe'))
+            name_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self._inventory_table.setItem(row, 0, name_item)
         return True
 
-    def print_item_card(self, choice_num: int, match: dict) -> None:
-        self._inventory_table.hide()
-        self._log_display.show()
-        self._log_display.clear()
-        quantity = "Unknown" if match.get('quantity') is None else match['quantity']
-        self._log_display.append(f"=== FOOD CARD ID: [{choice_num}] ===")
-        self._log_display.append(f"Name: {match.get('food')}")
-        self._log_display.append(f"Category: {match.get('food_category')}")
-        self._log_display.append(f"Qty: {quantity}")
-        self._log_display.append(f"Expiry: {match.get('use-by')}")
+    def _load_recipe_profile_by_row(self, row_idx: int) -> None:
+        if not self._controller or not self._recipe_search_panel.isVisible(): 
+            return
+        header_item = self._inventory_table.verticalHeaderItem(row_idx)
+        if not header_item: 
+            return
+        try:
+            db_id = int(header_item.text()) - 1
+        except ValueError: 
+            return
+            
+        records = self._controller.data_manager.recipes.records
+        if 0 <= db_id < len(records):
+            target = records[db_id]
+            self._item_details_view.show()
+            self._item_details_view.clear()
+            
+            recipe_name = target.get('name', 'Unknown Recipe').upper()
+            ingredients = target.get('ingredients', 'None listed')
+            instructions = target.get('instructions', 'No execution steps provided.')
 
-    def print_recipe_card(self, choice_num: int, match: dict) -> None:
-        self._inventory_table.hide()
-        self._log_display.show()
-        self._log_display.clear()
-        self._log_display.append(f"=== RECIPE CARD ID: [{choice_num}] ===")
-        self._log_display.append(f"Name: {match.get('name')}")
-        self._log_display.append(f"Ingredients: {match.get('ingredients')}")
-        self._log_display.append(f"Instructions: {match.get('instructions')}")
+            formatted_steps = ""
+            if "Step " in instructions or "1. " in instructions:
+                formatted_steps = f"<div style='color: #ecf0f1; white-space: pre-wrap;'>{instructions}</div>"
+            else:
+                steps = [s.strip() for s in instructions.split(". ") if s.strip()]
+                for step_idx, step_text in enumerate(steps, start=1):
+                    clean_step = step_text if step_text.endswith(".") else f"{step_text}."
+                    formatted_steps += f"<div style='margin-bottom: 6px;'><b>{step_idx}.</b> {clean_step}</div>"
+
+            ingredients_list = [i.strip().capitalize() for i in ingredients.split(",") if i.strip()]
+            bullet_points_html = "".join([f"<li style='margin-bottom: 5px; color: #bdc3c7;'>• {item}</li>" for item in ingredients_list])
+
+
+            html_card = f"""
+            <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6; background-color: #1e1e1e; padding: 10px; border-radius: 8px;'>
+                
+                <!-- Card Header Panel Badge -->
+                <div style='background-color: #2c3e50; color: #ffffff; padding: 8px 12px; font-weight: bold; border-radius: 5px; font-size: 13px; margin-bottom: 14px;'>
+                    📖 RECIPE DISCOVERY CARD &mdash; ENTRY LOG #{db_id + 1}
+                </div>
+                
+                <div style='padding: 2px;'>
+                    <h2 style='color: #2ecc71; margin-top: 0px; font-size: 18px; font-weight: bold; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>
+                        {recipe_name}
+                    </h2>
+                    
+                    <div style='margin-bottom: 15px;'>
+                        <b style='color: #ffffff; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;'>Ingredients</b>
+                        <ul style='list-style-type: none; margin: 6px 0 0 0; padding-left: 5px;'>
+                            {bullet_points_html}
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <b style='color: #ffffff; font-size: 13px;'>📝 Preparation & Execution Steps:</b>
+                        <div style='color: #ecf0f1; margin-top: 6px; margin-left: 2px;'>
+                            {formatted_steps}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """
+            
+            self._item_details_view.setHtml(html_card)
