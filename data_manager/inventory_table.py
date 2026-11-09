@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, Union
 
-from csv_table import CsvTable, log
+from data_manager.csv_table import CsvTable, log
 
 INVENTORY_COLUMNS = [
     "food", "food_category", "use-by", "storage condition", "days_to_expiry",

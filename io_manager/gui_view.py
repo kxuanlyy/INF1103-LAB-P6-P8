@@ -1,7 +1,6 @@
 from datetime import datetime
 import csv
 import os
-from data_manager.data_manager import results_store
 from ai_module.ai_manager import RECIPES_PATH
 from logic_manager.reciperesultservice import RecipeResultService
 from PySide6.QtCore import Qt, QThread, Signal
@@ -1333,14 +1332,14 @@ class GuiView(QMainWindow):
         )
         self.repaint()
         try:
-            service = RecipeResultService()
+            service = RecipeResultService(results_store=self._controller.results_store)
             report = service.create_results()
             if isinstance(report, dict) and "error" in report:
                 self._show_error_message("Data Processing Issue", report["error"])
                 return
 
             self._controller.data_manager.load()
-            folder = results_store.get_folder_path()
+            folder = self._controller.results_store.get_folder_path()
             r_file = str(folder / "recipe_results.csv")
             rej_file = str(folder / "rejected.txt")
 

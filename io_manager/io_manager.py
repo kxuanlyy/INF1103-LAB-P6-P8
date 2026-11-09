@@ -1,5 +1,6 @@
 import sys
 
+from data_manager.recipe_results_store import RecipeResultsStore
 from io_manager.user_interface import UserInterface
 from io_manager.colors import Colors
 from io_manager.console_view import ConsoleView
@@ -15,7 +16,7 @@ def main(today=None, client=None):
     from io_manager.menu_controller import MenuController
 
     active_data_mgr = dm.DataManager()         
-    active_results_store = dm.RecipeResultsStore()
+    active_results_store = RecipeResultsStore()
     provider = GroqProvider(client) if client is not None else None
     ai_manager = AIManager(provider=provider)
     logic_evaluator = RecipeEvaluator()

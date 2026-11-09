@@ -1,17 +1,18 @@
 from logic_manager.recipeevaluator import RecipeEvaluator
 from logic_manager.ingredientmatcher import IngredientMatcher
-from data_manager.data_manager import load_json_files, save_results
+from data_manager.recipe_results_store import RecipeResultsStore
 
 class RecipeResultService:
     """Load, evaluate, and save recipe results."""
 
-    def __init__(self, evaluator=None):
-        # Allow a custom evaluator to be supplied when needed.
+    def __init__(self, evaluator=None, results_store=None):
+        # Allow a custom evaluator or results store to be supplied when needed.
         self.evaluator = evaluator or RecipeEvaluator()
+        self.results_store = results_store or RecipeResultsStore()
 
     def create_results(self):
         # Load the reference templates and incoming recipes.
-        data = load_json_files()
+        data = self.results_store.load_json_files()
 
         # Pass through any error returned by the data manager.
         if isinstance(data, dict) and "error" in data:
@@ -28,7 +29,7 @@ class RecipeResultService:
         accept_list, reject_list = self.evaluator.evaluate(
             accepted_recipes, recipes_from_json
         )
-        save_results(accept_list, reject_list)
+        self.results_store.save_results(accept_list, reject_list)
 
         # Report the number of recipes in each result list.
         return {
