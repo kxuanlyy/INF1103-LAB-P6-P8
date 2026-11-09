@@ -4,13 +4,32 @@ import os
 from ai_module.ai_manager import RECIPES_PATH
 from data_manager.inventory_table import DEFAULT_EXPIRING_WITHIN_DAYS
 from logic_manager.reciperesultservice import RecipeResultService
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, QDate, QPoint
+from PySide6.QtGui import QColor, QPainter, QPolygon
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
     QTableWidgetItem, QHeaderView, QMessageBox, 
-    QComboBox, QGridLayout, QScrollArea
+    QComboBox as BaseComboBox, QGridLayout, QScrollArea, QDateEdit
 )
+
+
+class QComboBox(BaseComboBox):
+    def paintEvent(self, event) -> None:
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#e0e0e0"))
+        center_x = self.width() - 11
+        center_y = self.height() // 2
+        painter.drawPolygon(QPolygon([
+            QPoint(center_x - 4, center_y - 2),
+            QPoint(center_x + 4, center_y - 2),
+            QPoint(center_x, center_y + 3),
+        ]))
+
+
 class AIWorker(QThread):
     # Custom signals to safely send results or errors back to the main UI thread
     result_ready = Signal(dict)
@@ -104,7 +123,11 @@ class GuiView(QMainWindow):
         
         self._add_name = QLineEdit(); self._add_name.setPlaceholderText("Ingredient Name")
         self._add_qty = QLineEdit(); self._add_qty.setPlaceholderText("Stock Qty")
-        self._add_date = QLineEdit(); self._add_date.setPlaceholderText("Use-By (DD/MM/YYYY)")
+        self._add_date = QDateEdit()
+        self._add_date.setCalendarPopup(True)
+        self._add_date.setDisplayFormat("dd/MM/yyyy")
+        self._add_date.setDate(QDate.currentDate())
+        self._add_date.setMinimumDate(QDate.currentDate())
         self._add_category = QComboBox(); self._add_category.addItems(["Dairy", "Meat & Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"])
         self._add_storage = QComboBox(); self._add_storage.addItems(["Chilled", "Frozen", "Ambient"])
         self._add_risk = QComboBox(); self._add_risk.addItems(["Low", "Medium", "High"])
@@ -528,13 +551,15 @@ class GuiView(QMainWindow):
                 color: #ffffff; 
                 border: 1px solid #3e3e42; 
                 border-radius: 6px; 
-                padding: 5px 10px; 
+                padding: 5px 30px 5px 10px;
                 font-size: 13px;
                 min-width: 130px;
             }
             QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 20px;
                 border: none;
-                padding-right: 4px;
             }
             QAbstractItemView { 
                 background-color: #2a2a2a;  
@@ -677,6 +702,10 @@ class GuiView(QMainWindow):
         self._btn_submit_search.clicked.connect(self._execute_embedded_search)
         self._btn_edit_inv.clicked.connect(self._on_edit_inventory_triggered)
         self._btn_execute_add.clicked.connect(self._execute_gui_add)
+        self._add_name.returnPressed.connect(self._execute_gui_add)
+        self._add_qty.returnPressed.connect(self._execute_gui_add)
+        self._add_allergens.returnPressed.connect(self._execute_gui_add)
+        self._add_date.lineEdit().returnPressed.connect(self._execute_gui_add)
         self._btn_ask_ai.clicked.connect(self._on_ask_ai_triggered)
         self._btn_process_recipes.clicked.connect(self._on_process_recipes_triggered)
         self._btn_view_recipes.clicked.connect(self._on_recipes_view_triggered)
@@ -687,6 +716,10 @@ class GuiView(QMainWindow):
         self._inventory_table.verticalHeader().sectionClicked.connect(self._on_header_section_clicked)
         self._input_edit_id.returnPressed.connect(self._on_edit_id_modified)
         self._btn_execute_update.clicked.connect(self._execute_gui_update)
+        self._edit_name.returnPressed.connect(self._execute_gui_update)
+        self._edit_qty.returnPressed.connect(self._execute_gui_update)
+        self._edit_date.returnPressed.connect(self._execute_gui_update)
+        self._edit_allergens.returnPressed.connect(self._execute_gui_update)
         self._btn_execute_delete.clicked.connect(self._execute_gui_delete)
         self._input_delete_id.returnPressed.connect(self._execute_gui_delete)
         self._btn_execute_ai.clicked.connect(self._execute_threaded_ai_analysis)
@@ -1008,7 +1041,7 @@ class GuiView(QMainWindow):
         if not self._controller: return
         name = self._add_name.text().strip()
         qty_str = self._add_qty.text().strip()
-        date_str = self._add_date.text().strip()
+        date_str = self._add_date.date().toString("dd/MM/yyyy")
         
         if not name or not qty_str or not date_str:
             self._show_error_message("Validation Error", "Name, Quantity, and Expiry Date fields are mandatory.")
@@ -1041,11 +1074,39 @@ class GuiView(QMainWindow):
             "quantity": int(qty_str)
         }
 
+        confirmation = (
+            f"Are you sure you want to add '{details['food']}' "
+            "to the active inventory?\n\n"
+            f"Item: {details['food']}\n"
+            f"Category: {details['food_category']}\n"
+            f"Quantity: {details['quantity']}\n"
+            f"Use-by date: {details['use_by']}\n"
+            f"Storage: {details['storage_condition']}\n"
+            f"Waste risk: {details['waste_risk_level']}\n"
+            f"Demand: {details['demand_level']}\n"
+            f"Allergens: {details['allergen_info'] or 'None'}"
+        )
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Confirm Inventory Addition")
+        msg_box.setStyleSheet(
+            "QMessageBox { border-left: 5px solid #27ae60; } "
+            "QLabel { min-width: 480px; color: #ffffff; font-size: 13px; }"
+        )
+        msg_box.setText(confirmation)
+        msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg_box.setDefaultButton(QMessageBox.No)
+
+        if msg_box.exec() != QMessageBox.Yes:
+            return
+
         try:
             self._controller.data_manager.inventory.add(**details)
             self._show_success_message("Success", f"Success: '{name}' successfully added.")
             # Clear input fields upon success
-            self._add_name.clear(); self._add_qty.clear(); self._add_date.clear(); self._add_allergens.clear()
+            self._add_name.clear()
+            self._add_qty.clear()
+            self._add_date.setDate(QDate.currentDate())
+            self._add_allergens.clear()
             self.print_current_inventory(self._controller.data_manager.inventory.records)
         except Exception as e:
             QMessageBox.critical(self, "System Failure", f"Could not sync file records: {e}")
@@ -1202,6 +1263,7 @@ class GuiView(QMainWindow):
         self._input_ai_id = QLineEdit()
         self._input_ai_id.setPlaceholderText("Enter Item ID (e.g. 36)...")
         self._input_ai_id.setFixedWidth(180)
+        self._input_ai_id.returnPressed.connect(self._execute_threaded_ai_analysis)
 
         self._input_ai_notes = QLineEdit()
         self._input_ai_notes.setPlaceholderText("Enter quality observations / structural notes (optional)...")
