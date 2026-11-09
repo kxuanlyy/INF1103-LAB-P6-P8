@@ -2,6 +2,7 @@ from datetime import datetime
 import csv
 import os
 from ai_module.ai_manager import RECIPES_PATH
+from data_manager.inventory_table import DEFAULT_EXPIRING_WITHIN_DAYS
 from logic_manager.reciperesultservice import RecipeResultService
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
@@ -55,6 +56,7 @@ class GuiView(QMainWindow):
         self._btn_process_recipes = QPushButton("🍳 Process Recipes")
         self._btn_view_recipes = QPushButton("📖 View Recipes")
         self._btn_search_recipes = QPushButton("🏷 Search Recipes")
+        self._btn_inventory_alerts = QPushButton("⚠ Inventory Alerts")
         self._btn_exit = QPushButton("🚪 Exit Application")
 
         # Right Display Component Area (Dynamic Layout)
@@ -64,6 +66,11 @@ class GuiView(QMainWindow):
         self._inventory_table = QTableWidget()
         self._item_details_view = QTextEdit()
         self._log_display = QTextEdit()
+        self._alert_panel = QWidget()
+        self._alert_layout = QVBoxLayout(self._alert_panel)
+        self._alert_summary = QLabel()
+        self._alert_table = QTableWidget()
+        self._btn_refresh_alerts = QPushButton("Refresh alerts")
 
         # Search Bar Tool
         self._search_panel = QFrame()
@@ -174,12 +181,13 @@ class GuiView(QMainWindow):
         self._btn_process_recipes.setCheckable(True)
         self._btn_view_recipes.setCheckable(True)
         self._btn_search_recipes.setCheckable(True)
+        self._btn_inventory_alerts.setCheckable(True)
         
         # Group them into a list for easy state clearing loops later
         self._nav_buttons = [
             self._btn_view_inv, self._btn_search_inv, self._btn_edit_inv,
             self._btn_ask_ai, self._btn_process_recipes, self._btn_view_recipes,
-            self._btn_search_recipes
+            self._btn_search_recipes, self._btn_inventory_alerts
         ]
         self._setup_ui()
 
@@ -204,6 +212,7 @@ class GuiView(QMainWindow):
         self._sidebar_layout.addWidget(self._btn_process_recipes)
         self._sidebar_layout.addWidget(self._btn_view_recipes)
         self._sidebar_layout.addWidget(self._btn_search_recipes)
+        self._sidebar_layout.addWidget(self._btn_inventory_alerts)
         self._sidebar_layout.addStretch()
         self._sidebar_layout.addWidget(self._btn_exit)
         
@@ -211,6 +220,29 @@ class GuiView(QMainWindow):
         self._display_layout.addWidget(self._inventory_table)
         self._display_layout.addWidget(self._item_details_view)
         self._display_layout.addWidget(self._log_display)
+        self._display_layout.addWidget(self._alert_panel)
+        self._alert_layout.setContentsMargins(8, 8, 8, 8)
+        self._alert_layout.setSpacing(10)
+        self._alert_summary.setWordWrap(True)
+        self._alert_table.setColumnCount(6)
+        self._alert_table.setHorizontalHeaderLabels([
+            "ID", "Item", "Quantity", "Use-by date", "Days remaining", "Alerts",
+        ])
+        self._alert_table.setAlternatingRowColors(True)
+        self._alert_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        alert_header = self._alert_table.horizontalHeader()
+        alert_header.setSectionResizeMode(QHeaderView.ResizeToContents)
+        alert_header.setSectionResizeMode(0, QHeaderView.Fixed)
+        self._alert_table.setColumnWidth(0, 42)
+        alert_header.setSectionResizeMode(1, QHeaderView.Stretch)
+        alert_header.setSectionResizeMode(5, QHeaderView.Stretch)
+        self._alert_layout.addWidget(self._alert_summary)
+        self._alert_layout.addWidget(self._alert_table)
+        alert_actions = QHBoxLayout()
+        alert_actions.addStretch()
+        alert_actions.addWidget(self._btn_refresh_alerts)
+        self._alert_layout.addLayout(alert_actions)
+        self._alert_panel.hide()
 
         # Setup Recipe Search Panel Controls for option 7
         self._recipe_search_panel.setFixedHeight(60)
@@ -649,6 +681,8 @@ class GuiView(QMainWindow):
         self._btn_process_recipes.clicked.connect(self._on_process_recipes_triggered)
         self._btn_view_recipes.clicked.connect(self._on_recipes_view_triggered)
         self._btn_search_recipes.clicked.connect(self._on_search_recipes_triggered)
+        self._btn_inventory_alerts.clicked.connect(self._on_inventory_alerts_triggered)
+        self._btn_refresh_alerts.clicked.connect(self._refresh_inventory_alerts)
         self._inventory_table.itemClicked.connect(self._on_table_row_clicked)
         self._inventory_table.verticalHeader().sectionClicked.connect(self._on_header_section_clicked)
         self._input_edit_id.returnPressed.connect(self._on_edit_id_modified)
@@ -707,6 +741,7 @@ class GuiView(QMainWindow):
         # unchecks all navigation shortcuts n locks the green background on the active menu choice
         for btn in self._nav_buttons:
             btn.setChecked(btn == active_button)
+        self._alert_panel.hide()
 
     def set_controller(self, controller) -> None:
        # safely mutates internal controller reference
@@ -733,6 +768,80 @@ class GuiView(QMainWindow):
             self._inventory_table.show()
             records = self._controller.data_manager.inventory.records
             self.print_current_inventory(records)
+
+    def _on_inventory_alerts_triggered(self) -> None:
+        if not self._controller:
+            return
+        self._update_active_navigation_state(self._btn_inventory_alerts)
+        for widget in (
+            self._search_panel,
+            self._recipe_search_panel,
+            self._edit_scroll_area,
+            self._frame_ai_input,
+            self._inventory_table,
+            self._item_details_view,
+            self._log_display,
+        ):
+            widget.hide()
+        self._alert_panel.show()
+        self._refresh_inventory_alerts()
+
+    def _refresh_inventory_alerts(self) -> None:
+        if not self._controller:
+            return
+        try:
+            self._controller.data_manager.load()
+            alerts = self._controller.data_manager.inventory.get_alerts()
+        except (OSError, ValueError, TypeError) as error:
+            self._alert_table.setRowCount(0)
+            self._alert_summary.setText("Could not load inventory alerts.")
+            self._show_error_message("Inventory alerts unavailable", str(error))
+            return
+
+        status_labels = {
+            "expired": "Expired",
+            "expiring_soon": "Expiring soon",
+            "low_stock": "Low stock",
+            "unknown_expiry": "Check expiry date",
+        }
+        by_id = {}
+        for alert_name, entries in alerts.items():
+            for entry in entries:
+                item_id = entry["id"]
+                item = by_id.setdefault(item_id, {**entry, "statuses": []})
+                item["statuses"].append(status_labels[alert_name])
+
+        self._alert_table.setRowCount(len(by_id))
+        for row, (item_id, item) in enumerate(by_id.items()):
+            record = item["record"]
+            quantity = record.get("quantity")
+            values = (
+                str(item_id),
+                str(record.get("food", "")),
+                str(quantity) if quantity is not None else "Unknown",
+                str(record.get("use-by", "")),
+                (
+                    str(item["days_remaining"])
+                    if item["days_remaining"] is not None
+                    else "Unknown"
+                ),
+                ", ".join(item["statuses"]),
+            )
+            for column, value in enumerate(values):
+                self._alert_table.setItem(row, column, QTableWidgetItem(value))
+
+        self._alert_summary.setText(
+            f"Expired: {len(alerts['expired'])}  |  "
+            f"Expiring within {DEFAULT_EXPIRING_WITHIN_DAYS} days: "
+            f"{len(alerts['expiring_soon'])}  |  "
+            f"Low stock: "
+            f"{len(alerts['low_stock'])}  |  "
+            f"Check expiry date: {len(alerts['unknown_expiry'])}"
+        )
+        if not by_id:
+            self._alert_summary.setText(
+                self._alert_summary.text() + "\nNo items currently need attention."
+            )
 
     # Option 2: Search Inventory
     def _on_search_inventory_triggered(self) -> None:

@@ -19,6 +19,7 @@ class ConsoleView(UserInterface):
         print(" 6. View recipes")
         print(" 7. Search recipes")
         print(" 8. Exit")
+        print(" 9. Inventory alerts")
         print("=================================")
 
     def display_edit_menu(self) -> None:

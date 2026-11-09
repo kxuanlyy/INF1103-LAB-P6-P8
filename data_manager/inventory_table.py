@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional, Union
 
 from data_manager.csv_table import CsvTable, log
@@ -10,6 +10,8 @@ INVENTORY_COLUMNS = [
 
 INVENTORY_INT_FIELDS = ("days_to_expiry", "quantity")
 DATE_FORMAT = "%d/%m/%Y"
+DEFAULT_EXPIRING_WITHIN_DAYS = 3
+DEFAULT_LOW_STOCK_THRESHOLD = 2
 
 # Keyword names used by InventoryTable.add / update -> CSV column.
 INVENTORY_ARGS = {
@@ -65,6 +67,58 @@ class InventoryTable(CsvTable):
 
     def _rows_for_saving(self) -> list:
         return [{c: ("" if r[c] is None else r[c]) for c in self.COLUMNS} for r in self.records]
+
+    def get_alerts(
+        self,
+        today: Optional[date] = None,
+        expiring_within_days: int = DEFAULT_EXPIRING_WITHIN_DAYS,
+        low_stock_threshold: int = DEFAULT_LOW_STOCK_THRESHOLD,
+    ) -> dict:
+        """Return date-based expiry and quantity alerts without changing records."""
+        today = date.today() if today is None else today
+        if isinstance(today, datetime):
+            today = today.date()
+        if not isinstance(today, date):
+            raise TypeError("today must be a date.")
+        if (
+            type(expiring_within_days) is not int
+            or expiring_within_days < 0
+            or type(low_stock_threshold) is not int
+            or low_stock_threshold < 0
+        ):
+            raise ValueError("Alert thresholds must be non-negative integers.")
+
+        alerts = {
+            "expired": [],
+            "expiring_soon": [],
+            "low_stock": [],
+            "unknown_expiry": [],
+        }
+        for item_id, record in enumerate(self.records, start=1):
+            item = {
+                "id": item_id,
+                "record": record,
+                "days_remaining": None,
+            }
+            try:
+                use_by = self._to_date(record.get("use-by"))
+            except (TypeError, ValueError):
+                use_by = None
+
+            if use_by is None:
+                alerts["unknown_expiry"].append(item)
+            else:
+                days_remaining = (use_by.date() - today).days
+                item["days_remaining"] = days_remaining
+                if days_remaining < 0:
+                    alerts["expired"].append(item)
+                elif days_remaining <= expiring_within_days:
+                    alerts["expiring_soon"].append(item)
+
+            quantity = record.get("quantity")
+            if quantity is not None and quantity <= low_stock_threshold:
+                alerts["low_stock"].append(item)
+        return alerts
 
     def add(
         self,
