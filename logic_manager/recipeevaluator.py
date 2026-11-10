@@ -14,16 +14,12 @@ class RecipeEvaluator:
 
     @staticmethod
     def _find_matching_template(recipe_name, accepted_recipes):
-        # Match a recipe to the first template with any name word in common.
-        recipe_words = set(recipe_name.strip().lower().split())
-        if not recipe_words:
-            return None
+        normalize = lambda name: " ".join(name.casefold().split())
+        target_name = normalize(recipe_name)
 
         for template in accepted_recipes:
-            template_name = template.get("name", "").strip()
-            template_words = set(template_name.lower().split())
-
-            if recipe_words.intersection(template_words):
+            template_name = normalize(template.get("name", ""))
+            if target_name == template_name:
                 return template
 
         return None
@@ -67,15 +63,27 @@ class RecipeEvaluator:
             expected_ingredients = template.get("ingredients", [])
             actual_ingredients = recipe.get("ingredients", [])
 
-            if self.ingredient_matcher.matches(
+            comparison = self.ingredient_matcher.compare(
                 expected_ingredients, actual_ingredients
-            ):
+            )
+
+            if comparison["matches"]:
                 accept_list.append(self._accepted_result(recipe))
             else:
+                matched = comparison["matched"]
+                missing = comparison["unmatched"]
+
+                reason = (
+                    f"Ingredient mismatch: {len(matched)}/"
+                    f"{len(matched) + len(missing)} matched "
+                    f"({comparison['match_ratio']:.0%}; "
+                    f"{comparison['required_ratio']:.0%} required). "
+                    f"Matched: {', '.join(matched) if matched else 'none'}. "
+                    f"Missing: {', '.join(missing) if missing else 'none'}."
+                )
+
                 reject_list.append(
-                    self._rejected_result(
-                        recipe_name, self.INGREDIENTS_MISMATCH_REASON
-                    )
+                    self._rejected_result(recipe_name, reason)
                 )
 
         return accept_list, reject_list

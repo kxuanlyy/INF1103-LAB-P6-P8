@@ -11,25 +11,35 @@ class IngredientMatcher:
         # Trim whitespace and lowercase items for consistent comparison.
         return {item.strip().lower() for item in items}
 
-    def matches(self, expected_ingredients, actual_ingredients):
-        # Normalize both lists before comparing them.
+
+    def compare(self, expected_ingredients, actual_ingredients):
         expected = self.normalize_items(expected_ingredients)
         actual = self.normalize_items(actual_ingredients)
 
-        # Empty ingredient lists cannot meet the matching requirement.
-        if not expected or not actual:
-            return False
+        matched = []
+        unmatched = []
 
-        matched_count = 0
-        for expected_item in expected:
+        for expected_item in sorted(expected):
             expected_words = set(expected_item.split())
 
-            # One shared word is enough to count this ingredient as a match.
             if any(
                 expected_words.intersection(actual_item.split())
                 for actual_item in actual
             ):
-                matched_count += 1
+                matched.append(expected_item)
+            else:
+                unmatched.append(expected_item)
 
-        # Compare the matching fraction with the configured threshold.
-        return matched_count / len(expected) >= self.minimum_match_ratio
+        ratio = len(matched) / len(expected) if expected else 0.0
+
+        return {
+            "matches": bool(expected and actual)
+            and ratio >= self.minimum_match_ratio,
+            "matched": matched,
+            "unmatched": unmatched,
+            "match_ratio": ratio,
+            "required_ratio": self.minimum_match_ratio,
+        }
+
+    def matches(self, expected_ingredients, actual_ingredients):
+        return self.compare(expected_ingredients, actual_ingredients)["matches"]

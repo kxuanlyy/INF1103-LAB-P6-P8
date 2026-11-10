@@ -10,15 +10,17 @@ class RecipeResultService:
         self.evaluator = evaluator or RecipeEvaluator()
         self.results_store = results_store or RecipeResultsStore()
 
-    def create_results(self):
+    def create_results(self, accepted_recipes=None):
         # Load the reference templates and incoming recipes.
         data = self.results_store.load_json_files()
 
         # Pass through any error returned by the data manager.
         if isinstance(data, dict) and "error" in data:
             return data
+        if accepted_recipes is None:
+            accepted_recipes = data["accepted_recipes"]
 
-        accepted_recipes = data["accepted_recipes"]
+
         recipes_from_json = data["recipes_from_json"]
 
         # Return an error when there are no incoming recipes to evaluate.

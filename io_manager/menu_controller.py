@@ -1,8 +1,13 @@
 from typing import Any, Dict, List, Optional
 
 from ai_module.ai_manager import RECIPES_PATH
+from data_manager import data_manager
 from data_manager.inventory_table import DEFAULT_EXPIRING_WITHIN_DAYS
 from io_manager.input_validator import InputValidator
+from logic_manager.edit_business_rules import BusinessRulesEditor
+
+
+#
 
 class MenuController:
     # Coordinates application lifecycle states, routes user selections, n bridges interaction across IO, Data n AI
@@ -14,6 +19,7 @@ class MenuController:
         self.ai_manager = ai_manager
         self.logic_evaluator = logic_evaluator
         self.validator = InputValidator()
+        self.business_rules_editor = BusinessRulesEditor()
                 
     def _get_record_ids(self, table: List[Any], records: List[Any]) -> List[int]:
         position = {id(record): n for n, record in enumerate(table, start=1)}
@@ -62,6 +68,9 @@ class MenuController:
                 break
             elif main_choice == "9":
                 self.handle_inventory_alerts(today=today)
+
+            elif main_choice == "10":
+                self.editbusinessrules()
             else:
                 print("\nError: Please select a number between 1 and 9.")
 
@@ -312,3 +321,9 @@ class MenuController:
         results_filename, rejected_filename = self.results_store.save_results(_accept_list, _reject_list)
         self.view.print_recipe_processor_summary(len(_accept_list), len(_reject_list), results_filename, rejected_filename)
         self.data_manager.load()
+
+    def load_business_rules(self):
+        return self.business_rules_editor.load_rules()
+
+    def editbusinessrules(self, updated_rules):
+        return self.business_rules_editor.editbusinessrules(updated_rules)

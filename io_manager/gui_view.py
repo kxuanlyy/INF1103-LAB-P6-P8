@@ -1,16 +1,19 @@
 from datetime import datetime
 import csv
 import os
+import json
+from tkinter import dialog
 from ai_module.ai_manager import RECIPES_PATH
 from data_manager.inventory_table import DEFAULT_EXPIRING_WITHIN_DAYS
 from logic_manager.reciperesultservice import RecipeResultService
+from logic_manager.edit_business_rules import BusinessRulesEditor
 from PySide6.QtCore import Qt, QThread, Signal, QDate, QPoint
 from PySide6.QtGui import QColor, QPainter, QPolygon
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QInputDialog,
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
-    QTableWidgetItem, QHeaderView, QMessageBox, 
-    QComboBox as BaseComboBox, QGridLayout, QScrollArea, QDateEdit
+    QTableWidgetItem, QHeaderView, QMessageBox, QListWidget,
+    QComboBox as BaseComboBox, QGridLayout, QScrollArea, QDateEdit,QDialog, QDialogButtonBox, QPlainTextEdit
 )
 
 
@@ -76,6 +79,7 @@ class GuiView(QMainWindow):
         self._btn_view_recipes = QPushButton("📖 View Recipes")
         self._btn_search_recipes = QPushButton("🏷 Search Recipes")
         self._btn_inventory_alerts = QPushButton("⚠ Inventory Alerts")
+        self._btn_editbusinessrules= QPushButton("⚙ Edit Business Rules")
         self._btn_exit = QPushButton("🚪 Exit Application")
 
         # Right Display Component Area (Dynamic Layout)
@@ -210,7 +214,7 @@ class GuiView(QMainWindow):
         self._nav_buttons = [
             self._btn_view_inv, self._btn_search_inv, self._btn_edit_inv,
             self._btn_ask_ai, self._btn_process_recipes, self._btn_view_recipes,
-            self._btn_search_recipes, self._btn_inventory_alerts
+            self._btn_search_recipes, self._btn_inventory_alerts,  self._btn_editbusinessrules,
         ]
         self._setup_ui()
 
@@ -236,6 +240,7 @@ class GuiView(QMainWindow):
         self._sidebar_layout.addWidget(self._btn_view_recipes)
         self._sidebar_layout.addWidget(self._btn_search_recipes)
         self._sidebar_layout.addWidget(self._btn_inventory_alerts)
+        self._sidebar_layout.addWidget(self._btn_editbusinessrules)
         self._sidebar_layout.addStretch()
         self._sidebar_layout.addWidget(self._btn_exit)
         
@@ -726,6 +731,7 @@ class GuiView(QMainWindow):
         self._input_recipe_ingredient.returnPressed.connect(self._execute_embedded_recipe_search)
         self._input_recipe_id.returnPressed.connect(self._execute_embedded_recipe_search)        
         self._btn_submit_recipe_search.clicked.connect(self._execute_embedded_recipe_search)
+        self._btn_editbusinessrules.clicked.connect(self._on_edit_business_rules_triggered)
         self._btn_exit.clicked.connect(self._execute_graceful_exit)
 
     def _show_success_message(self, title: str, text: str) -> None:
@@ -782,7 +788,7 @@ class GuiView(QMainWindow):
     
     def display_main_menu(self) -> None:
         self.show()
- 
+    
     # Option 1: View inventory Stocks
     def _on_inventory_view_triggered(self) -> None:
         # internal callback to bridge data safely controller
@@ -818,6 +824,167 @@ class GuiView(QMainWindow):
             widget.hide()
         self._alert_panel.show()
         self._refresh_inventory_alerts()
+
+    def _on_edit_business_rules_triggered(self) -> None:
+        if not self._controller:
+            return
+
+        try:
+            rules = self._controller.load_business_rules()
+        except (OSError, ValueError) as exc:
+            self._show_error_message("Could not load business rules", str(exc))
+            return
+
+        self._update_active_navigation_state(self._btn_editbusinessrules)
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Edit Business Rules")
+        dialog.resize(850, 600)
+        dialog.setMinimumSize(850, 650)
+        layout = QVBoxLayout(dialog)
+
+        layout.addWidget(QLabel("Select a recipe:"))
+        recipe_list = QListWidget()
+        layout.addWidget(recipe_list, 2)
+                
+
+        layout.addWidget(QLabel("Recipe name:"))
+        name_input = QLineEdit()
+        layout.addWidget(name_input)
+        ingredient_list = QListWidget()
+        ingredient_list.setMaximumHeight(170)
+        layout.addWidget(ingredient_list)   
+
+        ingredient_buttons = QHBoxLayout()
+        add_ingredient_button = QPushButton("Add ingredient")
+        remove_ingredient_button = QPushButton("Remove selected ingredient")
+        ingredient_buttons.addWidget(add_ingredient_button)
+        ingredient_buttons.addWidget(remove_ingredient_button)
+        layout.addLayout(ingredient_buttons)
+        
+
+        recipe_buttons = QHBoxLayout()
+        add_recipe_button = QPushButton("Add recipe")
+        remove_recipe_button = QPushButton("Remove selected recipe")
+        recipe_buttons.addWidget(add_recipe_button)
+        recipe_buttons.addWidget(remove_recipe_button)
+        layout.addLayout(recipe_buttons)
+
+
+        save_buttons = QDialogButtonBox(
+            QDialogButtonBox.Save | QDialogButtonBox.Cancel,
+            parent=dialog,
+        )
+        layout.addWidget(save_buttons)
+
+        current_index = None
+        
+        def store_current_recipe() -> None:
+            if current_index is None:
+                return
+
+            rules[current_index]["name"] = name_input.text().strip()
+            rules[current_index]["ingredients"] = [
+                ingredient_list.item(i).text().strip()
+                for i in range(ingredient_list.count())
+            ]
+
+        def show_recipe(index: int) -> None:
+            nonlocal current_index
+            store_current_recipe()
+
+            current_index = index
+            recipe = rules[index]
+            name_input.setText(recipe["name"])
+
+            ingredient_list.clear()
+            ingredient_list.addItems(recipe["ingredients"])
+
+        def refresh_recipe_list(select_index: int = 0) -> None:
+            recipe_list.clear()
+            recipe_list.addItems([rule["name"] for rule in rules])
+
+            if rules:
+                recipe_list.setCurrentRow(select_index)
+                show_recipe(select_index)
+            else:
+                name_input.clear()
+                ingredient_list.clear()
+
+        recipe_list.currentRowChanged.connect(
+            lambda index: show_recipe(index) if index >= 0 else None
+        )
+
+        def add_ingredient() -> None:
+            ingredient, accepted = QInputDialog.getText(
+                dialog, "Add ingredient", "Ingredient name:"
+            )
+            if accepted and ingredient.strip():
+                ingredient_list.addItem(ingredient.strip())
+
+        def remove_ingredient() -> None:
+            row = ingredient_list.currentRow()
+            if row >= 0:
+                ingredient_list.takeItem(row)
+
+        def add_recipe() -> None:
+            name, accepted = QInputDialog.getText(
+                dialog, "Add recipe", "Recipe name:"
+            )
+            if not accepted or not name.strip():
+                return
+
+            store_current_recipe()
+            rules.append({"name": name.strip(), "ingredients": []})
+            refresh_recipe_list(len(rules) - 1)
+
+        def remove_recipe() -> None:
+            nonlocal current_index
+            row = recipe_list.currentRow()
+            if row < 0:
+                return
+
+            rules.pop(row)
+            current_index = None
+            refresh_recipe_list(min(row, len(rules) - 1))
+        def edit_ingredient(item) -> None:
+            new_text, accepted = QInputDialog.getText(
+                dialog,
+                "Edit ingredient",
+                "Ingredient name:",
+                QLineEdit.Normal,
+                item.text(),
+            )
+
+            if accepted and new_text.strip():
+                item.setText(new_text.strip())
+
+        ingredient_list.itemDoubleClicked.connect(edit_ingredient)
+
+        def save_rules() -> None:
+            store_current_recipe()
+            try:
+                self._controller.editbusinessrules(rules)
+            except (OSError, ValueError) as exc:
+                self._show_error_message("Could not save business rules", str(exc))
+                return
+
+            dialog.accept()
+            self._show_success_message(
+                "Business rules saved",
+                "Your recipe rules were updated.",
+            )
+
+        add_ingredient_button.clicked.connect(add_ingredient)
+        remove_ingredient_button.clicked.connect(remove_ingredient)
+        add_recipe_button.clicked.connect(add_recipe)
+        remove_recipe_button.clicked.connect(remove_recipe)
+        save_buttons.accepted.connect(save_rules)
+        save_buttons.rejected.connect(dialog.reject)
+
+        refresh_recipe_list()
+        dialog.exec()
+
 
     def _refresh_inventory_alerts(self) -> None:
         if not self._controller:
@@ -1503,8 +1670,12 @@ class GuiView(QMainWindow):
         )
         self.repaint()
         try:
-            service = RecipeResultService(results_store=self._controller.results_store)
-            report = service.create_results()
+            accepted_rules = self._controller.load_business_rules()
+
+            service = RecipeResultService(
+                results_store=self._controller.results_store
+            )
+            report = service.create_results(accepted_recipes=accepted_rules)
             if isinstance(report, dict) and "error" in report:
                 self._show_error_message("Data Processing Issue", report["error"])
                 return
@@ -1855,3 +2026,5 @@ class GuiView(QMainWindow):
             if self._controller and hasattr(self._controller, "data_manager"):
                 self._controller.data_manager.save_all()
             self.close()
+    
+
