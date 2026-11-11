@@ -1913,9 +1913,9 @@ class GuiView(QMainWindow):
         self._edit_scroll_area.hide()
         self._frame_ai_input.hide()
         self._log_display.hide()
+        self._recipe_cards.hide()
         
         self._inventory_table.show()
-        self._recipe_search_panel.show()
         self._item_details_view.hide()
 
         self._inventory_table.setMaximumHeight(340)
@@ -1929,7 +1929,15 @@ class GuiView(QMainWindow):
         
         if self._controller:
             self._controller.data_manager.load()
-            self.print_recipes_table(self._controller.data_manager.recipes.records)
+            recipes = self._controller.data_manager.recipes.records
+            self._recipe_search_panel.setVisible(bool(recipes))
+            if recipes:
+                self.print_recipes_table(recipes)
+            else:
+                self._show_recipe_search_empty_state(
+                    "No saved recipes yet",
+                    "Process recipes or use the AI assistant to start building your recipe library.",
+                )
 
     def _execute_embedded_recipe_search(self) -> None:
         if not self._controller:
@@ -1952,12 +1960,25 @@ class GuiView(QMainWindow):
             else:
                 self._item_details_view.hide()
         else:
-            self._inventory_table.setRowCount(0)
-            self._item_details_view.hide()
+            self._show_recipe_search_empty_state(
+                "No matching recipes",
+                "Try a different ingredient or recipe ID, or clear the search fields.",
+            )
+
+    def _show_recipe_search_empty_state(self, title: str, message: str) -> None:
+        self._inventory_table.hide()
+        self._item_details_view.hide()
+        self._recipe_cards.set_recipes(
+            [],
+            empty_title=title,
+            empty_message=message,
+        )
+        self._recipe_cards.show()
 
     def print_recipes_table(self, recipe_list: list, ids: list = None) -> bool:
         self._log_display.hide()
         self._item_details_view.hide()
+        self._recipe_cards.hide()
         self._inventory_table.show()
         self._inventory_table.setRowCount(0)
         if not recipe_list: return False
