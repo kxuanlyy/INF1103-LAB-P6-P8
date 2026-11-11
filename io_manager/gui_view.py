@@ -7,6 +7,9 @@ from ai_module.ai_manager import RECIPES_PATH
 from data_manager.inventory_table import DEFAULT_EXPIRING_WITHIN_DAYS
 from logic_manager.reciperesultservice import RecipeResultService
 from logic_manager.edit_business_rules import BusinessRulesEditor
+from io_manager.main_window_style import (
+    SIDEBAR_QSS, TOOLBAR_QSS, WELCOME_QSS, style_surface, style_inventory_table,
+)
 from PySide6.QtCore import Qt, QThread, Signal, QDate, QPoint
 from PySide6.QtGui import QColor, QPainter, QPolygon
 from PySide6.QtWidgets import (
@@ -219,30 +222,18 @@ class GuiView(QMainWindow):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle("FoodRescue Enterprise Management Dashboard")
-        self.resize(1120, 860)
+        self.setWindowTitle("FoodRescue")
+        self.resize(1200, 860)
         self.setCentralWidget(self._central_widget)
         
-        self._main_layout.setContentsMargins(15, 15, 15, 15)
-        self._main_layout.setSpacing(15)
+        self._main_layout.setContentsMargins(0, 0, 0, 0)
+        self._main_layout.setSpacing(0)
         
         self._sidebar_widget.setFrameShape(QFrame.StyledPanel)
-        self._sidebar_widget.setFixedWidth(240)
-        self._sidebar_layout.setContentsMargins(10, 10, 10, 10)
-        self._sidebar_layout.setSpacing(8)
-        
-        self._sidebar_layout.addWidget(self._status_label)
-        self._sidebar_layout.addWidget(self._btn_view_inv)
-        self._sidebar_layout.addWidget(self._btn_search_inv)
-        self._sidebar_layout.addWidget(self._btn_edit_inv)
-        self._sidebar_layout.addWidget(self._btn_ask_ai)
-        self._sidebar_layout.addWidget(self._btn_process_recipes)
-        self._sidebar_layout.addWidget(self._btn_view_recipes)
-        self._sidebar_layout.addWidget(self._btn_search_recipes)
-        self._sidebar_layout.addWidget(self._btn_inventory_alerts)
-        self._sidebar_layout.addWidget(self._btn_editbusinessrules)
-        self._sidebar_layout.addStretch()
-        self._sidebar_layout.addWidget(self._btn_exit)
+        self._sidebar_widget.setFixedWidth(232)
+        self._sidebar_layout.setContentsMargins(16, 28, 16, 20)
+        self._sidebar_layout.setSpacing(4)
+        self._setup_main_window_shell()
         
 
         self._display_layout.addWidget(self._inventory_table)
@@ -472,11 +463,135 @@ class GuiView(QMainWindow):
 
         # Assemble Main Layout
         self._main_layout.addWidget(self._sidebar_widget)
-        self._main_layout.addWidget(self._display_container)
+        self._workspace_layout.addWidget(self._display_container, 1)
+        self._main_layout.addWidget(self._workspace, 1)
       
         self._log_display.setReadOnly(True)
         self._apply_theme_styles()
         self._connect_signals()
+
+    def _setup_main_window_shell(self) -> None:
+        """Build presentation around the existing panels and navigation buttons."""
+        self._central_widget.setObjectName("MainCanvas")
+        self._central_widget.setStyleSheet(
+            "QWidget#MainCanvas { background: #1b1f22; }"
+        )
+        self._sidebar_widget.setObjectName("MainSidebar")
+        brand_row = QHBoxLayout()
+        brand_row.setSpacing(10)
+        brand_mark = QLabel("FR")
+        brand_mark.setObjectName("BrandMark")
+        brand_mark.setFixedSize(40, 40)
+        brand_mark.setAlignment(Qt.AlignCenter)
+        self._status_label.setText("FoodRescue")
+        self._status_label.setObjectName("Brand")
+        self._status_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        brand_row.addWidget(brand_mark)
+        brand_row.addWidget(self._status_label, 1)
+        self._sidebar_layout.addLayout(brand_row)
+        tagline = QLabel("Less waste. More possibility.")
+        self._sidebar_layout.addWidget(tagline)
+        self._sidebar_layout.addSpacing(26)
+
+        self._navigation_titles = {
+            self._btn_view_inv: ("Inventory", "Your ingredients, at a glance."),
+            self._btn_search_inv: ("Search inventory", "Find ingredients and inspect item details."),
+            self._btn_edit_inv: ("Edit inventory", "Manage the ingredients in your inventory."),
+            self._btn_inventory_alerts: ("Inventory alerts", "Review expiry and stock alerts."),
+            self._btn_ask_ai: ("AI assistant", "Assess ingredients and discover possibilities."),
+            self._btn_process_recipes: ("Process recipes", "Evaluate your recipe suggestions."),
+            self._btn_view_recipes: ("Recipe library", "Browse your saved recipes."),
+            self._btn_search_recipes: ("Search recipes", "Find a recipe for your ingredients."),
+        }
+        groups = (
+            ("INVENTORY", (self._btn_view_inv, self._btn_search_inv,
+                           self._btn_edit_inv, self._btn_inventory_alerts)),
+            ("KITCHEN", (self._btn_ask_ai, self._btn_process_recipes,
+                         self._btn_view_recipes, self._btn_search_recipes)),
+        )
+        for title, buttons in groups:
+            section = QLabel(title)
+            section.setObjectName("NavSection")
+            self._sidebar_layout.addWidget(section)
+            self._sidebar_layout.addSpacing(6)
+            for button in buttons:
+                button.setText(self._navigation_titles[button][0])
+                button.setMinimumHeight(38)
+                button.setCursor(Qt.PointingHandCursor)
+                self._sidebar_layout.addWidget(button)
+            self._sidebar_layout.addSpacing(22)
+        self._sidebar_layout.addStretch()
+        self._btn_editbusinessrules.setText("Business rules")
+        self._sidebar_layout.addWidget(self._btn_editbusinessrules)
+        self._btn_exit.setText("Exit application")
+        self._btn_exit.setObjectName("ExitButton")
+        self._sidebar_layout.addWidget(self._btn_exit)
+        style_surface(self._sidebar_widget, SIDEBAR_QSS)
+
+        self._workspace = QWidget()
+        self._workspace_layout = QVBoxLayout(self._workspace)
+        self._workspace_layout.setContentsMargins(0, 0, 0, 0)
+        self._workspace_layout.setSpacing(0)
+        self._toolbar = QFrame()
+        self._toolbar.setObjectName("MainToolbar")
+        toolbar_layout = QHBoxLayout(self._toolbar)
+        toolbar_layout.setContentsMargins(28, 20, 28, 20)
+        toolbar_layout.setSpacing(10)
+        heading_layout = QVBoxLayout()
+        heading_layout.setSpacing(4)
+        self._page_title = QLabel("Welcome")
+        self._page_title.setObjectName("PageTitle")
+        self._page_subtitle = QLabel("Your food rescue workspace.")
+        self._page_subtitle.setWordWrap(True)
+        heading_layout.addWidget(self._page_title)
+        heading_layout.addWidget(self._page_subtitle)
+        toolbar_layout.addLayout(heading_layout, 1)
+        self._toolbar_search = QPushButton("Search inventory")
+        self._toolbar_edit = QPushButton("Edit inventory")
+        # Forward to the original buttons so their existing slots remain authoritative.
+        self._toolbar_search.clicked.connect(self._btn_search_inv.click)
+        self._toolbar_edit.clicked.connect(self._btn_edit_inv.click)
+        for button in (self._toolbar_search, self._toolbar_edit):
+            button.setCursor(Qt.PointingHandCursor)
+            toolbar_layout.addWidget(button)
+            button.hide()
+        style_surface(self._toolbar, TOOLBAR_QSS)
+        self._workspace_layout.addWidget(self._toolbar)
+        self._display_layout.setContentsMargins(28, 24, 28, 28)
+        self._display_layout.setSpacing(16)
+
+        self._welcome_panel = QFrame()
+        self._welcome_panel.setObjectName("WelcomePanel")
+        welcome_layout = QVBoxLayout(self._welcome_panel)
+        welcome_layout.setContentsMargins(40, 40, 40, 40)
+        welcome_layout.setSpacing(18)
+        welcome_layout.addStretch(2)
+        eyebrow = QLabel("MAKE THE MOST OF WHAT YOU HAVE")
+        eyebrow.setObjectName("WelcomeEyebrow")
+        eyebrow.setWordWrap(True)
+        title = QLabel("Good food.\nGreater possibilities.")
+        title.setObjectName("WelcomeTitle")
+        title.setWordWrap(True)
+        description = QLabel(
+            "Keep ingredients in view, spot what needs attention,\n"
+            "and find another purpose for the food you have."
+        )
+        description.setWordWrap(True)
+        for label in (eyebrow, title, description):
+            welcome_layout.addWidget(label)
+        welcome_layout.addSpacing(8)
+        self._welcome_inventory_button = QPushButton("View inventory")
+        self._welcome_inventory_button.setCursor(Qt.PointingHandCursor)
+        self._welcome_inventory_button.clicked.connect(self._btn_view_inv.click)
+        welcome_layout.addWidget(self._welcome_inventory_button, 0, Qt.AlignLeft)
+        welcome_layout.addStretch(3)
+        footnote = QLabel("Inventory  /  Recipes  /  AI assistance")
+        footnote.setObjectName("WelcomeFootnote")
+        footnote.setWordWrap(True)
+        welcome_layout.addWidget(footnote)
+        style_surface(self._welcome_panel, WELCOME_QSS)
+        self._display_layout.addWidget(self._welcome_panel, 1)
+        self._log_display.hide()
 
     def _apply_theme_styles(self) -> None:
         dark_stylesheet = """
@@ -777,7 +892,17 @@ class GuiView(QMainWindow):
         msg.exec()
 
     def _update_active_navigation_state(self, active_button: QPushButton) -> None:
-        # unchecks all navigation shortcuts n locks the green background on the active menu choice
+        # Presentation only: existing handlers still own panel visibility and data.
+        self._welcome_panel.hide()
+        title, subtitle = self._navigation_titles.get(
+            active_button, ("FoodRescue", "Your food rescue workspace.")
+        )
+        self._page_title.setText(title)
+        self._page_subtitle.setText(subtitle)
+        is_inventory = active_button is self._btn_view_inv
+        self._toolbar_search.setVisible(is_inventory)
+        self._toolbar_edit.setVisible(is_inventory)
+        style_inventory_table(self._inventory_table, is_inventory)
         for btn in self._nav_buttons:
             btn.setChecked(btn == active_button)
         self._alert_panel.hide()
