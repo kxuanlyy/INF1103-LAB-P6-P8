@@ -36,7 +36,7 @@ class RecipeEvaluator:
         for recipe in recipes_from_json:
             recipe_name = recipe.get("name", "").strip()
             template = self.template_matcher.find_template(
-            recipe_name, accepted_recipes
+                recipe_name, accepted_recipes
             )
 
             # Reject recipes that do not match an accepted template name.
