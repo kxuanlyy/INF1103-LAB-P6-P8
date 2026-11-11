@@ -15,7 +15,8 @@ from io_manager.main_window_style import (
 from io_manager.recipe_cards import RecipeCardsView
 from io_manager.theme_switch import ThemeSwitch
 from PySide6.QtCore import Qt, QThread, Signal, QDate, QPoint
-from PySide6.QtGui import QPalette, QPainter, QPolygon
+from PySide6.QtGui import QPalette, QPainter, QPixmap, QPolygon
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QInputDialog,
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
@@ -575,10 +576,13 @@ class GuiView(QMainWindow):
             button.setCursor(Qt.PointingHandCursor)
             toolbar_layout.addWidget(button)
             button.hide()
-        theme_label = QLabel("Dark mode")
+        self._theme_bulb = QLabel()
+        self._theme_bulb.setFixedSize(32, 32)
+        self._theme_bulb.setAlignment(Qt.AlignCenter)
         self._theme_button = ThemeSwitch()
-        theme_label.setBuddy(self._theme_button)
-        toolbar_layout.addWidget(theme_label)
+        self._theme_bulb.setBuddy(self._theme_button)
+        self._update_theme_icon(False)
+        toolbar_layout.addWidget(self._theme_bulb)
         self._theme_button.setToolTip("Turn on dark mode")
         self._theme_button.toggled.connect(self._toggle_theme)
         toolbar_layout.addWidget(self._theme_button)
@@ -657,7 +661,23 @@ class GuiView(QMainWindow):
 
     def _toggle_theme(self, dark: bool) -> None:
         apply_theme(self, dark)
+        self._update_theme_icon(dark)
         self._theme_button.setToolTip("Turn off dark mode" if dark else "Turn on dark mode")
+
+    def _update_theme_icon(self, dark: bool) -> None:
+        name = "bulb-off.svg" if dark else "bulb-on.svg"
+        renderer = QSvgRenderer(os.path.join(os.path.dirname(__file__), "icons", name))
+        scale = self.devicePixelRatioF()
+        pixmap = QPixmap(round(28 * scale), round(28 * scale))
+        pixmap.setDevicePixelRatio(scale)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter)
+        painter.end()
+        self._theme_bulb.setPixmap(pixmap)
+        description = "Dark mode: light off" if dark else "Light mode: light on"
+        self._theme_bulb.setToolTip(description)
+        self._theme_bulb.setAccessibleName(description)
 
     def _connect_signals(self) -> None:
         self._btn_view_inv.clicked.connect(self._on_inventory_view_triggered)
