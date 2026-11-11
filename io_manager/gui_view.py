@@ -1530,7 +1530,8 @@ class GuiView(QMainWindow):
             accepted_rules = self._controller.load_business_rules()
 
             service = RecipeResultService(
-                results_store=self._controller.results_store
+            evaluator=self._controller.logic_evaluator,
+            results_store=self._controller.results_store,
             )
             report = service.create_results(accepted_recipes=accepted_rules)
             if isinstance(report, dict) and "error" in report:
