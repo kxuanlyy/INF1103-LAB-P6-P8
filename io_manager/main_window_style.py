@@ -296,7 +296,8 @@ QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 def style_surface(widget, stylesheet):
     """Use the platform UI font (SF on macOS, Segoe UI on Windows)."""
     widget.setFont(QFontDatabase.systemFont(QFontDatabase.GeneralFont))
-    widget.setStyleSheet(stylesheet)
+    widget.setProperty("themeStylesheet", stylesheet)
+    widget.setStyleSheet(theme_colors(stylesheet, is_dark(widget)))
 
 
 def style_inventory_table(table):

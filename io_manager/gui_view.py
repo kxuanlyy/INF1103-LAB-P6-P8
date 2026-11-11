@@ -10,11 +10,12 @@ from logic_manager.edit_business_rules import BusinessRulesEditor
 from logic_manager.inventory_alert_service import DEFAULT_EXPIRING_WITHIN_DAYS
 from io_manager.main_window_style import (
     APPLICATION_QSS, SIDEBAR_QSS, TOOLBAR_QSS, WELCOME_QSS,
-    style_surface, style_inventory_table,
+    INVENTORY_QSS, apply_theme, set_themed_html, style_surface, style_inventory_table,
 )
 from io_manager.recipe_cards import RecipeCardsView
+from io_manager.theme_switch import ThemeSwitch
 from PySide6.QtCore import Qt, QThread, Signal, QDate, QPoint
-from PySide6.QtGui import QColor, QPainter, QPolygon
+from PySide6.QtGui import QPalette, QPainter, QPolygon
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QInputDialog,
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
@@ -31,7 +32,7 @@ class QComboBox(BaseComboBox):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor("#e0e0e0"))
+        painter.setBrush(self.palette().color(QPalette.Text))
         center_x = self.width() - 11
         center_y = self.height() // 2
         painter.drawPolygon(QPolygon([
@@ -47,7 +48,7 @@ class CalendarDateEdit(BaseDateEdit):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor("#e0e0e0"))
+        painter.setBrush(self.palette().color(QPalette.Text))
         center_x = self.width() - 11
         center_y = self.height() // 2
         painter.drawPolygon(QPolygon([
@@ -82,6 +83,7 @@ class GuiView(QMainWindow):
     
     def __init__(self, controller=None) -> None:
         QMainWindow.__init__(self)
+        self.setProperty("darkMode", False)
         self._controller = controller
         self._home_alert_dismissed = False
 
@@ -479,7 +481,8 @@ class GuiView(QMainWindow):
     def _setup_main_window_shell(self) -> None:
         """Build presentation around the existing panels and navigation buttons."""
         self._central_widget.setObjectName("MainCanvas")
-        self._central_widget.setStyleSheet(
+        style_surface(
+            self._central_widget,
             "QWidget#MainCanvas { background: #1b1f22; }"
         )
         self._sidebar_widget.setObjectName("MainSidebar")
@@ -572,6 +575,13 @@ class GuiView(QMainWindow):
             button.setCursor(Qt.PointingHandCursor)
             toolbar_layout.addWidget(button)
             button.hide()
+        theme_label = QLabel("Dark mode")
+        self._theme_button = ThemeSwitch()
+        theme_label.setBuddy(self._theme_button)
+        toolbar_layout.addWidget(theme_label)
+        self._theme_button.setToolTip("Turn on dark mode")
+        self._theme_button.toggled.connect(self._toggle_theme)
+        toolbar_layout.addWidget(self._theme_button)
         style_surface(self._toolbar, TOOLBAR_QSS)
         self._workspace_layout.addWidget(self._toolbar)
         self._display_layout.setContentsMargins(28, 24, 28, 28)
@@ -633,8 +643,9 @@ class GuiView(QMainWindow):
         style_surface(self, APPLICATION_QSS)
         style_inventory_table(self._inventory_table)
         style_inventory_table(self._alert_table)
-        self._alert_table.setStyleSheet(
-            self._alert_table.styleSheet()
+        style_surface(
+            self._alert_table,
+            INVENTORY_QSS
             + "\nQTableWidget::item:focus { border: none; }"
         )
         for editor in (self._log_display, self._item_details_view):
@@ -642,6 +653,11 @@ class GuiView(QMainWindow):
         for layout in (self._layout_add, self._layout_edit):
             layout.setContentsMargins(18, 18, 18, 18)
             layout.setSpacing(12)
+        apply_theme(self, False)
+
+    def _toggle_theme(self, dark: bool) -> None:
+        apply_theme(self, dark)
+        self._theme_button.setToolTip("Turn off dark mode" if dark else "Turn on dark mode")
 
     def _connect_signals(self) -> None:
         self._btn_view_inv.clicked.connect(self._on_inventory_view_triggered)
@@ -716,7 +732,7 @@ class GuiView(QMainWindow):
         self._inventory_table.setMaximumHeight(16777215)
         self._item_details_view.setMinimumHeight(0)
         self._item_details_view.setMaximumHeight(16777215)
-        self._log_display.setStyleSheet("")
+        style_surface(self._log_display, "")
         title, subtitle = self._navigation_titles.get(
             active_button, ("FoodRescue", "Your food rescue workspace.")
         )
@@ -1266,7 +1282,7 @@ class GuiView(QMainWindow):
                 f"<tr><td style='color: #a7b7ad;'>{label}</td><td>{escape(str(value))}</td></tr>"
                 for label, value in fields
             )
-            self._item_details_view.setHtml(
+            set_themed_html(self._item_details_view,
                 f"<p style='color: #a7cbb6;'>ITEM {db_id + 1:02d}</p>"
                 f"<h2 style='color: #f0f3f1; font-size: 20px;'>{escape(target.get('food', 'Unknown'))}</h2>"
                 f"<table width='100%' cellpadding='5' style='color: #dce3df;'>{rows}</table>"
@@ -1696,8 +1712,8 @@ class GuiView(QMainWindow):
 
         brief_html += """</table><p style='color: #aabfb2; margin-top: 16px;'>
             Suggestions are ready in Process recipes.</p>"""
-        self._log_display.setStyleSheet("QTextEdit { background: #273a31; border-color: #425b4c; }")
-        self._log_display.setHtml(brief_html)
+        style_surface(self._log_display, "QTextEdit { background: #273a31; border-color: #425b4c; }")
+        set_themed_html(self._log_display, brief_html)
         self._controller.data_manager.load()  
         self._lbl_ai_loading.setText("Assessment complete - Suggestions ready to review")
 
@@ -1759,7 +1775,7 @@ class GuiView(QMainWindow):
         self._log_display.clear()
         
         # fire up the backend recipe processor engine matrix
-        self._log_display.setHtml(
+        set_themed_html(self._log_display,
             "<div style=' font-size: 13px; color: #b4c1b9; padding: 10px;'>"
             " <b>Preparing recipe evaluation...</b><br/> Processing recipes... please wait...</div>"
         )
@@ -1874,7 +1890,7 @@ class GuiView(QMainWindow):
                 </div>
             </div>
             """
-            self._log_display.setHtml(full_html)
+            set_themed_html(self._log_display, full_html)
             
             # show a desktop completion alert box
             self._show_success_message(
@@ -2027,7 +2043,7 @@ class GuiView(QMainWindow):
                     f"<p>{index}. {escape(step if step.endswith('.') else step + '.')}</p>"
                     for index, step in enumerate(steps, start=1)
                 )
-            self._item_details_view.setHtml(f"""
+            set_themed_html(self._item_details_view, f"""
                 <p style='color: #a7cbb6;'>RECIPE {db_id + 1:02d}</p>
                 <h2 style='color: #f0f3f1; font-size: 20px;'>{escape(recipe_name)}</h2>
                 <p style='color: #c2d2c9;'><b>Ingredients</b></p>

@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QFrame, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
-from io_manager.main_window_style import RECIPE_CARDS_QSS, style_surface
+from io_manager.main_window_style import RECIPE_CARDS_QSS, set_themed_html, style_surface
 
 
 def _text_label(text, object_name):
@@ -117,4 +117,6 @@ class RecipeCardsView(QScrollArea):
         layout.addStretch()
         # QScrollArea owns and deletes the previous contents on replacement.
         self.setWidget(contents)
+        if summary is not None:
+            set_themed_html(summary_label, summary)
         self.verticalScrollBar().setValue(0)
