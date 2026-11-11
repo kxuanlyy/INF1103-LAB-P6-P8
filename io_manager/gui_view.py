@@ -253,14 +253,13 @@ class GuiView(QMainWindow):
         self._alert_summary.setWordWrap(True)
         self._alert_table.setColumnCount(6)
         self._alert_table.setHorizontalHeaderLabels([
-            "ID", "Item", "Quantity", "Use-by date", "Days remaining", "Alerts",
+            "Item ID", "Item", "Quantity", "Use-by date", "Days remaining", "Alerts",
         ])
         self._alert_table.setAlternatingRowColors(True)
         self._alert_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._alert_table.verticalHeader().hide()
         alert_header = self._alert_table.horizontalHeader()
         alert_header.setSectionResizeMode(QHeaderView.ResizeToContents)
-        alert_header.setSectionResizeMode(0, QHeaderView.Fixed)
-        self._alert_table.setColumnWidth(0, 42)
         alert_header.setSectionResizeMode(1, QHeaderView.Stretch)
         alert_header.setSectionResizeMode(5, QHeaderView.Stretch)
         self._alert_layout.addWidget(self._alert_summary)
