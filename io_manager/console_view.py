@@ -1,3 +1,5 @@
+import shutil
+import sys
 import textwrap
 
 from io_manager.user_interface import UserInterface
@@ -48,6 +50,28 @@ class ConsoleView(UserInterface):
         print("  2. View specific recipe card")
         print("  3. Back to Main Menu")
         print("------------------------------")
+
+    def display_inventory_live_search(self, query, items, ids, total_count) -> None:
+        # Redraws the whole live-search screen: the text typed so far, then the
+        # inventory rows that match it. Called again after every key press.
+        lines_free = shutil.get_terminal_size().lines - 13   # room left after the headings and table frame
+        rows = max(3, lines_free)
+        shown, shown_ids = items[:rows], ids[:rows]
+
+        sys.stdout.write("\033[H\033[J")                     # cursor to top-left, clear the screen
+        print("------------------------------")
+        print("   SEARCH INVENTORY (LIVE)    ")
+        print("------------------------------")
+        print(f"Search: {query}\u2588")                       # block cursor after the typed text
+        print("Type a name or ID | Backspace: delete | Ctrl+U: clear | Enter: done | Esc: back")
+        print(f"Showing {len(items)} of {total_count} item(s)")
+        if shown:
+            self.print_current_inventory(shown, shown_ids)
+            if len(items) > len(shown):
+                print(f"... and {len(items) - len(shown)} more. Keep typing to narrow the list.")
+        else:
+            print("\nNo inventory items match.")
+        sys.stdout.flush()
 
     def print_current_inventory(self, extracted_items, ids=None) -> bool:
         if not extracted_items:

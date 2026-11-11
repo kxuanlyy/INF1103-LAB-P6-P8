@@ -1,7 +1,9 @@
+import sys
 from typing import Any, Dict, List, Optional
 
 from ai_module.ai_manager import RECIPES_PATH
 from io_manager.input_validator import InputValidator
+from io_manager.key_reader import KeyReader
 
 class MenuController:
     # Coordinates application lifecycle states, routes user selections, n bridges interaction across IO, Data n AI
@@ -128,29 +130,77 @@ class MenuController:
             else:
                 print("\nError: Please enter a, b, c, or d.")
 
-    def handle_inventory_search(self) -> None:
+    def _inventory_matches(self, query: str) -> List[Dict[str, Any]]:
+        # Items whose name contains the text. If the text is a whole number, the
+        # item with that ID (its number in the full list) is included too.
+        table = self.data_manager.inventory
+        query = query.strip()
+        found = table.search(food=query or None)
+        if query.isascii() and query.isdigit():
+            found = found + table.search(item_id=int(query))
+        wanted = {id(record) for record in found}
+        return [record for record in table.records if id(record) in wanted]   # keep list order
+
+    def _live_inventory_search(self) -> Optional[str]:
+        # Shows the inventory and narrows it after every key press.
+        # Returns the final text on Enter, or None if the user pressed Esc.
+        records = self.data_manager.inventory.records
+        query = ""
+        with KeyReader() as keys:
+            while True:
+                items = self._inventory_matches(query)
+                self.view.display_inventory_live_search(
+                    query, items, self._get_record_ids(records, items), len(records))
+
+                key = keys.read_key()
+                while True:                       # take everything already typed (e.g. a paste) before redrawing
+                    if key == "ENTER":
+                        return query
+                    if key == "ESC":
+                        sys.stdout.write("\033[H\033[J")     # clear the live screen before leaving
+                        return None
+                    if key == "BACKSPACE":
+                        query = query[:-1]
+                    elif key == "CTRL_U":
+                        query = ""
+                    elif len(key) == 1:
+                        query += key
+                    if not keys.pending():
+                        break
+                    key = keys.read_key()
+
+    def _ask_inventory_search(self) -> Optional[str]:
+        # Live search in a real terminal; a plain one-line prompt when input is piped.
+        if KeyReader.is_interactive():
+            return self._live_inventory_search()
         print("\n--- SEARCH INVENTORY ---")
-        print("Leave a field blank to skip it. If you fill in both, both must match.")
-        
-        filters = {
-            "food": self.validator.get_optional_text("Food name contains"),
-            "item_id": self.validator.get_optional_int("ID (the number shown in the inventory list)"),
-        }
-        results = self.data_manager.inventory.search(**filters)
-        
+        return input("Food name or ID (Enter to skip): ").strip()
+
+    def _show_inventory_results(self, query: str) -> None:
+        if KeyReader.is_interactive():
+            sys.stdout.write("\033[H\033[J")      # drop the live screen so the final list stands alone
+        results = self._inventory_matches(query)
         if results:
             print(f"\nFound {len(results)} matching item(s):")
             self.view.print_current_inventory(results, self._get_record_ids(self.data_manager.inventory.records, results))
         else:
             print("\nNo inventory items matched that name/ID.")
 
+    def handle_inventory_search(self) -> None:
+        query = self._ask_inventory_search()
+        if query is None:                          # Esc on the first search: straight back
+            print("\nReturning to Main Menu...")
+            return
+        self._show_inventory_results(query)
+
         while True:
             self.view.display_inventory_search_menu()
             search_choice = input("Select an option (1-3): ").strip()
 
             if search_choice == "1":
-                self.handle_inventory_search()
-                break
+                query = self._ask_inventory_search()
+                if query is not None:              # Esc here just returns to this menu
+                    self._show_inventory_results(query)
             elif search_choice == "2":
                 user_choice = input(f"Enter the item ID to show (1-{len(self.data_manager.inventory.records)}): ").strip()
                 if user_choice.isdigit() and 1 <= int(user_choice) <= len(self.data_manager.inventory.records):
