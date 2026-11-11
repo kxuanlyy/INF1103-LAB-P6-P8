@@ -19,11 +19,29 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QInputDialog,
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
     QTableWidgetItem, QHeaderView, QMessageBox, QListWidget, QSizePolicy,
-    QComboBox as BaseComboBox, QGridLayout, QScrollArea, QDateEdit,QDialog, QDialogButtonBox, QPlainTextEdit
+    QComboBox as BaseComboBox, QGridLayout, QScrollArea,
+    QDateEdit as BaseDateEdit, QDialog, QDialogButtonBox, QPlainTextEdit,
+    QCheckBox
 )
 
 
 class QComboBox(BaseComboBox):
+    def paintEvent(self, event) -> None:
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#e0e0e0"))
+        center_x = self.width() - 11
+        center_y = self.height() // 2
+        painter.drawPolygon(QPolygon([
+            QPoint(center_x - 4, center_y - 2),
+            QPoint(center_x + 4, center_y - 2),
+            QPoint(center_x, center_y + 3),
+        ]))
+
+
+class CalendarDateEdit(BaseDateEdit):
     def paintEvent(self, event) -> None:
         super().paintEvent(event)
         painter = QPainter(self)
@@ -101,6 +119,10 @@ class GuiView(QMainWindow):
         self._alert_summary = QLabel()
         self._alert_table = QTableWidget()
         self._btn_refresh_alerts = QPushButton("Refresh alerts")
+        self._btn_delete_expired_alert = QPushButton("Delete checked expired items")
+        self._btn_delete_expired_alert.setObjectName("ExecuteDeleteButton")
+        self._btn_delete_expired_alert.setEnabled(False)
+        self._expired_alert_ids = set()
 
         # Search Bar Tool
         self._search_panel = QFrame()
@@ -136,7 +158,7 @@ class GuiView(QMainWindow):
         
         self._add_name = QLineEdit(); self._add_name.setPlaceholderText("Ingredient Name")
         self._add_qty = QLineEdit(); self._add_qty.setPlaceholderText("Stock Qty")
-        self._add_date = QDateEdit()
+        self._add_date = CalendarDateEdit()
         self._add_date.setCalendarPopup(True)
         self._add_date.setDisplayFormat("dd/MM/yyyy")
         self._add_date.setDate(QDate.currentDate())
@@ -165,7 +187,9 @@ class GuiView(QMainWindow):
         self._edit_form_layout = QVBoxLayout(self._edit_form_widget)
         self._edit_name = QLineEdit(); self._edit_name.setPlaceholderText("Ingredient Name")
         self._edit_qty = QLineEdit(); self._edit_qty.setPlaceholderText("Stock Qty")
-        self._edit_date = QLineEdit(); self._edit_date.setPlaceholderText("Use-By (DD/MM/YYYY)")
+        self._edit_date = CalendarDateEdit()
+        self._edit_date.setCalendarPopup(True)
+        self._edit_date.setDisplayFormat("dd/MM/yyyy")
         self._edit_category = QComboBox(); self._edit_category.addItems(["Dairy", "Meat & Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"])
         self._edit_storage = QComboBox(); self._edit_storage.addItems(["Chilled", "Frozen", "Ambient"])
         self._edit_risk = QComboBox(); self._edit_risk.addItems(["Low", "Medium", "High"])
@@ -252,21 +276,26 @@ class GuiView(QMainWindow):
         self._alert_layout.setContentsMargins(8, 8, 8, 8)
         self._alert_layout.setSpacing(10)
         self._alert_summary.setWordWrap(True)
-        self._alert_table.setColumnCount(6)
+        self._alert_table.setColumnCount(7)
         self._alert_table.setHorizontalHeaderLabels([
-            "Item ID", "Item", "Quantity", "Use-by date", "Days remaining", "Alerts",
+            "Select", "Item ID", "Item", "Quantity", "Use-by date",
+            "Days remaining", "Alerts",
         ])
         self._alert_table.setAlternatingRowColors(True)
         self._alert_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._alert_table.verticalHeader().hide()
         alert_header = self._alert_table.horizontalHeader()
+        alert_header.setDefaultAlignment(Qt.AlignCenter)
         alert_header.setSectionResizeMode(QHeaderView.ResizeToContents)
-        alert_header.setSectionResizeMode(1, QHeaderView.Stretch)
-        alert_header.setSectionResizeMode(5, QHeaderView.Stretch)
+        alert_header.setSectionResizeMode(2, QHeaderView.Stretch)
+        alert_header.setSectionResizeMode(6, QHeaderView.Stretch)
+        self._alert_table.setWordWrap(True)
+        self._alert_summary.setAlignment(Qt.AlignCenter)
         self._alert_layout.addWidget(self._alert_summary)
         self._alert_layout.addWidget(self._alert_table)
         alert_actions = QHBoxLayout()
         alert_actions.addStretch()
+        alert_actions.addWidget(self._btn_delete_expired_alert)
         alert_actions.addWidget(self._btn_refresh_alerts)
         self._alert_layout.addLayout(alert_actions)
         self._alert_panel.hide()
@@ -604,6 +633,10 @@ class GuiView(QMainWindow):
         style_surface(self, APPLICATION_QSS)
         style_inventory_table(self._inventory_table)
         style_inventory_table(self._alert_table)
+        self._alert_table.setStyleSheet(
+            self._alert_table.styleSheet()
+            + "\nQTableWidget::item:focus { border: none; }"
+        )
         for editor in (self._log_display, self._item_details_view):
             editor.document().setDefaultFont(self.font())
         for layout in (self._layout_add, self._layout_edit):
@@ -628,6 +661,9 @@ class GuiView(QMainWindow):
         self._btn_search_recipes.clicked.connect(self._on_search_recipes_triggered)
         self._btn_inventory_alerts.clicked.connect(self._on_inventory_alerts_triggered)
         self._btn_refresh_alerts.clicked.connect(self._refresh_inventory_alerts)
+        self._btn_delete_expired_alert.clicked.connect(
+            self._delete_selected_expired_item
+        )
         self._btn_home_alert_dismiss.clicked.connect(self._dismiss_home_alert)
         self._btn_home_alert_view.clicked.connect(self._view_alerts_from_home)
         self._inventory_table.itemClicked.connect(self._on_table_row_clicked)
@@ -636,7 +672,7 @@ class GuiView(QMainWindow):
         self._btn_execute_update.clicked.connect(self._execute_gui_update)
         self._edit_name.returnPressed.connect(self._execute_gui_update)
         self._edit_qty.returnPressed.connect(self._execute_gui_update)
-        self._edit_date.returnPressed.connect(self._execute_gui_update)
+        self._edit_date.lineEdit().returnPressed.connect(self._execute_gui_update)
         self._edit_allergens.returnPressed.connect(self._execute_gui_update)
         self._btn_execute_delete.clicked.connect(self._execute_gui_delete)
         self._input_delete_id.returnPressed.connect(self._execute_gui_delete)
@@ -648,12 +684,21 @@ class GuiView(QMainWindow):
         self._btn_exit.clicked.connect(self._execute_graceful_exit)
 
     def _show_success_message(self, title: str, text: str) -> None:
-        msg = QMessageBox(self)
-        msg.setWindowTitle(title)
-        msg.setTextFormat(Qt.PlainText)
-        msg.setText(text)
-        msg.setStandardButtons(QMessageBox.Ok)
-        msg.exec()
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+        dialog.setMinimumSize(480, 130)
+        dialog.resize(520, 145)
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(22, 14, 22, 14)
+        layout.setSpacing(12)
+        message = QLabel(text)
+        message.setWordWrap(True)
+        message.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        layout.addWidget(message)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        buttons.accepted.connect(dialog.accept)
+        layout.addWidget(buttons, 0, Qt.AlignRight)
+        dialog.exec()
 
     def _show_error_message(self, title: str, text: str) -> None:
         msg = QMessageBox(self)
@@ -943,10 +988,15 @@ class GuiView(QMainWindow):
             alerts = self._controller.data_manager.inventory.get_alerts()
         except (OSError, ValueError, TypeError) as error:
             self._alert_table.setRowCount(0)
+            self._expired_alert_ids.clear()
+            self._btn_delete_expired_alert.setEnabled(False)
             self._alert_summary.setText("Could not load inventory alerts.")
             self._show_error_message("Inventory alerts unavailable", str(error))
             return
 
+        self._expired_alert_ids = {
+            entry["id"] for entry in alerts["expired"]
+        }
         status_labels = {
             "expired": "Expired",
             "expiring_soon": "Expiring soon",
@@ -976,8 +1026,24 @@ class GuiView(QMainWindow):
                 ),
                 ", ".join(item["statuses"]),
             )
+            checkbox = QCheckBox()
+            checkbox.setCursor(Qt.PointingHandCursor)
+            checkbox.setEnabled(item_id in self._expired_alert_ids)
+            checkbox.toggled.connect(self._update_expired_delete_button)
+            checkbox_container = QWidget()
+            checkbox_layout = QHBoxLayout(checkbox_container)
+            checkbox_layout.setContentsMargins(0, 0, 0, 0)
+            checkbox_layout.setAlignment(Qt.AlignCenter)
+            checkbox_layout.addWidget(checkbox)
+            self._alert_table.setCellWidget(row, 0, checkbox_container)
             for column, value in enumerate(values):
-                self._alert_table.setItem(row, column, QTableWidgetItem(value))
+                cell = QTableWidgetItem(value)
+                cell.setTextAlignment(Qt.AlignCenter)
+                self._alert_table.setItem(row, column + 1, cell)
+            self._alert_table.item(row, 1).setData(Qt.UserRole, dict(record))
+
+        self._alert_table.resizeRowsToContents()
+        self._update_expired_delete_button()
 
         self._alert_summary.setText(
             f"Expired: {len(alerts['expired'])}  |  "
@@ -990,6 +1056,109 @@ class GuiView(QMainWindow):
         if not by_id:
             self._alert_summary.setText(
                 self._alert_summary.text() + "\nNo items currently need attention."
+            )
+
+    def _update_expired_delete_button(self) -> None:
+        self._btn_delete_expired_alert.setEnabled(
+            bool(self._get_checked_expired_items())
+        )
+
+    def _get_checked_expired_items(self) -> list:
+        selected_items = []
+        for row in range(self._alert_table.rowCount()):
+            checkbox_container = self._alert_table.cellWidget(row, 0)
+            checkbox = (
+                checkbox_container.findChild(QCheckBox)
+                if checkbox_container is not None
+                else None
+            )
+            item_id_cell = self._alert_table.item(row, 1)
+            if (
+                checkbox is None
+                or item_id_cell is None
+                or not checkbox.isChecked()
+            ):
+                continue
+            try:
+                item_id = int(item_id_cell.text())
+            except ValueError:
+                continue
+            if item_id in self._expired_alert_ids:
+                selected_items.append(
+                    (item_id, item_id_cell.data(Qt.UserRole))
+                )
+        return selected_items
+
+    def _delete_selected_expired_item(self) -> None:
+        if not self._controller:
+            return
+
+        selected_items = self._get_checked_expired_items()
+        if not selected_items:
+            self._show_error_message(
+                "Select an expired item",
+                "Check at least one expired inventory item before deleting.",
+            )
+            return
+
+        inventory = self._controller.data_manager.inventory
+        try:
+            self._controller.data_manager.load()
+            records = inventory.records
+            expired_ids = {
+                entry["id"] for entry in inventory.get_alerts()["expired"]
+            }
+            stale_selection = any(
+                not isinstance(selected_record, dict)
+                or not 0 < item_id <= len(records)
+                or records[item_id - 1] != selected_record
+                or item_id not in expired_ids
+                for item_id, selected_record in selected_items
+            )
+            if stale_selection:
+                self._refresh_inventory_alerts()
+                self._show_error_message(
+                    "Inventory changed",
+                    "One or more selected items changed or are no longer expired. "
+                    "Alerts have been refreshed; check the items again.",
+                )
+                return
+
+            named_items = [
+                (item_id, records[item_id - 1].get("food", ""))
+                for item_id, _ in selected_items
+            ]
+            item_lines = "\n".join(
+                f"- {name} (ID: {item_id})"
+                for item_id, name in named_items
+            )
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Confirm Record Deletion")
+            msg_box.setTextFormat(Qt.PlainText)
+            msg_box.setText(
+                "Are you sure you want to permanently remove these expired "
+                f"items from active stock logs?\n\n{item_lines}"
+            )
+            msg_box.setMinimumWidth(620)
+            msg_box.setStyleSheet("QLabel { min-width: 560px; }")
+            msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            msg_box.setDefaultButton(QMessageBox.No)
+            if msg_box.exec() != QMessageBox.Yes:
+                return
+
+            for item_id, _ in sorted(selected_items, reverse=True):
+                inventory.delete(item_id - 1)
+            self._refresh_inventory_alerts()
+            self._show_success_message(
+                "Success",
+                f"Success: Removed {len(selected_items)} expired "
+                f"{'item' if len(selected_items) == 1 else 'items'} from the inventory.",
+            )
+        except Exception as error:
+            QMessageBox.critical(
+                self,
+                "System Failure",
+                f"Could not delete the expired inventory item: {error}",
             )
 
     # Option 2: Search Inventory
@@ -1245,7 +1414,11 @@ class GuiView(QMainWindow):
             # Map database record fields directly into inputs
             self._edit_name.setText(target.get('food', ''))
             self._edit_qty.setText(str(target.get('quantity', '0')))
-            self._edit_date.setText(target.get('use-by', ''))
+            use_by = target.get("use-by", "")
+            edit_date = QDate.fromString(use_by, "dd/MM/yyyy")
+            if not edit_date.isValid():
+                edit_date = QDate.fromString(use_by, "dd-MM-yyyy")
+            self._edit_date.setDate(edit_date if edit_date.isValid() else QDate.currentDate())
             self._edit_category.setCurrentText(target.get('food_category', 'Other'))
             self._edit_storage.setCurrentText(target.get('storage condition', 'Ambient'))
             self._edit_risk.setCurrentText(target.get('waste_risk_level', 'Low'))
@@ -1264,7 +1437,7 @@ class GuiView(QMainWindow):
         
         name = self._edit_name.text().strip()
         qty_str = self._edit_qty.text().strip()
-        date_str = self._edit_date.text().strip()
+        date_str = self._edit_date.date().toString("dd/MM/yyyy")
 
         if not name or not qty_str or not date_str:
             self._show_error_message("Validation Error", "All primary edit lines must be populated.")
