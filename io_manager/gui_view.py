@@ -65,6 +65,7 @@ class GuiView(QMainWindow):
     def __init__(self, controller=None) -> None:
         QMainWindow.__init__(self)
         self._controller = controller
+        self._home_alert_dismissed = False
 
         # Canvas Setup
         self._central_widget = QWidget()
@@ -552,6 +553,21 @@ class GuiView(QMainWindow):
         welcome_layout = QVBoxLayout(self._welcome_panel)
         welcome_layout.setContentsMargins(40, 40, 40, 40)
         welcome_layout.setSpacing(18)
+        self._home_alert_banner = QFrame()
+        self._home_alert_banner.setObjectName("HomeAlertBanner")
+        home_alert_layout = QHBoxLayout(self._home_alert_banner)
+        home_alert_layout.setContentsMargins(14, 10, 14, 10)
+        home_alert_layout.setSpacing(10)
+        self._home_alert_message = QLabel()
+        self._home_alert_message.setWordWrap(True)
+        self._home_alert_message.setObjectName("HomeAlertMessage")
+        self._btn_home_alert_view = QPushButton("View dashboard")
+        self._btn_home_alert_view.setObjectName("HomeAlertViewButton")
+        self._btn_home_alert_dismiss = QPushButton("Dismiss")
+        self._btn_home_alert_dismiss.setObjectName("HomeAlertDismissButton")
+        home_alert_layout.addWidget(self._home_alert_message, 1)
+        home_alert_layout.addWidget(self._btn_home_alert_view)
+        home_alert_layout.addWidget(self._btn_home_alert_dismiss)
         welcome_layout.addStretch(2)
         eyebrow = QLabel("MAKE THE MOST OF WHAT YOU HAVE")
         eyebrow.setObjectName("WelcomeEyebrow")
@@ -576,6 +592,8 @@ class GuiView(QMainWindow):
         footnote.setObjectName("WelcomeFootnote")
         footnote.setWordWrap(True)
         welcome_layout.addWidget(footnote)
+        welcome_layout.addWidget(self._home_alert_banner)
+        self._home_alert_banner.hide()
         style_surface(self._welcome_panel, WELCOME_QSS)
         self._display_layout.addWidget(self._welcome_panel, 1)
         self._log_display.hide()
@@ -610,6 +628,8 @@ class GuiView(QMainWindow):
         self._btn_search_recipes.clicked.connect(self._on_search_recipes_triggered)
         self._btn_inventory_alerts.clicked.connect(self._on_inventory_alerts_triggered)
         self._btn_refresh_alerts.clicked.connect(self._refresh_inventory_alerts)
+        self._btn_home_alert_dismiss.clicked.connect(self._dismiss_home_alert)
+        self._btn_home_alert_view.clicked.connect(self._view_alerts_from_home)
         self._inventory_table.itemClicked.connect(self._on_table_row_clicked)
         self._inventory_table.verticalHeader().sectionClicked.connect(self._on_header_section_clicked)
         self._input_edit_id.returnPressed.connect(self._on_edit_id_modified)
@@ -674,10 +694,46 @@ class GuiView(QMainWindow):
         ):
             panel.hide()
         self._welcome_panel.show()
+        self._refresh_home_alert_banner()
 
     def set_controller(self, controller) -> None:
        # safely mutates internal controller reference
         self._controller = controller
+        self._refresh_home_alert_banner()
+
+    def _refresh_home_alert_banner(self) -> None:
+        if self._home_alert_dismissed or not self._controller:
+            self._home_alert_banner.hide()
+            return
+
+        alerts = self._controller.data_manager.inventory.get_alerts()
+        item_ids = {
+            entry["id"]
+            for entries in alerts.values()
+            for entry in entries
+        }
+        if not item_ids:
+            self._home_alert_banner.hide()
+            return
+
+        item_count = len(item_ids)
+        message = (
+            "1 inventory item requires attention."
+            if item_count == 1
+            else f"{item_count} inventory items require attention."
+        )
+        self._home_alert_message.setText(
+            f"Attention needed: {message}"
+        )
+        self._home_alert_banner.show()
+
+    def _dismiss_home_alert(self) -> None:
+        self._home_alert_dismissed = True
+        self._home_alert_banner.hide()
+
+    def _view_alerts_from_home(self) -> None:
+        self._dismiss_home_alert()
+        self._on_inventory_alerts_triggered()
     
     def display_main_menu(self) -> None:
         self.show()
@@ -1791,4 +1847,3 @@ class GuiView(QMainWindow):
                 self._controller.data_manager.save_all()
             self.close()
     
-

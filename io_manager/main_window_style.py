@@ -105,17 +105,23 @@ QPushButton:focus { border-color: #a7cfb7; }
 WELCOME_QSS = """
 QFrame#WelcomePanel { background: #24282b; border: 1px solid #363d40;
     border-radius: 16px; padding: 0; margin: 0; }
+QFrame#HomeAlertBanner { background: #332e22; border: 1px solid #665334;
+    border-radius: 10px; padding: 0; margin: 0; }
 QLabel { background: transparent; border: none; padding: 0; margin: 0;
     color: #a6afb3; font-size: 14px; font-weight: normal; }
 QLabel#WelcomeEyebrow { color: #a5cbb4; font-size: 11px; font-weight: 600; }
 QLabel#WelcomeTitle { color: #f0f3f1; font-size: 32px; font-weight: 600; }
 QLabel#WelcomeFootnote { color: #818d93; font-size: 12px; }
+QLabel#HomeAlertMessage { color: #e6d3a8; font-size: 13px; font-weight: 600; }
 QPushButton { background: #afd1bb; color: #192c21; border: 1px solid #afd1bb;
     border-radius: 8px; padding: 10px 20px; font-size: 13px;
     font-weight: 600; text-align: center; }
 QPushButton:hover { background: #c2e0cb; border-color: #c2e0cb; }
 QPushButton:pressed { background: #93bca2; }
 QPushButton:focus { border: 2px solid #edf6ef; }
+QPushButton#HomeAlertDismissButton { background: transparent; color: #e6d3a8;
+    border-color: #806b45; padding: 8px 12px; }
+QPushButton#HomeAlertDismissButton:hover { background: #49402e; }
 """
 
 RECIPE_CARDS_QSS = """
