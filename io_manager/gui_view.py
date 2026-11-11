@@ -5,9 +5,9 @@ import os
 import json
 from tkinter import dialog
 from ai_module.ai_manager import RECIPES_PATH
-from data_manager.inventory_table import DEFAULT_EXPIRING_WITHIN_DAYS
 from logic_manager.reciperesultservice import RecipeResultService
 from logic_manager.edit_business_rules import BusinessRulesEditor
+from logic_manager.inventory_alert_service import DEFAULT_EXPIRING_WITHIN_DAYS
 from io_manager.main_window_style import (
     APPLICATION_QSS, SIDEBAR_QSS, TOOLBAR_QSS, WELCOME_QSS,
     style_surface, style_inventory_table,
@@ -751,7 +751,9 @@ class GuiView(QMainWindow):
             self._home_alert_banner.hide()
             return
 
-        alerts = self._controller.data_manager.inventory.get_alerts()
+        alerts = self._controller.inventory_alert_service.get_alerts(
+            self._controller.data_manager.inventory.records
+        )
         item_ids = {
             entry["id"]
             for entries in alerts.values()
@@ -985,7 +987,9 @@ class GuiView(QMainWindow):
             return
         try:
             self._controller.data_manager.load()
-            alerts = self._controller.data_manager.inventory.get_alerts()
+            alerts = self._controller.inventory_alert_service.get_alerts(
+                self._controller.data_manager.inventory.records
+            )
         except (OSError, ValueError, TypeError) as error:
             self._alert_table.setRowCount(0)
             self._expired_alert_ids.clear()
@@ -1106,7 +1110,10 @@ class GuiView(QMainWindow):
             self._controller.data_manager.load()
             records = inventory.records
             expired_ids = {
-                entry["id"] for entry in inventory.get_alerts()["expired"]
+                entry["id"]
+                for entry in self._controller.inventory_alert_service.get_alerts(
+                    records
+                )["expired"]
             }
             stale_selection = any(
                 not isinstance(selected_record, dict)

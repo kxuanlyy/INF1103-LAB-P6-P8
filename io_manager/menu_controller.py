@@ -2,9 +2,12 @@ from typing import Any, Dict, List, Optional
 
 from ai_module.ai_manager import RECIPES_PATH
 from data_manager import data_manager
-from data_manager.inventory_table import DEFAULT_EXPIRING_WITHIN_DAYS
 from io_manager.input_validator import InputValidator
 from logic_manager.edit_business_rules import BusinessRulesEditor
+from logic_manager.inventory_alert_service import (
+    DEFAULT_EXPIRING_WITHIN_DAYS,
+    InventoryAlertService,
+)
 
 
 #
@@ -20,6 +23,7 @@ class MenuController:
         self.logic_evaluator = logic_evaluator
         self.validator = InputValidator()
         self.business_rules_editor = BusinessRulesEditor()
+        self.inventory_alert_service = InventoryAlertService()
                 
     def _get_record_ids(self, table: List[Any], records: List[Any]) -> List[int]:
         position = {id(record): n for n, record in enumerate(table, start=1)}
@@ -76,7 +80,10 @@ class MenuController:
 
     def handle_inventory_alerts(self, today: Optional[Any] = None) -> None:
         self.data_manager.load()
-        alerts = self.data_manager.inventory.get_alerts(today=today)
+        alerts = self.inventory_alert_service.get_alerts(
+            self.data_manager.inventory.records,
+            today=today,
+        )
 
         print("\n============= INVENTORY ALERTS =============")
         print(f"Expired: {len(alerts['expired'])} | "
