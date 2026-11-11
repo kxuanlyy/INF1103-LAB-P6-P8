@@ -1,8 +1,8 @@
 import os
 from typing import Optional
 
-from inventory_table import InventoryTable
-from recipe_table import RecipeTable
+from data_manager.inventory_table import InventoryTable
+from data_manager.recipe_table import RecipeTable
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 INVENTORY_PATH = os.path.join(BASE_DIR, "food_inventory.csv")

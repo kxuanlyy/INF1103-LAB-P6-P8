@@ -1,6 +1,6 @@
 from typing import Iterable, Optional, Union
 
-from csv_table import CsvTable
+from data_manager.csv_table import CsvTable
 
 RECIPE_COLUMNS = ["name", "ingredients", "instructions"]
 
