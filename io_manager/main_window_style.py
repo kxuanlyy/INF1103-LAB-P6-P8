@@ -1,6 +1,117 @@
 """Shared Qt styling for FoodRescue windows, controls and recipe cards."""
 
-from PySide6.QtGui import QFontDatabase
+import re
+
+from PySide6.QtGui import QColor, QFontDatabase, QPalette, QTextCursor
+from PySide6.QtWidgets import QWidget, QTextEdit
+
+
+# Match the existing dark colors to deliberately chosen light surfaces/text.
+# Both QSS and rich-text reports share this palette; the original dark theme is retained.
+_LIGHT_GROUPS = {
+    "#f5f6f7": "#1b1f22 #22272a",
+    "#eceef0": "#202326",
+    "#ffffff": "#23272a #24282b #242a2d #2c3337",
+    "#f5f7f6": "#272c2f #293034",
+    "#edf5ef": "#273a31 #293b33",
+    "#edf2f8": "#293640",
+    "#f4eff7": "#36303d",
+    "#eff1f2": "#292f32 #2c3236 #30363a #30383c #303a3f",
+    "#e3e7e5": "#2b3034 #3b4347 #3b464b",
+    "#dfede4": "#303a34 #30463a #34483e #344b40 #3c5648 #466451",
+    "#ccdfd3": "#3d5146 #45584d",
+    "#d7ddda": "#303639 #34383b #363d40 #3a3a3a #3a4145 #3a4347 #3c4548 #3c464a #41494d #414b50 #464d51 #475158 #4a565c",
+    "#bbd2c3": "#415b4d #42564b #425b4c #46514b #56675e",
+    "#c2cfdf": "#435461",
+    "#d5c8df": "#51465b",
+    "#b0bab4": "#515c62 #536059",
+    "#879a8e": "#627269 #63716a #63796b #718179 #74867a",
+    "#69746e": "#78847d #818b91 #818d93 #8e9d94 #929ca1",
+    "#58655e": "#99a3a9 #a0a0a0 #a0a7ab #a6afb3 #a7b7ad #aabfb2 #acb7bc #b4c1b9 #b8c5bd #b9c6bf #bac1c4 #bbc7bf",
+    "#36634d": "#92bda4 #9cbda9 #a5cbb4 #a6c6b3 #a7c6b4 #a7cbb6 #a7cfb7 #b0cfbc #b2d4bf #b4d4c0 #bcdec9",
+    "#cce3d5": "#afd1bb",
+    "#b9d9c5": "#c2e0cb #93bca2",
+    "#3b4e42": "#c2d2c9 #c3ccc7 #c4d2ca #d4ded8 #d7efdf",
+    "#355f7c": "#b3cadb",
+    "#715282": "#c9bad8",
+    "#27332c": "#dce3df #dce4df #dde3df #e0e0e0 #e0e9e3 #e2e7e4 #e2e8e4 #e3e9e5 #e3ede6 #e5ebe7 #edf3ef #edf6ef #eff7f1 #f0f2f0 #f0f2f1 #f0f3f1 #f0f4f1 #f0f6f2 #f1f4f2 #f2f6f3",
+    "#fff5df": "#332e22",
+    "#f4e7c9": "#49402e",
+    "#dfc994": "#665334 #806b45",
+    "#74591e": "#e6d3a8 #cfbc97",
+    "#f9eaea": "#443235",
+    "#f1d9d9": "#573c40",
+    "#d4a4a4": "#765052 #b57a7d",
+    "#943f42": "#edbab9 #dcaaa9",
+}
+_LIGHT_COLORS = {dark: light for light, colors in _LIGHT_GROUPS.items() for dark in colors.split()}
+
+
+def is_dark(widget):
+    while widget is not None:
+        mode = widget.property("darkMode")
+        if mode is not None:
+            return bool(mode)
+        widget = widget.parentWidget()
+    return False
+
+
+def theme_colors(css, dark):
+    if dark:
+        return css
+    return re.sub(r"#[0-9a-fA-F]{6}\b", lambda match: _LIGHT_COLORS.get(match[0].lower(), match[0]), css)
+
+
+def set_themed_html(widget, html):
+    # Only change style attributes, never recipe content containing a hex string.
+    rendered = re.sub(
+        r"\b(style|bgcolor)=(['\"])(.*?)\2",
+        lambda match: f"{match[1]}={match[2]}{theme_colors(match[3], is_dark(widget))}{match[2]}",
+        html, flags=re.DOTALL,
+    )
+    if isinstance(widget, QTextEdit):
+        if not widget.property("themeHtmlConnected"):
+            widget.document().contentsChanged.connect(lambda: widget.setProperty("themeHtml", None))
+            widget.setProperty("themeHtmlConnected", True)
+        widget.setHtml(rendered)
+    else:
+        widget.setText(rendered)
+    widget.setProperty("themeHtml", html)
+
+
+def apply_theme(window, dark):
+    """Recolor existing widgets without rebuilding forms or invoking their actions."""
+    window.setProperty("darkMode", dark)
+    palette = window.palette()
+    for role, color in (
+        (QPalette.Window, "#1b1f22"), (QPalette.WindowText, "#dce3df"),
+        (QPalette.Base, "#242a2d"), (QPalette.AlternateBase, "#272c2f"),
+        (QPalette.Text, "#dce3df"), (QPalette.Button, "#30383c"),
+        (QPalette.ButtonText, "#e2e8e4"), (QPalette.Highlight, "#3c5648"),
+        (QPalette.HighlightedText, "#eff7f1"), (QPalette.PlaceholderText, "#818d93"),
+    ):
+        palette.setColor(role, QColor(theme_colors(color, dark)))
+    window.setPalette(palette)
+    for widget in [window, *window.findChildren(QWidget)]:
+        source = widget.property("themeStylesheet")
+        if source is not None:
+            widget.setStyleSheet(theme_colors(source, dark))
+        html = widget.property("themeHtml")
+        if html is not None:
+            if isinstance(widget, QTextEdit):
+                cursor = widget.textCursor()
+                anchor, position = cursor.anchor(), cursor.position()
+                vertical = widget.verticalScrollBar().value()
+                horizontal = widget.horizontalScrollBar().value()
+                set_themed_html(widget, html)
+                cursor = widget.textCursor()
+                cursor.setPosition(anchor)
+                cursor.setPosition(position, QTextCursor.KeepAnchor)
+                widget.setTextCursor(cursor)
+                widget.verticalScrollBar().setValue(vertical)
+                widget.horizontalScrollBar().setValue(horizontal)
+            else:
+                set_themed_html(widget, html)
 
 
 APPLICATION_QSS = """
