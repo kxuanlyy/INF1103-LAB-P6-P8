@@ -53,6 +53,33 @@ QPushButton:pressed { background: #93bca2; }
 QPushButton:focus { border: 2px solid #edf6ef; }
 """
 
+RECIPE_CARDS_QSS = """
+QScrollArea#RecipeLibrary { background: transparent; border: none; padding: 0; margin: 0; }
+QWidget#RecipeCardContents { background: transparent; }
+QFrame#RecipeCard { border: 1px solid #42564b; border-radius: 14px;
+    background: #273a31; padding: 0; margin: 0; }
+QFrame#RecipeCard[tone="slate"] { background: #293640; border-color: #435461; }
+QFrame#RecipeCard[tone="plum"] { background: #36303d; border-color: #51465b; }
+QLabel { background: transparent; color: #dce4df; border: none;
+    padding: 0; margin: 0; font-size: 13px; font-weight: normal; }
+QLabel#RecipeNumber { color: #a7c6b4; font-size: 11px; font-weight: 600; }
+QLabel#RecipeTitle { color: #f1f4f2; font-size: 20px; font-weight: 600; }
+QLabel#RecipeSection { color: #c2d2c9; font-size: 12px; font-weight: 600; }
+QLabel#RecipeIngredients { color: #b9c6bf; }
+QFrame#RecipeCard[tone="slate"] QLabel#RecipeNumber,
+QFrame#RecipeCard[tone="slate"] QLabel#RecipeSection { color: #b3cadb; }
+QFrame#RecipeCard[tone="plum"] QLabel#RecipeNumber,
+QFrame#RecipeCard[tone="plum"] QLabel#RecipeSection { color: #c9bad8; }
+QFrame#RecipeDivider { background: #56675e; border: none;
+    border-radius: 0; padding: 0; margin: 0; max-height: 1px; }
+QScrollBar:vertical { background: transparent; width: 10px; margin: 0; border: none; }
+QScrollBar::handle:vertical { background: #515c62; border-radius: 4px; min-height: 30px; }
+QScrollBar::handle:vertical:hover { background: #718179; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; border: none; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
+"""
+
+
 INVENTORY_QSS = """
 QTableWidget { background: #23272a; alternate-background-color: #272c2f;
     color: #dde3df; border: 1px solid #3a4145; border-radius: 10px;

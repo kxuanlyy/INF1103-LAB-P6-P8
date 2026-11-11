@@ -10,6 +10,7 @@ from logic_manager.edit_business_rules import BusinessRulesEditor
 from io_manager.main_window_style import (
     SIDEBAR_QSS, TOOLBAR_QSS, WELCOME_QSS, style_surface, style_inventory_table,
 )
+from io_manager.recipe_cards import RecipeCardsView
 from PySide6.QtCore import Qt, QThread, Signal, QDate, QPoint
 from PySide6.QtGui import QColor, QPainter, QPolygon
 from PySide6.QtWidgets import (
@@ -240,6 +241,9 @@ class GuiView(QMainWindow):
         self._display_layout.addWidget(self._item_details_view)
         self._display_layout.addWidget(self._log_display)
         self._display_layout.addWidget(self._alert_panel)
+        self._recipe_cards = RecipeCardsView()
+        self._display_layout.addWidget(self._recipe_cards)
+        self._recipe_cards.hide()
         self._alert_layout.setContentsMargins(8, 8, 8, 8)
         self._alert_layout.setSpacing(10)
         self._alert_summary.setWordWrap(True)
@@ -493,7 +497,18 @@ class GuiView(QMainWindow):
         self._sidebar_layout.addWidget(tagline)
         self._sidebar_layout.addSpacing(26)
 
+        self._btn_home = QPushButton("Home")
+        self._btn_home.setCheckable(True)
+        self._btn_home.setChecked(True)
+        self._btn_home.setMinimumHeight(38)
+        self._btn_home.setCursor(Qt.PointingHandCursor)
+        self._btn_home.clicked.connect(self._on_home_triggered)
+        self._nav_buttons.insert(0, self._btn_home)
+        self._sidebar_layout.addWidget(self._btn_home)
+        self._sidebar_layout.addSpacing(16)
+
         self._navigation_titles = {
+            self._btn_home: ("Home", "Your food rescue workspace."),
             self._btn_view_inv: ("Inventory", "Your ingredients, at a glance."),
             self._btn_search_inv: ("Search inventory", "Find ingredients and inspect item details."),
             self._btn_edit_inv: ("Edit inventory", "Manage the ingredients in your inventory."),
@@ -519,7 +534,7 @@ class GuiView(QMainWindow):
                 button.setMinimumHeight(38)
                 button.setCursor(Qt.PointingHandCursor)
                 self._sidebar_layout.addWidget(button)
-            self._sidebar_layout.addSpacing(22)
+            self._sidebar_layout.addSpacing(16)
         self._sidebar_layout.addStretch()
         self._btn_editbusinessrules.setText("Business rules")
         self._sidebar_layout.addWidget(self._btn_editbusinessrules)
@@ -539,7 +554,7 @@ class GuiView(QMainWindow):
         toolbar_layout.setSpacing(10)
         heading_layout = QVBoxLayout()
         heading_layout.setSpacing(4)
-        self._page_title = QLabel("Welcome")
+        self._page_title = QLabel("Home")
         self._page_title.setObjectName("PageTitle")
         self._page_subtitle = QLabel("Your food rescue workspace.")
         self._page_subtitle.setWordWrap(True)
@@ -894,6 +909,7 @@ class GuiView(QMainWindow):
     def _update_active_navigation_state(self, active_button: QPushButton) -> None:
         # Presentation only: existing handlers still own panel visibility and data.
         self._welcome_panel.hide()
+        self._recipe_cards.hide()
         title, subtitle = self._navigation_titles.get(
             active_button, ("FoodRescue", "Your food rescue workspace.")
         )
@@ -906,6 +922,17 @@ class GuiView(QMainWindow):
         for btn in self._nav_buttons:
             btn.setChecked(btn == active_button)
         self._alert_panel.hide()
+
+    def _on_home_triggered(self) -> None:
+        """Return to the welcome surface without changing data or background work."""
+        self._update_active_navigation_state(self._btn_home)
+        for panel in (
+            self._search_panel, self._recipe_search_panel, self._edit_scroll_area,
+            self._frame_ai_input, self._inventory_table, self._item_details_view,
+            self._log_display,
+        ):
+            panel.hide()
+        self._welcome_panel.show()
 
     def set_controller(self, controller) -> None:
        # safely mutates internal controller reference
@@ -1926,75 +1953,14 @@ class GuiView(QMainWindow):
         self._inventory_table.hide()
         self._recipe_search_panel.hide()
 
-        self._log_display.setParent(self._display_container)
-        self._display_layout.addWidget(self._log_display)
-        
-        self._log_display.setMaximumHeight(16777215)
-        self._log_display.setMinimumHeight(0)
-        
-        self._log_display.show()
-        self._log_display.clear()
-        
+        self._log_display.hide()
+        self._recipe_cards.set_recipes([])
+        self._recipe_cards.show()
+
         try:
             self._controller.data_manager.load()
             saved_recipes = self._controller.data_manager.recipes.records
-            
-            if not saved_recipes:
-                self._log_display.setHtml(
-                    "<div style='font-family: Arial, sans-serif; font-size: 14px; color: #bdc3c7; "
-                    "background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 6px; "
-                    "padding: 15px; text-align: center;'>"
-                    "ℹ️ <b>No historical recipes found in database logs.</b><br/>"
-                    "<span style='font-size: 12px; color: #777777;'>"
-                    "Run an assessment query via the AI Assistant or Process Recipes first!</span></div>"
-                )
-                return
-
-            html_content = """
-            <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
-                <div style='background-color: #2c3e50; color: #ffffff; padding: 12px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 15px; margin-bottom: 18px;'>
-                    📖 HISTORICAL RECIPE REGISTRY LOGS
-                </div>
-            """
-
-            for number, recipe in enumerate(saved_recipes, start=1):
-                recipe_name = recipe.get('name', 'Unknown Recipe').upper()
-                ingredients = recipe.get('ingredients', 'None listed')
-                instructions = recipe.get('instructions', 'No execution steps provided.')
-                
-                formatted_steps = ""
-                if "Step " in instructions or "1. " in instructions:
-                    formatted_steps = f"<div style='color: #ecf0f1; white-space: pre-wrap;'>{instructions}</div>"
-                else:
-                    steps = [s.strip() for s in instructions.split(". ") if s.strip()]
-                    for step_idx, step_text in enumerate(steps, start=1):
-                        # Ensure trailing periods remain intact
-                        clean_step = step_text if step_text.endswith(".") else f"{step_text}."
-                        formatted_steps += f"<div style='margin-bottom: 4px;'><b>{step_idx}.</b> {clean_step}</div>"
-
-                html_content += f"""
-                <div style='background-color: #1e1e1e; border: 1px solid #2d2d2d; border-left: 5px solid #27ae60; border-radius: 6px; padding: 16px; margin-bottom: 15px;'>
-                    <div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2d2d2d; padding-bottom: 6px; margin-bottom: 10px;'>
-                        <span style='color: #27ae60; font-size: 14px; font-weight: bold;'>🍴 [{number}] {recipe_name}</span>
-                    </div>
-                    
-                    <p style='margin: 4px 0 10px 0;'>
-                        <b style='color: #ffffff;'>🛒 Ingredients Checklist:</b><br/>
-                        <span style='color: #bdc3c7; font-family: monospace; font-size: 12px;'>{ingredients}</span>
-                    </p>
-                    
-                    <div style='margin-top: 8px;'>
-                        <b style='color: #ffffff;'>📝 Preparation Steps:</b>
-                        <div style='color: #ecf0f1; margin-left: 5px; margin-top: 4px;'>
-                            {formatted_steps}
-                        </div>
-                    </div>
-                </div>
-                """
-
-            html_content += "</div>"
-            self._log_display.setHtml(html_content)
-            
+            self._recipe_cards.set_recipes(saved_recipes)
         except Exception as e:
             self._show_error_message("System Error", f"Could not load recipe history: {str(e)}")
 
