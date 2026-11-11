@@ -841,6 +841,8 @@ class GuiView(QMainWindow):
 
         layout.addWidget(QLabel("Select a recipe:"))
         recipe_list = QListWidget()
+        recipe_list.setObjectName("BusinessRulesRecipeList")
+        recipe_list.setSelectionMode(QListWidget.SingleSelection)
         layout.addWidget(recipe_list, 2)
                 
 

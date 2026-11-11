@@ -32,6 +32,9 @@ QComboBox QAbstractItemView, QListWidget {
 }
 QListWidget { border-radius: 8px; padding: 6px; }
 QListWidget::item { padding: 8px; border-radius: 4px; }
+QListWidget#BusinessRulesRecipeList::item:selected {
+    background: #3c5648; color: #f0f6f2; border-left: 3px solid #afd1bb;
+}
 QPushButton {
     background: #30383c; color: #e2e8e4; border: 1px solid #4a565c;
     border-radius: 7px; padding: 7px 12px; min-height: 18px; text-align: center;
