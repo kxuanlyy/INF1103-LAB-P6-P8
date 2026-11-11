@@ -33,12 +33,21 @@ class RecipeCardsView(QScrollArea):
         style_surface(self, RECIPE_CARDS_QSS)
         self.set_recipes([])
 
-    def set_recipes(self, recipes):
+    def set_recipes(self, recipes, summary=None):
         contents = QWidget()
         contents.setObjectName("RecipeCardContents")
         layout = QVBoxLayout(contents)
         layout.setContentsMargins(0, 0, 12, 0)
         layout.setSpacing(18)
+        if summary is not None:
+            assessment = QFrame()
+            assessment.setObjectName("AssessmentCard")
+            assessment_layout = QVBoxLayout(assessment)
+            assessment_layout.setContentsMargins(24, 22, 24, 24)
+            summary_label = _text_label(summary, "AssessmentContent")
+            summary_label.setTextFormat(Qt.RichText)
+            assessment_layout.addWidget(summary_label)
+            layout.addWidget(assessment)
         for number, recipe in enumerate(recipes, start=1):
             card = QFrame()
             card.setObjectName("RecipeCard")
@@ -55,13 +64,19 @@ class RecipeCardsView(QScrollArea):
             card_layout.addWidget(divider)
             card_layout.addSpacing(2)
             card_layout.addWidget(_text_label("Ingredients", "RecipeSection"))
-            card_layout.addWidget(_text_label(recipe.get("ingredients", "None listed"), "RecipeIngredients"))
+            ingredients = recipe.get("ingredients", "None listed")
+            if isinstance(ingredients, list):
+                ingredients = ", ".join(ingredients)
+            card_layout.addWidget(_text_label(ingredients, "RecipeIngredients"))
             card_layout.addSpacing(6)
             card_layout.addWidget(_text_label("Preparation steps", "RecipeSection"))
 
             instructions = recipe.get("instructions", "No execution steps provided.")
             # Keep the existing library's numbering convention without editing records.
-            if "Step " in instructions or "1. " in instructions:
+            if isinstance(instructions, list):
+                for index, step in enumerate(instructions, start=1):
+                    card_layout.addWidget(_text_label(f"{index}. {step}", "RecipeInstructions"))
+            elif "Step " in instructions or "1. " in instructions:
                 card_layout.addWidget(_text_label(instructions, "RecipeInstructions"))
             else:
                 steps = [step.strip() for step in instructions.split(". ") if step.strip()]
@@ -76,8 +91,11 @@ class RecipeCardsView(QScrollArea):
             empty_layout = QVBoxLayout(empty)
             empty_layout.setContentsMargins(28, 28, 28, 28)
             empty_layout.setSpacing(12)
-            empty_layout.addWidget(_text_label("No saved recipes yet", "RecipeTitle"))
             empty_layout.addWidget(_text_label(
+                "No recipe suggestions" if summary is not None else "No saved recipes yet", "RecipeTitle"
+            ))
+            empty_layout.addWidget(_text_label(
+                "See the assessment above for details." if summary is not None else
                 "Run an assessment with the AI assistant or process recipes to build your library.",
                 "RecipeIngredients",
             ))

@@ -1,6 +1,71 @@
-"""Presentation helpers scoped to the main shell, not application-wide dialogs."""
+"""Shared Qt styling for FoodRescue windows, controls and recipe cards."""
 
 from PySide6.QtGui import QFontDatabase
+
+
+APPLICATION_QSS = """
+QMainWindow, QDialog, QMessageBox, QInputDialog { background: #1b1f22; }
+QWidget { color: #dce3df; font-size: 13px; }
+QLabel { background: transparent; border: none; padding: 0; margin: 0;
+    color: #c3ccc7; font-weight: normal; }
+QLabel#SectionTitle { color: #f0f3f1; font-size: 18px; font-weight: 600; }
+QLabel#AssistantStatus { color: #b0cfbc; font-size: 12px; }
+QFrame#AddFrame, QFrame#EditFrame, QFrame#DeleteFrame,
+QFrame#SearchPanelFrame, QFrame#AssistantPanel {
+    background: #242a2d; border: 1px solid #3a4347; border-radius: 12px;
+    padding: 0; margin: 0;
+}
+QLineEdit, QComboBox, QDateEdit, QSpinBox, QDoubleSpinBox {
+    background: #2c3337; color: #e5ebe7; border: 1px solid #475158;
+    border-radius: 7px; padding: 7px 10px; min-height: 18px;
+    selection-background-color: #466451; selection-color: #f2f6f3;
+}
+QLineEdit:hover, QComboBox:hover, QDateEdit:hover { border-color: #627269; }
+QLineEdit:focus, QComboBox:focus, QDateEdit:focus,
+QPlainTextEdit:focus, QTextEdit:focus { border-color: #a7cbb6; }
+QComboBox { padding-right: 26px; }
+QComboBox::drop-down, QDateEdit::drop-down { border: none; width: 22px; }
+QComboBox QAbstractItemView, QListWidget {
+    background: #293034; color: #e3e9e5; border: 1px solid #46514b;
+    selection-background-color: #3c5648; selection-color: #f0f6f2;
+    outline: 0;
+}
+QListWidget { border-radius: 8px; padding: 6px; }
+QListWidget::item { padding: 8px; border-radius: 4px; }
+QPushButton {
+    background: #30383c; color: #e2e8e4; border: 1px solid #4a565c;
+    border-radius: 7px; padding: 7px 12px; min-height: 18px; text-align: center;
+}
+QPushButton:hover { background: #3b464b; border-color: #718179; }
+QPushButton:pressed, QPushButton:checked { background: #3c5648; }
+QPushButton:focus { border-color: #b2d4bf; }
+QPushButton#ApplyFilterButton { background: #afd1bb; color: #192c21;
+    border-color: #afd1bb; font-weight: 600; }
+QPushButton#ApplyFilterButton:hover { background: #c2e0cb; border-color: #c2e0cb; }
+QPushButton#ApplyFilterButton:pressed { background: #93bca2; }
+QPushButton#ExecuteDeleteButton { background: #443235; color: #edbab9; border-color: #765052; }
+QPushButton#ExecuteDeleteButton:hover { background: #573c40; border-color: #b57a7d; }
+QPushButton:disabled { background: #292f32; color: #78847d; border-color: #3c4548; }
+QTextEdit, QPlainTextEdit {
+    background: #242a2d; color: #dce3df; border: 1px solid #3c464a;
+    border-radius: 12px; padding: 16px; margin: 0;
+    selection-background-color: #3c5648; selection-color: #eff7f1;
+}
+QScrollArea { background: transparent; border: none; padding: 0; margin: 0; }
+QScrollArea > QWidget > QWidget { background: transparent; }
+QScrollBar:vertical { background: #22272a; width: 10px; margin: 0; border: none; }
+QScrollBar:horizontal { background: #22272a; height: 10px; margin: 0; border: none; }
+QScrollBar::handle { background: #536059; border-radius: 4px; min-height: 28px; min-width: 28px; }
+QScrollBar::handle:hover { background: #74867a; }
+QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; border: none; }
+QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
+QMessageBox QLabel { min-width: 300px; font-weight: normal; }
+QMessageBox QPushButton, QDialogButtonBox QPushButton { min-width: 70px; }
+QToolTip { background: #303a34; color: #edf3ef; border: 1px solid #63796b; padding: 6px; }
+QCalendarWidget QWidget { background: #293034; color: #e3e9e5; }
+QCalendarWidget QAbstractItemView { background: #242a2d;
+    selection-background-color: #466451; selection-color: #f0f6f2; }
+"""
 
 
 SIDEBAR_QSS = """
@@ -58,6 +123,8 @@ QScrollArea#RecipeLibrary { background: transparent; border: none; padding: 0; m
 QWidget#RecipeCardContents { background: transparent; }
 QFrame#RecipeCard { border: 1px solid #42564b; border-radius: 14px;
     background: #273a31; padding: 0; margin: 0; }
+QFrame#AssessmentCard { border: 1px solid #3c464a; border-radius: 14px;
+    background: #242a2d; padding: 0; margin: 0; }
 QFrame#RecipeCard[tone="slate"] { background: #293640; border-color: #435461; }
 QFrame#RecipeCard[tone="plum"] { background: #36303d; border-color: #51465b; }
 QLabel { background: transparent; color: #dce4df; border: none;
@@ -112,32 +179,11 @@ def style_surface(widget, stylesheet):
     widget.setStyleSheet(stylesheet)
 
 
-def style_inventory_table(table, enabled):
-    """Apply the first-iteration table treatment only on View Inventory.
-
-    The same widget is reused by other workflows; restore its original view
-    properties there, retaining clickable row IDs and all underlying items.
-    """
-    if not hasattr(table, "_main_window_original_style"):
-        table._main_window_original_style = (
-            table.styleSheet(), table.showGrid(), table.selectionBehavior(),
-            table.verticalHeader().minimumSectionSize(),
-            table.verticalHeader().defaultSectionSize(),
-            table.horizontalHeader().minimumHeight(), table.font(),
-        )
-    original = table._main_window_original_style
-    if enabled:
-        style_surface(table, INVENTORY_QSS)
-        table.setShowGrid(False)
-        table.setSelectionBehavior(table.SelectionBehavior.SelectRows)
-        table.verticalHeader().setMinimumSectionSize(46)
-        table.verticalHeader().setDefaultSectionSize(46)
-        table.horizontalHeader().setMinimumHeight(44)
-    else:
-        table.setStyleSheet(original[0])
-        table.setShowGrid(original[1])
-        table.setSelectionBehavior(original[2])
-        table.verticalHeader().setMinimumSectionSize(original[3])
-        table.verticalHeader().setDefaultSectionSize(original[4])
-        table.horizontalHeader().setMinimumHeight(original[5])
-        table.setFont(original[6])
+def style_inventory_table(table):
+    """Keep tables consistent while retaining clickable row IDs and item data."""
+    style_surface(table, INVENTORY_QSS)
+    table.setShowGrid(False)
+    table.setSelectionBehavior(table.SelectionBehavior.SelectRows)
+    table.verticalHeader().setMinimumSectionSize(46)
+    table.verticalHeader().setDefaultSectionSize(46)
+    table.horizontalHeader().setMinimumHeight(44)

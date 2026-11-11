@@ -1,4 +1,5 @@
 from datetime import datetime
+from html import escape
 import csv
 import os
 import json
@@ -8,7 +9,8 @@ from data_manager.inventory_table import DEFAULT_EXPIRING_WITHIN_DAYS
 from logic_manager.reciperesultservice import RecipeResultService
 from logic_manager.edit_business_rules import BusinessRulesEditor
 from io_manager.main_window_style import (
-    SIDEBAR_QSS, TOOLBAR_QSS, WELCOME_QSS, style_surface, style_inventory_table,
+    APPLICATION_QSS, SIDEBAR_QSS, TOOLBAR_QSS, WELCOME_QSS,
+    style_surface, style_inventory_table,
 )
 from io_manager.recipe_cards import RecipeCardsView
 from PySide6.QtCore import Qt, QThread, Signal, QDate, QPoint
@@ -16,7 +18,7 @@ from PySide6.QtGui import QColor, QPainter, QPolygon
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QInputDialog,
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
-    QTableWidgetItem, QHeaderView, QMessageBox, QListWidget,
+    QTableWidgetItem, QHeaderView, QMessageBox, QListWidget, QSizePolicy,
     QComboBox as BaseComboBox, QGridLayout, QScrollArea, QDateEdit,QDialog, QDialogButtonBox, QPlainTextEdit
 )
 
@@ -101,6 +103,7 @@ class GuiView(QMainWindow):
 
         # Search Bar Tool
         self._search_panel = QFrame()
+        self._search_panel.setObjectName("SearchPanelFrame")
         self._search_layout = QHBoxLayout(self._search_panel)
         self._input_food = QLineEdit()
         self._input_id = QLineEdit()
@@ -109,6 +112,7 @@ class GuiView(QMainWindow):
 
         # Recipe Search Bar Tool Panel
         self._recipe_search_panel = QFrame()
+        self._recipe_search_panel.setObjectName("SearchPanelFrame")
         self._recipe_search_layout = QHBoxLayout(self._recipe_search_panel)
         self._input_recipe_ingredient = QLineEdit()
         self._input_recipe_id = QLineEdit()
@@ -157,7 +161,7 @@ class GuiView(QMainWindow):
         
         # Inner Dynamic Fields for Edit Sub-Form
         self._edit_form_widget = QWidget()
-        self._edit_form_layout = QHBoxLayout(self._edit_form_widget)
+        self._edit_form_layout = QVBoxLayout(self._edit_form_widget)
         self._edit_name = QLineEdit(); self._edit_name.setPlaceholderText("Ingredient Name")
         self._edit_qty = QLineEdit(); self._edit_qty.setPlaceholderText("Stock Qty")
         self._edit_date = QLineEdit(); self._edit_date.setPlaceholderText("Use-By (DD/MM/YYYY)")
@@ -187,7 +191,7 @@ class GuiView(QMainWindow):
 
         # Option 4: AI
         self._frame_ai_input = QFrame()
-        self._frame_ai_input.setObjectName("AddFrame")
+        self._frame_ai_input.setObjectName("AssistantPanel")
         self._layout_ai_input = QVBoxLayout(self._frame_ai_input)
         
         self._lbl_ai_id_title = QLabel("Enter item id:")
@@ -199,9 +203,9 @@ class GuiView(QMainWindow):
         self._input_ai_notes = QLineEdit()
         self._input_ai_notes.setPlaceholderText("No structural physical defects observed")
         
-        self._btn_execute_ai = QPushButton("Enquire")
+        self._btn_execute_ai = QPushButton("Assess item")
         self._btn_execute_ai.setObjectName("ApplyFilterButton")
-        self._btn_execute_ai.setFixedWidth(100)
+        self._btn_execute_ai.setFixedWidth(112)
 
 
         # Configure button properties to latch their pressed visual states
@@ -303,37 +307,6 @@ class GuiView(QMainWindow):
 
         self._edit_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._edit_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-
-        self._edit_scroll_area.setStyleSheet("""
-            QScrollArea { 
-                border: none; 
-                background-color: #121212 !important; 
-            }
-            QScrollBar:vertical {
-                background-color: #1e1e1e; /* Matches your QFrame card panel background color */
-                border-left: 1px solid #2d2d2d; /* Subtle divider separator line */
-                width: 10px;
-                margin: 0px;
-            }            
-            QScrollBar::handle:vertical {
-                background-color: #2a2a2a; /* Matches the default button layout color shades */
-                border: 1px solid #3a3a3a;
-                border-radius: 4px;
-                min-height: 25px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: #27ae60; /* Matches your active theme green accent hue color */
-                border: 1px solid #219653;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                border: none;
-                background: none;
-                height: 0px;
-            }
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                background: none;
-            }
-        """)
 
         # Hide the grid by default until data populates
         self._log_display.setReadOnly(True)
@@ -609,225 +582,16 @@ class GuiView(QMainWindow):
         self._log_display.hide()
 
     def _apply_theme_styles(self) -> None:
-        dark_stylesheet = """
-            /* primary window canvas n system frames */
-            QMainWindow { 
-                background-color: #121212; 
-            }
-            QFrame { 
-                background-color: #1e1e1e; 
-                border: 1px solid #2d2d2d; 
-                border-radius: 8px; 
-                padding: 12px;
-                margin-bottom: 4px;
-            }
-            QFrame#AddFrame, QFrame#EditFrame, QFrame#DeleteFrame {
-                background-color: #1a1a1a;
-                border: 1px solid #333333;
-                border-radius: 10px;
-                padding: 16px;
-                margin-top: 8px;
-                border-radius: 10px;
-                margin-top: 8px;
-            }
-            #SearchPanelFrame, QFrame[frameShape="0"] { 
-                background-color: transparent; 
-                border: none; 
-                padding: 2px; 
-            }
-            QScrollArea, QScrollArea > QWidget > QWidget {
-                background-color: #121212 !important;
-                border: none;
-            }
-            QScrollArea QWidget {
-                background-color: transparent;
-            }
-
-            /* text interaction views n form labels */
-            QLabel {  
-                background: transparent; 
-                border: none; 
-                color: #ffffff; 
-                font-size: 13px; 
-                font-weight: bold; 
-                padding: 0px !important;
-                margin: 0px !important;
-            }
-            QTextEdit { 
-                background-color: #1e1e1e; 
-                color: #f5f5f5; 
-                border: 1px solid #2d2d2d; 
-                border-radius: 8px; 
-                padding: 6px 12px; 
-                font-family: 'Consolas', 'Courier New', monospace; 
-                font-size: 12px;
-                line-height: 14px;
-            }
-
-            /* input n selection widget*/
-            QLineEdit { 
-                background-color: #252526; 
-                color: #ffffff; 
-                border: 1px solid #3e3e42; 
-                border-radius: 6px; 
-                padding: 6px 10px; 
-                font-size: 13px; 
-                selection-background-color: #27ae60;  
-            }
-            QLineEdit:hover { 
-                border: 1px solid #555555; 
-            }
-            QLineEdit:focus { 
-                border: 1px solid #27ae60; 
-                background-color: #1e1e1e; 
-            }
-            QComboBox { 
-                background-color: #252526; 
-                color: #ffffff; 
-                border: 1px solid #3e3e42; 
-                border-radius: 6px; 
-                padding: 5px 30px 5px 10px;
-                font-size: 13px;
-                min-width: 130px;
-            }
-            QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 20px;
-                border: none;
-            }
-            QAbstractItemView { 
-                background-color: #2a2a2a;  
-                color: #ffffff; 
-                border: 1px solid #3a3a3a;
-                selection-background-color: #27ae60;  
-                selection-color: #ffffff;  
-            }
-
-            /* nav action buttons*/
-            QPushButton { 
-                background-color: #2a2a2a; 
-                color: #e0e0e0; 
-                border: 1px solid #3a3a3a; 
-                border-radius: 6px; 
-                padding: 10px 12px; 
-                text-align: left; 
-                font-size: 13px;
-            }
-            QPushButton:hover { 
-                background-color: #353535; 
-                border: 1px solid #4a4a4a; 
-                color: #ffffff; 
-            }
-            QPushButton:pressed, QPushButton:checked { 
-                background-color: #2ecc71; 
-                border: 1px solid #219653; 
-                color: #ffffff; 
-            }
-            QPushButton#ApplyFilterButton { 
-                background-color: #27ae60 !important; 
-                color: #ffffff !important; 
-                border: 1px solid #219653 !important; 
-                border-radius: 6px; 
-                font-weight: bold; 
-                text-align: center; 
-                padding: 6px 16px; 
-                min-width: 80px;
-            }
-            QPushButton#ExecuteDeleteButton {
-                background-color: #c0392b !important;
-                color: #ffffff !important;
-                border: 1px solid #a93226 !important;
-                border-radius: 6px;
-                font-weight: bold;
-                text-align: center !important;
-                padding: 6px 16px;
-            }
-            QPushButton#ExecuteDeleteButton:hover {
-                background-color: #e74c3c !important;
-                border: 1px solid #c0392b !important;
-            }
-            QPushButton#ExecuteDeleteButton:pressed {
-                background-color: #922b21 !important;
-            }
-
-            /* database table */
-            QTableWidget { 
-                background-color: #1e1e1e;  
-                color: #e0e0e0; 
-                gridline-color: #2d2d2d; 
-                border: 1px solid #2d2d2d;  
-                border-radius: 8px; 
-                font-size: 13px; 
-            }
-            QTableWidget::item { 
-                padding: 6px; 
-            }
-            QTableWidget::item:alternate { 
-                background-color: #252525; 
-            }
-            QTableWidget::item:selected { 
-                background-color: #27ae60; 
-                color: #ffffff; 
-            }
-            QHeaderView::section { 
-                background-color: #2a2a2a; 
-                color: #ffffff; 
-                padding: 6px; 
-                border: 1px solid #2d2d2d; 
-                font-weight: bold; 
-                font-size: 13px; 
-            }
-
-            /* form execution anchors */
-            QPushButton#ApplyFilterButton { 
-                background-color: #27ae60 !important; 
-                color: #ffffff !important; 
-                border: 1px solid #219653 !important; 
-                border-radius: 6px; 
-                font-weight: bold; 
-                text-align: center; 
-                padding: 6px 16px; 
-                min-width: 80px;
-            }
-            QPushButton#ApplyFilterButton:hover { 
-                background-color: #2ecc71 !important; 
-                border: 1px solid #27ae60 !important; 
-            }
-            QPushButton#ApplyFilterButton:pressed { 
-                background-color: #1e8449 !important; 
-            }
-
-            /* dialog noti (QMessageBox) */
-            QMessageBox {
-                background-color: #1e1e1e;
-                border: 1px solid #2d2d2d;
-            }
-            QMessageBox QLabel {
-                color: #ffffff !important;
-                font-size: 13px;
-                font-weight: normal;
-                min-width: 320px;
-                max-width: 500px;
-                qproperty-wordWrap: true;
-            }
-            QMessageBox QPushButton {
-                background-color: #2a2a2a;
-                color: #e0e0e0;
-                border: 1px solid #3a3a3a;
-                border-radius: 6px;
-                padding: 5px 18px;
-                text-align: center;
-                min-width: 65px;
-            }
-            QMessageBox QPushButton:hover {
-                background-color: #353535;
-                color: #ffffff;
-            }
-
-
-        """       
-        self.setStyleSheet(dark_stylesheet)
+        for title in (self._lbl_add_title, self._lbl_edit_title, self._lbl_delete_title):
+            title.setObjectName("SectionTitle")
+        style_surface(self, APPLICATION_QSS)
+        style_inventory_table(self._inventory_table)
+        style_inventory_table(self._alert_table)
+        for editor in (self._log_display, self._item_details_view):
+            editor.document().setDefaultFont(self.font())
+        for layout in (self._layout_add, self._layout_edit):
+            layout.setContentsMargins(18, 18, 18, 18)
+            layout.setSpacing(12)
 
     def _connect_signals(self) -> None:
         self._btn_view_inv.clicked.connect(self._on_inventory_view_triggered)
@@ -865,51 +629,30 @@ class GuiView(QMainWindow):
         self._btn_exit.clicked.connect(self._execute_graceful_exit)
 
     def _show_success_message(self, title: str, text: str) -> None:
-        # displays a custom themed alert dialog box for success messages
         msg = QMessageBox(self)
-        msg.setWindowTitle(title)        
-        msg.setIcon(QMessageBox.Icon.NoIcon)
-
-        content_label = QLabel()
-        content_label.setWordWrap(True)
-
-        formatted_rich_text = (
-            f"<div style='vertical-align: middle; display: flex; align-items: center; word-break: break-all;'>"
-            f"  <span style='color: #27ae60; font-size: 24px; font-weight: bold; font-family: Arial;'>✔</span>"
-            f"  <span style='color: #ffffff; font-size: 13px; font-weight: normal; margin-left: 14px;'>{text}</span>"
-            f"</div>"
-        )
-
-        content_label.setText(formatted_rich_text)       
-        msg.layout().addWidget(content_label, 0, 1)
-        # Apply an inline green border highlight style just to this popup's icon layout box
-        msg.setStyleSheet("QMessageBox { border-left: 5px solid #27ae60; }")
+        msg.setWindowTitle(title)
+        msg.setTextFormat(Qt.PlainText)
+        msg.setText(text)
+        msg.setStandardButtons(QMessageBox.Ok)
         msg.exec()
 
     def _show_error_message(self, title: str, text: str) -> None:
-        # displays a custom themed alert dialog box for error messages
         msg = QMessageBox(self)
         msg.setWindowTitle(title)
-        msg.setIcon(QMessageBox.Icon.NoIcon)
-
-        content_label = QLabel()
-        content_label.setWordWrap(True)
-        
-        formatted_rich_text = (
-            f"<div style='vertical-align: middle; display: flex; align-items: center; word-break: break-all;'> "
-            f"  <span style='color: #e74c3c; font-size: 24px; font-weight: bold; font-family: Arial;'>✘</span>"
-            f"  <span style='color: #ffffff; font-size: 13px; font-weight: normal; margin-left: 14px;'>{text}</span>"
-            f"</div>"
-        )
-        content_label.setText(formatted_rich_text)
-        msg.layout().addWidget(content_label, 0, 1)
-        msg.setStyleSheet("QMessageBox { border-left: 5px solid #e74c3c; }")
+        msg.setTextFormat(Qt.PlainText)
+        msg.setText(text)
+        msg.setStandardButtons(QMessageBox.Ok)
         msg.exec()
 
     def _update_active_navigation_state(self, active_button: QPushButton) -> None:
         # Presentation only: existing handlers still own panel visibility and data.
         self._welcome_panel.hide()
         self._recipe_cards.hide()
+        self._inventory_table.setMinimumHeight(0)
+        self._inventory_table.setMaximumHeight(16777215)
+        self._item_details_view.setMinimumHeight(0)
+        self._item_details_view.setMaximumHeight(16777215)
+        self._log_display.setStyleSheet("")
         title, subtitle = self._navigation_titles.get(
             active_button, ("FoodRescue", "Your food rescue workspace.")
         )
@@ -918,7 +661,6 @@ class GuiView(QMainWindow):
         is_inventory = active_button is self._btn_view_inv
         self._toolbar_search.setVisible(is_inventory)
         self._toolbar_edit.setVisible(is_inventory)
-        style_inventory_table(self._inventory_table, is_inventory)
         for btn in self._nav_buttons:
             btn.setChecked(btn == active_button)
         self._alert_panel.hide()
@@ -987,13 +729,13 @@ class GuiView(QMainWindow):
             self._show_error_message("Could not load business rules", str(exc))
             return
 
-        self._update_active_navigation_state(self._btn_editbusinessrules)
-
         dialog = QDialog(self)
         dialog.setWindowTitle("Edit Business Rules")
         dialog.resize(850, 600)
-        dialog.setMinimumSize(850, 650)
+        dialog.setMinimumSize(760, 600)
         layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(12)
 
         layout.addWidget(QLabel("Select a recipe:"))
         recipe_list = QListWidget()
@@ -1278,20 +1020,24 @@ class GuiView(QMainWindow):
             days_left = target.get('days_to_expiry', 'N/A')
             expiry_str = f"{days_left} day(s) remaining" if str(days_left).isdigit() else str(days_left)
 
-            # Replicates your terminal string formatting layout perfectly
-            self._item_details_view.append("============================================================")
-            self._item_details_view.append(f"                        FOOD ID: [{db_id + 1}]")
-            self._item_details_view.append("============================================================")
-            self._item_details_view.append(f"Item Name:        {target.get('food', 'Unknown')}")
-            self._item_details_view.append(f"Category:         {target.get('food_category', 'General')}")
-            self._item_details_view.append(f"Stock Quantity:   {target.get('quantity', '0')}")
-            self._item_details_view.append(f"Use-By Date:      {target.get('use-by', 'N/A')}")
-            self._item_details_view.append(f"Days to Expiry:   {expiry_str}")
-            self._item_details_view.append(f"Storage Type:     {storage}")
-            self._item_details_view.append(f"Waste Risk Level: {target.get('waste_risk_level', 'Low')}")
-            self._item_details_view.append(f"Demand Level:     {target.get('demand level', 'Normal')}")
-            self._item_details_view.append(f"Allergen Info:    {allergen}")
-            self._item_details_view.append("============================================================")
+            fields = (
+                ("Category", target.get('food_category', 'General')),
+                ("Stock quantity", target.get('quantity', '0')),
+                ("Use-by date", target.get('use-by', 'N/A')),
+                ("Days to expiry", expiry_str), ("Storage", storage),
+                ("Waste risk", target.get('waste_risk_level', 'Low')),
+                ("Demand level", target.get('demand level', 'Normal')),
+                ("Allergens", allergen),
+            )
+            rows = "".join(
+                f"<tr><td style='color: #a7b7ad;'>{label}</td><td>{escape(str(value))}</td></tr>"
+                for label, value in fields
+            )
+            self._item_details_view.setHtml(
+                f"<p style='color: #a7cbb6;'>ITEM {db_id + 1:02d}</p>"
+                f"<h2 style='color: #f0f3f1; font-size: 20px;'>{escape(target.get('food', 'Unknown'))}</h2>"
+                f"<table width='100%' cellpadding='5' style='color: #dce3df;'>{rows}</table>"
+            )
 
     # Data Renders
     def print_current_inventory(self, extracted_items: list, ids: list = None) -> bool:
@@ -1407,10 +1153,6 @@ class GuiView(QMainWindow):
         )
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Confirm Inventory Addition")
-        msg_box.setStyleSheet(
-            "QMessageBox { border-left: 5px solid #27ae60; } "
-            "QLabel { min-width: 480px; color: #ffffff; font-size: 13px; }"
-        )
         msg_box.setText(confirmation)
         msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         msg_box.setDefaultButton(QMessageBox.No)
@@ -1523,10 +1265,6 @@ class GuiView(QMainWindow):
             
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Confirm Record Deletion")
-            msg_box.setStyleSheet(
-                "QMessageBox { border-left: 5px solid #c0392b; } "
-                "QLabel { min-width: 480px; color: #ffffff; font-size: 13px; }"
-            )
             msg_box.setText(f"Are you sure you want to permanently remove '{removed_name}' (ID: {id_str}) from active stock logs?")
             msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
             msg_box.setDefaultButton(QMessageBox.No)
@@ -1554,7 +1292,10 @@ class GuiView(QMainWindow):
         self._edit_scroll_area.hide()
         self._recipe_search_panel.hide()
 
-        self._inventory_table.setFixedHeight(340)
+        self._inventory_table.setMinimumHeight(160)
+        self._inventory_table.setMaximumHeight(240)
+        self._display_layout.setStretchFactor(self._inventory_table, 1)
+        self._display_layout.setStretchFactor(self._frame_ai_input, 2)
         self._inventory_table.show()
         
         if self._frame_ai_input.layout() is not None:
@@ -1562,34 +1303,40 @@ class GuiView(QMainWindow):
             while old_layout.count():
                 child = old_layout.takeAt(0)
                 if child.widget() and child.widget() != self._log_display:
+                    child.widget().hide()
                     child.widget().deleteLater()
             QWidget().setLayout(old_layout)
 
         master_layout = QVBoxLayout(self._frame_ai_input)
-        master_layout.setContentsMargins(16, 14, 16, 16)
-        master_layout.setSpacing(10)
+        master_layout.setContentsMargins(20, 20, 20, 20)
+        master_layout.setSpacing(14)
+        master_layout.setAlignment(Qt.AlignTop)
 
         # Main Descriptive Title Header Label block
-        title_lbl = QLabel("🤖 Run AI Waste Risk & Recipe Assessment Module Engine")
-        title_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 4px;")
+        title_lbl = QLabel("Ingredient assessment")
+        title_lbl.setObjectName("SectionTitle")
+        title_lbl.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         master_layout.addWidget(title_lbl)
 
         self._ai_inputs_row = QWidget()
+        self._ai_inputs_row.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
         row_layout = QHBoxLayout(self._ai_inputs_row)
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(12)
 
         self._input_ai_id = QLineEdit()
-        self._input_ai_id.setPlaceholderText("Enter Item ID (e.g. 36)...")
-        self._input_ai_id.setFixedWidth(180)
+        self._input_ai_id.setPlaceholderText("Item ID, e.g. 36")
+        self._input_ai_id.setAccessibleName("Item ID")
+        self._input_ai_id.setFixedWidth(140)
         self._input_ai_id.returnPressed.connect(self._execute_threaded_ai_analysis)
 
         self._input_ai_notes = QLineEdit()
-        self._input_ai_notes.setPlaceholderText("Enter quality observations / structural notes (optional)...")
+        self._input_ai_notes.setPlaceholderText("Quality observations (optional)")
+        self._input_ai_notes.setAccessibleName("Quality observations")
 
-        self._btn_execute_ai = QPushButton("Enquire")
+        self._btn_execute_ai = QPushButton("Assess item")
         self._btn_execute_ai.setObjectName("ApplyFilterButton")
-        self._btn_execute_ai.setFixedWidth(100)
+        self._btn_execute_ai.setFixedWidth(112)
         self._btn_execute_ai.clicked.connect(self._execute_threaded_ai_analysis)
 
         # Assemble inline components horizontally onto the row layout matrix
@@ -1599,15 +1346,17 @@ class GuiView(QMainWindow):
         master_layout.addWidget(self._ai_inputs_row)
 
         status_row = QWidget()
+        status_row.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
         status_row_layout = QHBoxLayout(status_row)
         status_row_layout.setContentsMargins(0, 0, 0, 0)
         
-        self._lbl_ai_loading = QLabel("")
+        self._lbl_ai_loading = QLabel("Choose an item from your inventory to begin.")
         self._lbl_ai_loading.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self._lbl_ai_loading.setStyleSheet("font-family: 'Consolas', monospace; font-size: 13px; color: #2ecc71;")
+        self._lbl_ai_loading.setObjectName("AssistantStatus")
+        self._lbl_ai_loading.setWordWrap(True)
         status_row_layout.addWidget(self._lbl_ai_loading)
         
-        self._btn_more_details = QPushButton("📋 More Details")
+        self._btn_more_details = QPushButton("More details")
         self._btn_more_details.setObjectName("ApplyFilterButton")
         self._btn_more_details.setFixedWidth(145)
         self._btn_more_details.hide()
@@ -1616,13 +1365,12 @@ class GuiView(QMainWindow):
         master_layout.addWidget(status_row)
 
         self._log_display.setParent(self._frame_ai_input)
-        self._log_display.setMinimumHeight(240)
+        self._log_display.setMinimumHeight(140)
         self._log_display.setMaximumHeight(16777215)
-        master_layout.addWidget(self._log_display)
+        master_layout.addWidget(self._log_display, 1)
         self._log_display.hide()
         self._log_display.clear()
 
-        master_layout.addStretch()
 
         self._frame_ai_input.show()
         self._btn_execute_ai.setEnabled(True)
@@ -1670,10 +1418,11 @@ class GuiView(QMainWindow):
         self._btn_more_details.hide()
         self._log_display.setParent(self._frame_ai_input)
         self._frame_ai_input.layout().addWidget(self._log_display)
-        self._lbl_ai_loading.setText(f"⚙️ Processing AI Assessment for '{selected_record['food']}'...\nPlease wait.")
+        self._lbl_ai_loading.setText(f"Assessing {selected_record['food']}... Please wait.")
         self._log_display.show()
         self._log_display.clear()
-        self._log_display.setFixedHeight(300)
+        self._log_display.setMinimumHeight(140)
+        self._log_display.setMaximumHeight(16777215)
 
         self._ai_thread = AIWorker(self._controller.ai_manager, payload)
 
@@ -1687,109 +1436,66 @@ class GuiView(QMainWindow):
     def _handle_ai_success(self, res: dict, selected_record: dict) -> None:
         # Handles updating the main text UI view elements once the thread exits successfully
         brief_html = f"""
-        <div style='font-family: Arial; font-size: 13px; color: #e0e0e0; line-height: 1.5;'>
-            <div style='background-color: #27ae60; color: #ffffff; padding: 8px; font-weight: bold; border-radius: 4px; text-align: center; margin-bottom: 10px;'>
-                🤖 AI DISCOVERY ASSESSMENT MATRIX SAVED 🤖
-            </div>
-            <p><b>✅ Successfully processed item:</b> <span style='color: #2ecc71;'>{selected_record['food'].upper()}</span></p>
-            <p><b>⭐ Waste Risk Checked:</b> {selected_record['waste_risk_level']}</p>
-            <div style='margin-top: 10px; margin-bottom: 10px;'>
-                <b style='color: #ffffff;'>📝 Suggested Recipes:</b><br/>
+        <p style='color: #b4d4c0; font-size: 12px;'>ASSESSMENT SAVED</p>
+        <h2 style='color: #f0f4f1; font-size: 20px; margin-bottom: 8px;'>{escape(selected_record['food'])}</h2>
+        <p style='color: #c4d2ca;'>Waste risk checked: <b>{escape(selected_record['waste_risk_level'])}</b></p>
+        <p style='color: #e0e9e3;'><b>Suggested recipes</b></p>
+        <table width='100%' cellspacing='4' cellpadding='8'>
         """
-        
+
         if res and isinstance(res, dict) and res.get('recipes'):
             for number, recipe in enumerate(res.get('recipes', []), start=1):
-                brief_html += f"<span style='margin-left: 15px; color: #3498db;'>• [{number}] {recipe.get('name', 'Unknown Recipe').upper()}</span><br/>"
+                brief_html += (
+                    f"<tr bgcolor='#30463a'><td width='36' style='color: #a6c6b3;'>{number:02d}</td>"
+                    f"<td style='color: #e3ede6;'>{escape(recipe.get('name', 'Unknown Recipe'))}</td></tr>"
+                )
             self._btn_more_details.setProperty("latest_res", res)
             if not hasattr(self._btn_more_details, '_is_connected'):
                 self._btn_more_details.clicked.connect(lambda: self.print_ai_result(self._btn_more_details.property("latest_res"), RECIPES_PATH))
                 self._btn_more_details._is_connected = True
             self._btn_more_details.show()
         else:
-            brief_html += "<span style='margin-left: 15px; color: #e74c3c;'>None returned.</span><br/>"
+            brief_html += "<tr><td style='color: #bbc7bf;'>No recipe suggestions returned.</td></tr>"
 
-        brief_html += """</div><div style='border-top: 1px solid #333333; padding-top: 8px; color: #f39c12; font-weight: bold;'>👉 [ Recipes sent to 'Process Recipes' menu option! ]</div></div>"""
+        brief_html += """</table><p style='color: #aabfb2; margin-top: 16px;'>
+            Suggestions are ready in Process recipes.</p>"""
+        self._log_display.setStyleSheet("QTextEdit { background: #273a31; border-color: #425b4c; }")
         self._log_display.setHtml(brief_html)
         self._controller.data_manager.load()  
-        self._lbl_ai_loading.setText("✅ AI Analysis complete!")
+        self._lbl_ai_loading.setText("Assessment complete - Suggestions ready to review")
 
     def _handle_ai_failure(self, err_msg: str) -> None:
         # Handles displaying connection exceptions without crashing the UI loop thread
         QMessageBox.critical(self, "API Connection Failure", f"Assessment failed: {err_msg}")
-        self._lbl_ai_loading.setText("⚠️ Failed to load AI data.")
+        self._lbl_ai_loading.setText("Assessment unavailable - Please try again")
         self._ai_inputs_row.show()
 
     def print_ai_result(self, result: dict, recipes_path: str) -> None:
-        # renders complete terminal profile recipes across full-screen view spaces
+        # Reuse the library cards for the read-only assessment and its recipes.
         if hasattr(self, '_btn_more_details'):
             self._btn_more_details.hide()
-
-        self._log_display.setParent(self._display_container)
-        self._display_layout.addWidget(self._log_display)
-        
-        self._log_display.setMaximumHeight(16777215)
-        self._log_display.setMinimumHeight(650)
-
         self._inventory_table.hide()
         self._item_details_view.hide()
-        self._log_display.show()
-        self._log_display.clear()
-
-        html_content = f"""
-        <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
-            
-            <!-- Master Summary Header Cards -->
-            <div style='background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 6px; padding: 15px; margin-bottom: 15px;'>
-                <h2 style='color: #ffffff; margin-top: 0px; font-size: 16px; border-bottom: 2px solid #27ae60; padding-bottom: 5px;'>
-                    📊 AI ANALYSIS METRICS: {result['stock_item']['name'].upper()}
-                </h2>
-                <table width='100%' cellpadding='4' style='color: #e0e0e0;'>
-                    <tr><td><b>📦 Item Name:</b> {result['stock_item']['name']}</td><td><b>📂 Category:</b> {result['category']}</td></tr>
-                    <tr><td><b>📈 Demand Level:</b> {result['demand_level'].capitalize()}</td><td><b>🚨 Spoilage Risk:</b> {result['spoilage_risk'].capitalize()}</td></tr>
-                    <tr><td><b>⭐ Suitability Score:</b> <span style='color: #f1c40f; font-weight: bold;'>{result['suitability_score']}/100</span></td><td><b>🎯 Confidence:</b> {result['confidence']:.0%}</td></tr>
-                </table>
-                <p style='margin-top: 10px; background-color: #252526; padding: 8px; border-radius: 4px; font-style: italic; color: #bdc3c7;'>
-                    <b>💡 Assessment Insight:</b> {result['reason']}
-                </p>
-            </div>
-            
-            <h3 style='color: #ffffff; font-size: 14px; margin-top: 20px; margin-bottom: 10px;'>🍳 RECOMMENDED DISHES BREAKDOWN</h3>
+        self._frame_ai_input.hide()
+        self._log_display.hide()
+        self._page_title.setText("Assessment details")
+        self._page_subtitle.setText("AI assessment and suggested recipes.")
+        summary = f"""
+        <p style='color: #a7cbb6; font-size: 12px;'>INGREDIENT ASSESSMENT</p>
+        <h2 style='color: #f0f3f1; font-size: 22px;'>{escape(result['stock_item']['name'])}</h2>
+        <table width='100%' cellpadding='6' cellspacing='0' style='color: #d4ded8;'>
+            <tr><td>Category</td><td><b>{escape(result['category'])}</b></td></tr>
+            <tr><td>Demand level</td><td>{escape(result['demand_level'].capitalize())}</td></tr>
+            <tr><td>Spoilage risk</td><td>{escape(result['spoilage_risk'].capitalize())}</td></tr>
+            <tr><td>Suitability score</td><td>{result['suitability_score']}/100</td></tr>
+            <tr><td>Confidence</td><td>{result['confidence']:.0%}</td></tr>
+        </table>
+        <p style='color: #e2e8e4;'><b>Assessment insight</b></p>
+        <p style='color: #b8c5bd;'>{escape(result['reason'])}</p>
+        <p style='color: #8e9d94; font-size: 11px;'>Saved to: {escape(str(recipes_path))}</p>
         """
-
-        for number, recipe in enumerate(result.get('recipes', []), start=1):
-            html_content += f"""
-            <!-- Individual Recipe Cards Display Panels Grid -->
-            <div style='background-color: #1e1e1e; border: 1px solid #3a3a3a; border-left: 5px solid #3498db; border-radius: 6px; padding: 15px; margin-bottom: 15px;'>
-                <h4 style='color: #3498db; margin-top: 0px; font-size: 14px; text-transform: uppercase;'>
-                    🍴 Recipe {number}: {recipe['name']}
-                </h4>
-                <p><b>🛒 Ingredients Checklist:</b><br/>
-                <span style='color: #bdc3c7;'>{", ".join(recipe.get('ingredients', []))}</span></p>
-                
-                <p style='margin-bottom: 5px;'><b>📝 Preparation Steps:</b></p>
-                <div style='color: #ecf0f1; margin-left: 10px;'>
-            """
-            
-            instructions = recipe.get('instructions', [])
-            if isinstance(instructions, list):
-                for step_number, instruction in enumerate(instructions, start=1):
-                    html_content += f"<div style='margin-bottom: 4px;'><b>{step_number}.</b> {instruction}</div>"
-            else:
-                html_content += f"<div>{instructions}</div>"
-
-            html_content += """
-                </div>
-            </div>
-            """
-
-        html_content += f"""
-            <div style='background-color: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 4px; text-align: center; margin-top: 15px; font-family: monospace;'>
-                📁 Data logs committed securely to: {recipes_path}
-            </div>
-        </div>
-        """
-        
-        self._log_display.setHtml(html_content)
+        self._recipe_cards.set_recipes(result.get('recipes', []), summary=summary)
+        self._recipe_cards.show()
 
     # Option 5: Process Recipes
     def _on_process_recipes_triggered(self) -> None:
@@ -1817,8 +1523,8 @@ class GuiView(QMainWindow):
         
         # fire up the backend recipe processor engine matrix
         self._log_display.setHtml(
-            "<div style='font-family: Arial, sans-serif; font-size: 13px; color: #bdc3c7; padding: 10px;'>"
-            "⚙️ <b>Initializing Recipe Validation Engine...</b><br/>⏳ Processing recipes... please wait...</div>"
+            "<div style=' font-size: 13px; color: #b4c1b9; padding: 10px;'>"
+            " <b>Preparing recipe evaluation...</b><br/> Processing recipes... please wait...</div>"
         )
         self.repaint()
         try:
@@ -1838,12 +1544,12 @@ class GuiView(QMainWindow):
             rej_file = str(folder / "rejected.txt")
 
             table_html = """
-            <table width='100%' cellpadding='8' cellspacing='0' style='border-collapse: collapse; font-family: Arial, sans-serif; font-size: 13px; margin-top: 15px; color: #f5f5f5;'>
+            <table width='100%' cellpadding='8' cellspacing='0' style='border-collapse: collapse;  font-size: 13px; margin-top: 15px; color: #dce3df;'>
                 <thead>
-                    <tr style='background-color: #2a2a2a;'>
-                        <th width='20%' style='border: 1px solid #2d2d2d; text-align: left; padding: 10px; color: #ffffff; font-weight: bold;'>Status</th>
-                        <th width='35%' style='border: 1px solid #2d2d2d; text-align: left; padding: 10px; color: #ffffff; font-weight: bold;'>Recipe Name</th>
-                        <th width='45%' style='border: 1px solid #2d2d2d; text-align: left; padding: 10px; color: #ffffff; font-weight: bold;'>Evaluation Details</th>
+                    <tr style='background-color: #303a3f;'>
+                        <th width='20%' style='border: 1px solid #414b50; text-align: left; padding: 10px; color: #edf3ef; font-weight: bold;'>Status</th>
+                        <th width='35%' style='border: 1px solid #414b50; text-align: left; padding: 10px; color: #edf3ef; font-weight: bold;'>Recipe Name</th>
+                        <th width='45%' style='border: 1px solid #414b50; text-align: left; padding: 10px; color: #edf3ef; font-weight: bold;'>Evaluation Details</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1857,12 +1563,12 @@ class GuiView(QMainWindow):
                     for row in reader:
                         if row:
                             recipe_name = row[0].strip().title()
-                            bg_color = "#252525" if row_idx % 2 == 0 else "#1e1e1e"
+                            bg_color = "#293034" if row_idx % 2 == 0 else "#242a2d"
                             table_html += f"""
-                            <tr style='background-color: {bg_color}; font-family: Arial, sans-serif;'>
-                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #2ecc71; font-weight: bold;'>[✓] Accepted</span></td>
-                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><b>{recipe_name}</b></td>
-                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #a0a0a0;'>Passed business rules verification (Matched template)</span></td>
+                            <tr style='background-color: {bg_color}; '>
+                                <td style='border: 1px solid #414b50; padding: 8px;'><span style='color: #b0cfbc; font-weight: bold;'>Accepted</span></td>
+                                <td style='border: 1px solid #414b50; padding: 8px;'><b>{recipe_name}</b></td>
+                                <td style='border: 1px solid #414b50; padding: 8px;'><span style='color: #a0a0a0;'>Passed business rules verification (Matched template)</span></td>
                             </tr>
                             """
                             row_idx += 1
@@ -1886,21 +1592,21 @@ class GuiView(QMainWindow):
                             clean_line = clean_line.replace("Rejected recipe:", "").strip()
                             recipe_name = clean_line.title()
 
-                        bg_color = "#252525" if row_idx % 2 == 0 else "#1e1e1e"
+                        bg_color = "#293034" if row_idx % 2 == 0 else "#242a2d"
                         table_html += f"""
-                        <tr style='background-color: {bg_color}; font-family: Arial, sans-serif;'>
-                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #e74c3c; font-weight: bold;'>[✗] Rejected</span></td>
-                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><b>{recipe_name}</b></td>
-                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #f1c40f;'>⚠️ {reason}</span></td>
+                        <tr style='background-color: {bg_color}; '>
+                            <td style='border: 1px solid #414b50; padding: 8px;'><span style='color: #dcaaa9; font-weight: bold;'>Rejected</span></td>
+                            <td style='border: 1px solid #414b50; padding: 8px;'><b>{recipe_name}</b></td>
+                            <td style='border: 1px solid #414b50; padding: 8px;'><span style='color: #cfbc97;'> {reason}</span></td>
                         </tr>
                         """
                         row_idx += 1
 
             if row_idx == 0:
                 table_html += """
-                <tr style='font-family: Arial, sans-serif;'>
-                    <td colspan='3' style='border: 1px solid #2d2d2d; text-align: center; padding: 15px; color: #bdc3c7;'>
-                        ⚠️ No validation data records found. Run an evaluation via 'Ask AI Assistant' first!
+                <tr style=''>
+                    <td colspan='3' style='border: 1px solid #414b50; text-align: center; padding: 15px; color: #b4c1b9;'>
+                         No validation data records found. Run an evaluation via 'Ask AI Assistant' first!
                     </td>
                 </tr>
                 """
@@ -1908,24 +1614,24 @@ class GuiView(QMainWindow):
             table_html += "</tbody></table>"
 
             full_html = f"""
-            <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
-                <div style='background-color: #2c3e50; color: #ffffff; padding: 12px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 16px; margin-bottom: 15px;'>
-                    ⚙️ RECIPE VALIDATION PROCESSOR ACTIVE ⚙️
+            <div style=' font-size: 13px; color: #dce3df; line-height: 1.6;'>
+                <div style='background-color: #293b33; color: #edf3ef; padding: 12px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 16px; margin-bottom: 15px;'>
+                    Recipe processing results
                 </div>
                 
                 {table_html}
                 
-                <div style='margin-top: 25px; background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 6px; padding: 15px;'>
-                    <h3 style='color: #ffffff; margin-top: 0px; margin-bottom: 12px; font-size: 16px; border-bottom: 2px solid #2ecc71; padding-bottom: 6px;'>
-                        📊 Summary Report
+                <div style='margin-top: 25px; background-color: #242a2d; border: 1px solid #414b50; border-radius: 6px; padding: 15px;'>
+                    <h3 style='color: #edf3ef; margin-top: 0px; margin-bottom: 12px; font-size: 16px; border-bottom: 2px solid #b0cfbc; padding-bottom: 6px;'>
+                         Evaluation summary
                     </h3>
-                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #2ecc71; font-weight: bold;'>🟢 Accepted Recipes :</span> <b>{report.get("accepted", 0)}</b></p>
-                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #e74c3c; font-weight: bold;'>🔴 Rejected Recipes :</span> <b>{report.get("rejected", 0)}</b></p>
+                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #b0cfbc; font-weight: bold;'> Accepted Recipes :</span> <b>{report.get("accepted", 0)}</b></p>
+                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #dcaaa9; font-weight: bold;'> Rejected Recipes :</span> <b>{report.get("rejected", 0)}</b></p>
                     
-                    <div style='margin-top: 14px; padding-top: 10px; border-top: 1px dashed #3a3a3a; font-size: 12px; color: #bdc3c7;'>
-                        <p style='margin: 0 0 6px 0; color: #ffffff; font-weight: bold;'>📂 Saved Outputs Location:</p>
-                        <p style='margin: 4px 0; font-family: monospace; color: #2ecc71; word-break: break-all;'><b>├── Accepted:</b> {r_file}</p>
-                        <p style='margin: 4px 0; font-family: monospace; color: #e74c3c; word-break: break-all;'><b>└── Rejections:</b> {rej_file}</p>
+                    <div style='margin-top: 14px; padding-top: 10px; border-top: 1px dashed #3a3a3a; font-size: 12px; color: #b4c1b9;'>
+                        <p style='margin: 0 0 6px 0; color: #edf3ef; font-weight: bold;'> Saved files</p>
+                        <p style='margin: 4px 0; color: #b0cfbc; word-break: break-all;'><b>Accepted:</b> {r_file}</p>
+                        <p style='margin: 4px 0; color: #dcaaa9; word-break: break-all;'><b>Rejections:</b> {rej_file}</p>
                     </div>
                 </div>
             </div>
@@ -1979,7 +1685,7 @@ class GuiView(QMainWindow):
         self._inventory_table.setMaximumHeight(340)
         self._inventory_table.setMinimumHeight(180)
 
-        self._item_details_view.setMinimumHeight(450)
+        self._item_details_view.setMinimumHeight(180)
         self._item_details_view.setMaximumHeight(16777215)
 
         self._display_layout.setStretchFactor(self._inventory_table, 1)
@@ -2051,64 +1757,31 @@ class GuiView(QMainWindow):
             self._item_details_view.show()
             self._item_details_view.clear()
             
-            recipe_name = target.get('name', 'Unknown Recipe').upper()
+            recipe_name = target.get('name', 'Unknown Recipe')
             ingredients = target.get('ingredients', 'None listed')
             instructions = target.get('instructions', 'No execution steps provided.')
-
-            formatted_steps = ""
             if "Step " in instructions or "1. " in instructions:
-                formatted_steps = f"<div style='color: #ecf0f1; white-space: pre-wrap;'>{instructions}</div>"
+                formatted_steps = escape(instructions).replace("\n", "<br/>")
             else:
-                steps = [s.strip() for s in instructions.split(". ") if s.strip()]
-                for step_idx, step_text in enumerate(steps, start=1):
-                    clean_step = step_text if step_text.endswith(".") else f"{step_text}."
-                    formatted_steps += f"<div style='margin-bottom: 6px;'><b>{step_idx}.</b> {clean_step}</div>"
-
-            ingredients_list = [i.strip().capitalize() for i in ingredients.split(",") if i.strip()]
-            bullet_points_html = "".join([f"<li style='margin-bottom: 5px; color: #bdc3c7;'>• {item}</li>" for item in ingredients_list])
-
-
-            html_card = f"""
-            <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6; background-color: #1e1e1e; padding: 10px; border-radius: 8px;'>
-                
-                <!-- Card Header Panel Badge -->
-                <div style='background-color: #2c3e50; color: #ffffff; padding: 8px 12px; font-weight: bold; border-radius: 5px; font-size: 13px; margin-bottom: 14px;'>
-                    📖 RECIPE DISCOVERY CARD &mdash; ENTRY LOG #{db_id + 1}
-                </div>
-                
-                <div style='padding: 2px;'>
-                    <h2 style='color: #2ecc71; margin-top: 0px; font-size: 18px; font-weight: bold; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>
-                        {recipe_name}
-                    </h2>
-                    
-                    <div style='margin-bottom: 15px;'>
-                        <b style='color: #ffffff; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;'>Ingredients</b>
-                        <ul style='list-style-type: none; margin: 6px 0 0 0; padding-left: 5px;'>
-                            {bullet_points_html}
-                        </ul>
-                    </div>
-                    
-                    <div>
-                        <b style='color: #ffffff; font-size: 13px;'>📝 Preparation & Execution Steps:</b>
-                        <div style='color: #ecf0f1; margin-top: 6px; margin-left: 2px;'>
-                            {formatted_steps}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            """
-            
-            self._item_details_view.setHtml(html_card)
+                steps = [step.strip() for step in instructions.split(". ") if step.strip()]
+                formatted_steps = "".join(
+                    f"<p>{index}. {escape(step if step.endswith('.') else step + '.')}</p>"
+                    for index, step in enumerate(steps, start=1)
+                )
+            self._item_details_view.setHtml(f"""
+                <p style='color: #a7cbb6;'>RECIPE {db_id + 1:02d}</p>
+                <h2 style='color: #f0f3f1; font-size: 20px;'>{escape(recipe_name)}</h2>
+                <p style='color: #c2d2c9;'><b>Ingredients</b></p>
+                <p style='color: #b9c6bf;'>{escape(ingredients)}</p>
+                <p style='color: #c2d2c9;'><b>Preparation steps</b></p>
+                <div style='color: #dce4df;'>{formatted_steps}</div>
+            """)
 
     # Option 8: Exit Application
     def _execute_graceful_exit(self) -> None:
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Confirm Exit")
         
-        msg_box.setStyleSheet(
-            "QMessageBox { border-left: 5px solid #27ae60; } "
-            "QLabel { min-width: 440px; color: #ffffff; font-size: 13px; }"
-        )
         msg_box.setText("Are you sure you want to exit and close the management dashboard?")
         msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         msg_box.setDefaultButton(QMessageBox.No)
