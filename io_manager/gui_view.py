@@ -299,37 +299,6 @@ class GuiView(QMainWindow):
         self._edit_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._edit_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
-        self._edit_scroll_area.setStyleSheet("""
-            QScrollArea { 
-                border: none; 
-                background-color: #121212 !important; 
-            }
-            QScrollBar:vertical {
-                background-color: #1e1e1e; /* Matches your QFrame card panel background color */
-                border-left: 1px solid #2d2d2d; /* Subtle divider separator line */
-                width: 10px;
-                margin: 0px;
-            }            
-            QScrollBar::handle:vertical {
-                background-color: #2a2a2a; /* Matches the default button layout color shades */
-                border: 1px solid #3a3a3a;
-                border-radius: 4px;
-                min-height: 25px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: #27ae60; /* Matches your active theme green accent hue color */
-                border: 1px solid #219653;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                border: none;
-                background: none;
-                height: 0px;
-            }
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                background: none;
-            }
-        """)
-
         # Hide the grid by default until data populates
         self._log_display.setReadOnly(True)
         self._item_details_view.setReadOnly(True)
@@ -583,6 +552,7 @@ class GuiView(QMainWindow):
         self._theme_bulb.setBuddy(self._theme_button)
         self._update_theme_icon(False)
         toolbar_layout.addWidget(self._theme_bulb)
+        toolbar_layout.addSpacing(10)
         self._theme_button.setToolTip("Turn on dark mode")
         self._theme_button.toggled.connect(self._toggle_theme)
         toolbar_layout.addWidget(self._theme_button)
@@ -1883,7 +1853,7 @@ class GuiView(QMainWindow):
         </div>
         """
         
-        self._log_display.setHtml(html_content)
+        set_themed_html(self._log_display,html_content)
 
     # Option 5: Process Recipes
     def _on_process_recipes_triggered(self) -> None:
@@ -1955,7 +1925,7 @@ class GuiView(QMainWindow):
                             bg_color = "#252525" if row_idx % 2 == 0 else "#1e1e1e"
                             table_html += f"""
                             <tr style='background-color: {bg_color}; font-family: Arial, sans-serif;'>
-                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #2ecc71; font-weight: bold;'>[✓] Accepted</span></td>
+                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #2ecc71; font-weight: bold;'><img src="foodrescue-icon:accepted" width="16" height="16" /> Accepted</span></td>
                                 <td style='border: 1px solid #2d2d2d; padding: 8px;'><b>{recipe_name}</b></td>
                                 <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #a0a0a0;'>Passed business rules verification (Matched template)</span></td>
                             </tr>
@@ -1984,9 +1954,9 @@ class GuiView(QMainWindow):
                         bg_color = "#252525" if row_idx % 2 == 0 else "#1e1e1e"
                         table_html += f"""
                         <tr style='background-color: {bg_color}; font-family: Arial, sans-serif;'>
-                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #e74c3c; font-weight: bold;'>[✗] Rejected</span></td>
+                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #e74c3c; font-weight: bold;'><img src="foodrescue-icon:rejected" width="16" height="16" /> Rejected</span></td>
                             <td style='border: 1px solid #2d2d2d; padding: 8px;'><b>{recipe_name}</b></td>
-                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #f1c40f;'>⚠️ {reason}</span></td>
+                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #f1c40f;'><img src="foodrescue-icon:warning" width="16" height="16" /> {reason}</span></td>
                         </tr>
                         """
                         row_idx += 1
@@ -1995,7 +1965,7 @@ class GuiView(QMainWindow):
                 table_html += """
                 <tr style='font-family: Arial, sans-serif;'>
                     <td colspan='3' style='border: 1px solid #2d2d2d; text-align: center; padding: 15px; color: #bdc3c7;'>
-                        ⚠️ No validation data records found. Run an evaluation via 'Ask AI Assistant' first!
+                        <img src="foodrescue-icon:warning" width="16" height="16" /> No validation data records found. Run an evaluation via 'Ask AI Assistant' first!
                     </td>
                 </tr>
                 """
@@ -2005,22 +1975,22 @@ class GuiView(QMainWindow):
             full_html = f"""
             <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
                 <div style='background-color: #2c3e50; color: #ffffff; padding: 12px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 16px; margin-bottom: 15px;'>
-                    ⚙️ RECIPE VALIDATION PROCESSOR ACTIVE ⚙️
+                    Recipe processing results
                 </div>
                 
                 {table_html}
                 
                 <div style='margin-top: 25px; background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 6px; padding: 15px;'>
                     <h3 style='color: #ffffff; margin-top: 0px; margin-bottom: 12px; font-size: 16px; border-bottom: 2px solid #2ecc71; padding-bottom: 6px;'>
-                        📊 Summary Report
+                        <img src="foodrescue-icon:summary" width="16" height="16" /> Summary Report
                     </h3>
-                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #2ecc71; font-weight: bold;'>🟢 Accepted Recipes :</span> <b>{report.get("accepted", 0)}</b></p>
-                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #e74c3c; font-weight: bold;'>🔴 Rejected Recipes :</span> <b>{report.get("rejected", 0)}</b></p>
+                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #2ecc71; font-weight: bold;'><img src="foodrescue-icon:accepted" width="16" height="16" /> Accepted Recipes :</span> <b>{report.get("accepted", 0)}</b></p>
+                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #e74c3c; font-weight: bold;'><img src="foodrescue-icon:rejected" width="16" height="16" /> Rejected Recipes :</span> <b>{report.get("rejected", 0)}</b></p>
                     
                     <div style='margin-top: 14px; padding-top: 10px; border-top: 1px dashed #3a3a3a; font-size: 12px; color: #bdc3c7;'>
-                        <p style='margin: 0 0 6px 0; color: #ffffff; font-weight: bold;'>📂 Saved Outputs Location:</p>
-                        <p style='margin: 4px 0; font-family: monospace; color: #2ecc71; word-break: break-all;'><b>├── Accepted:</b> {r_file}</p>
-                        <p style='margin: 4px 0; font-family: monospace; color: #e74c3c; word-break: break-all;'><b>└── Rejections:</b> {rej_file}</p>
+                        <p style='margin: 0 0 6px 0; color: #ffffff; font-weight: bold;'><img src="foodrescue-icon:folder" width="16" height="16" /> Saved Outputs Location:</p>
+                        <p style='margin: 4px 0; font-family: monospace; color: #2ecc71; word-break: break-all;'><b>Accepted:</b> {r_file}</p>
+                        <p style='margin: 4px 0; font-family: monospace; color: #e74c3c; word-break: break-all;'><b>Rejections:</b> {rej_file}</p>
                     </div>
                 </div>
             </div>
@@ -2062,7 +2032,7 @@ class GuiView(QMainWindow):
             saved_recipes = self._controller.data_manager.recipes.records
             
             if not saved_recipes:
-                self._log_display.setHtml(
+                set_themed_html(self._log_display,
                     "<div style='font-family: Arial, sans-serif; font-size: 14px; color: #bdc3c7; "
                     "background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 6px; "
                     "padding: 15px; text-align: center;'>"
@@ -2075,7 +2045,7 @@ class GuiView(QMainWindow):
             html_content = """
             <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
                 <div style='background-color: #2c3e50; color: #ffffff; padding: 12px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 15px; margin-bottom: 18px;'>
-                    📖 HISTORICAL RECIPE REGISTRY LOGS
+                    <img src="foodrescue-icon:book" width="16" height="16" /> Recipe library
                 </div>
             """
 
@@ -2097,16 +2067,16 @@ class GuiView(QMainWindow):
                 html_content += f"""
                 <div style='background-color: #1e1e1e; border: 1px solid #2d2d2d; border-left: 5px solid #27ae60; border-radius: 6px; padding: 16px; margin-bottom: 15px;'>
                     <div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2d2d2d; padding-bottom: 6px; margin-bottom: 10px;'>
-                        <span style='color: #27ae60; font-size: 14px; font-weight: bold;'>🍴 [{number}] {recipe_name}</span>
+                        <span style='color: #27ae60; font-size: 14px; font-weight: bold;'><img src="foodrescue-icon:recipe" width="16" height="16" /> [{number}] {recipe_name}</span>
                     </div>
                     
                     <p style='margin: 4px 0 10px 0;'>
-                        <b style='color: #ffffff;'>🛒 Ingredients Checklist:</b><br/>
+                        <b style='color: #ffffff;'><img src="foodrescue-icon:ingredients" width="16" height="16" /> Ingredients Checklist:</b><br/>
                         <span style='color: #bdc3c7; font-family: monospace; font-size: 12px;'>{ingredients}</span>
                     </p>
                     
                     <div style='margin-top: 8px;'>
-                        <b style='color: #ffffff;'>📝 Preparation Steps:</b>
+                        <b style='color: #ffffff;'><img src="foodrescue-icon:steps" width="16" height="16" /> Preparation Steps:</b>
                         <div style='color: #ecf0f1; margin-left: 5px; margin-top: 4px;'>
                             {formatted_steps}
                         </div>
@@ -2115,7 +2085,7 @@ class GuiView(QMainWindow):
                 """
 
             html_content += "</div>"
-            self._log_display.setHtml(html_content)
+            set_themed_html(self._log_display,html_content)
             
         except Exception as e:
             self._show_error_message("System Error", f"Could not load recipe history: {str(e)}")

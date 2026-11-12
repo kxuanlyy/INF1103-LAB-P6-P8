@@ -4,45 +4,46 @@ import re
 
 from PySide6.QtGui import QColor, QFontDatabase, QPalette, QTextCursor
 from PySide6.QtWidgets import QWidget, QTextEdit
+from io_manager.report_icons import register_report_icons
 
 
 # Match the existing dark colors to deliberately chosen light surfaces/text.
 # Both QSS and rich-text reports share this palette; the original dark theme is retained.
 _LIGHT_GROUPS = {
-    "#f5f6f7": "#1b1f22 #22272a",
+    "#f5f6f7": "#1b1f22 #22272a #121212",
     "#eceef0": "#202326",
-    "#ffffff": "#23272a #24282b #242a2d #2c3337",
-    "#f5f7f6": "#272c2f #293034",
+    "#ffffff": "#23272a #24282b #242a2d #2c3337 #1a1a1a #1e1e1e",
+    "#f5f7f6": "#272c2f #293034 #252525 #252526",
     "#edf5ef": "#273a31 #293b33",
-    "#edf2f8": "#293640",
+    "#edf2f8": "#293640 #2c3e50",
     "#f4eff7": "#36303d",
-    "#eff1f2": "#292f32 #2c3236 #30363a #30383c #303a3f",
+    "#eff1f2": "#292f32 #2c3236 #30363a #30383c #303a3f #2a2a2a",
     "#e3e7e5": "#2b3034 #3b4347 #3b464b",
     "#dfede4": "#303a34 #30463a #34483e #344b40 #3c5648 #466451",
     "#ccdfd3": "#3d5146 #45584d",
-    "#d7ddda": "#303639 #34383b #363d40 #3a3a3a #3a4145 #3a4347 #3c4548 #3c464a #41494d #414b50 #464d51 #475158 #4a565c",
+    "#d7ddda": "#303639 #34383b #363d40 #3a3a3a #3a4145 #3a4347 #3c4548 #3c464a #41494d #414b50 #464d51 #475158 #4a565c #2d2d2d",
     "#bbd2c3": "#415b4d #42564b #425b4c #46514b #56675e",
     "#c2cfdf": "#435461",
     "#d5c8df": "#51465b",
     "#b0bab4": "#515c62 #536059",
     "#879a8e": "#627269 #63716a #63796b #718179 #74867a",
-    "#69746e": "#78847d #818b91 #818d93 #8e9d94 #929ca1",
-    "#58655e": "#99a3a9 #a0a0a0 #a0a7ab #a6afb3 #a7b7ad #aabfb2 #acb7bc #b4c1b9 #b8c5bd #b9c6bf #bac1c4 #bbc7bf",
-    "#36634d": "#92bda4 #9cbda9 #a5cbb4 #a6c6b3 #a7c6b4 #a7cbb6 #a7cfb7 #b0cfbc #b2d4bf #b4d4c0 #bcdec9",
+    "#69746e": "#78847d #818b91 #818d93 #8e9d94 #929ca1 #777777",
+    "#58655e": "#99a3a9 #a0a0a0 #a0a7ab #a6afb3 #a7b7ad #aabfb2 #acb7bc #b4c1b9 #b8c5bd #b9c6bf #bac1c4 #bbc7bf #bdc3c7",
+    "#36634d": "#92bda4 #9cbda9 #a5cbb4 #a6c6b3 #a7c6b4 #a7cbb6 #a7cfb7 #b0cfbc #b2d4bf #b4d4c0 #bcdec9 #27ae60 #2ecc71 #219653",
     "#cce3d5": "#afd1bb",
     "#b9d9c5": "#c2e0cb #93bca2",
     "#3b4e42": "#c2d2c9 #c3ccc7 #c4d2ca #d4ded8 #d7efdf",
-    "#355f7c": "#b3cadb",
+    "#355f7c": "#b3cadb #3498db",
     "#715282": "#c9bad8",
-    "#27332c": "#dce3df #dce4df #dde3df #e0e0e0 #e0e9e3 #e2e7e4 #e2e8e4 #e3e9e5 #e3ede6 #e5ebe7 #edf3ef #edf6ef #eff7f1 #f0f2f0 #f0f2f1 #f0f3f1 #f0f4f1 #f0f6f2 #f1f4f2 #f2f6f3",
+    "#27332c": "#dce3df #dce4df #dde3df #e0e0e0 #e0e9e3 #e2e7e4 #e2e8e4 #e3e9e5 #e3ede6 #e5ebe7 #edf3ef #edf6ef #eff7f1 #f0f2f0 #f0f2f1 #f0f3f1 #f0f4f1 #f0f6f2 #f1f4f2 #f2f6f3 #ffffff #f5f5f5 #ecf0f1",
     "#fff5df": "#332e22",
     "#f4e7c9": "#49402e",
     "#dfc994": "#665334 #806b45",
-    "#74591e": "#e6d3a8 #cfbc97",
+    "#74591e": "#e6d3a8 #cfbc97 #f1c40f",
     "#f9eaea": "#443235",
     "#f1d9d9": "#573c40",
     "#d4a4a4": "#765052 #b57a7d",
-    "#943f42": "#edbab9 #dcaaa9",
+    "#943f42": "#edbab9 #dcaaa9 #e74c3c #c0392b",
 }
 _LIGHT_COLORS = {dark: light for light, colors in _LIGHT_GROUPS.items() for dark in colors.split()}
 
@@ -70,6 +71,7 @@ def set_themed_html(widget, html):
         html, flags=re.DOTALL,
     )
     if isinstance(widget, QTextEdit):
+        register_report_icons(widget, html, is_dark(widget))
         if not widget.property("themeHtmlConnected"):
             widget.document().contentsChanged.connect(lambda: widget.setProperty("themeHtml", None))
             widget.setProperty("themeHtmlConnected", True)
