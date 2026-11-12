@@ -1,10 +1,13 @@
 from datetime import datetime
 import csv
 import os
+import re
+from html import escape
 from ai_module.ai_manager import RECIPES_PATH
 from logic_manager.reciperesultservice import RecipeResultService
 from logic_manager.edit_business_rules import BusinessRulesEditor
 from logic_manager.inventory_alert_service import DEFAULT_EXPIRING_WITHIN_DAYS
+from data_manager.inventory_filter import InventoryFilter
 from io_manager.main_window_style import (
     APPLICATION_QSS, SIDEBAR_QSS, TOOLBAR_QSS, WELCOME_QSS,
     INVENTORY_QSS, apply_theme, set_themed_html, style_surface, style_inventory_table,
@@ -15,7 +18,7 @@ from PySide6.QtCore import Qt, QThread, Signal, QDate, QPoint
 from PySide6.QtGui import QPalette, QPainter, QPixmap, QPolygon
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QInputDialog,
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
     QTableWidgetItem, QHeaderView, QMessageBox, QListWidget, QSizePolicy,
     QComboBox as BaseComboBox, QGridLayout, QScrollArea,
@@ -82,6 +85,7 @@ class GuiView(QMainWindow):
     def __init__(self, controller=None) -> None:
         QMainWindow.__init__(self)
         self.setProperty("darkMode", False)
+        self._dark_mode = False
         self._controller = controller
         self._home_alert_dismissed = False
 
@@ -103,6 +107,8 @@ class GuiView(QMainWindow):
         self._btn_process_recipes = QPushButton("🍳 Process Recipes")
         self._btn_view_recipes = QPushButton("📖 View Recipes")
         self._btn_search_recipes = QPushButton("🏷 Search Recipes")
+        self._btn_inventory_alerts = QPushButton("⚠ Inventory Alerts")
+        self._btn_editbusinessrules = QPushButton("⚙ Edit Business Rules")
         self._btn_exit = QPushButton("🚪 Exit Application")
 
         # Right Display Component Area (Dynamic Layout)
@@ -124,10 +130,19 @@ class GuiView(QMainWindow):
 
         # Search Bar Tool
         self._search_panel = QFrame()
-        self._search_layout = QHBoxLayout(self._search_panel)
+        self._search_layout = QVBoxLayout(self._search_panel)
         self._input_food = QLineEdit()
         self._input_id = QLineEdit()
         self._btn_submit_search = QPushButton("Apply Filter")
+        # dropdown filters (their choices are filled from the inventory each time the screen opens)
+        self._filter_combos = {
+            "food_category": QComboBox(),
+            "storage_condition": QComboBox(),
+            "waste_risk_level": QComboBox(),
+            "allergen": QComboBox(),
+            "demand_level": QComboBox(),
+        }
+        self._btn_reset_search = QPushButton("Reset")
         self._btn_submit_search.setObjectName("ApplyFilterButton")
 
         # Recipe Search Bar Tool Panel
@@ -237,38 +252,29 @@ class GuiView(QMainWindow):
         self._btn_process_recipes.setCheckable(True)
         self._btn_view_recipes.setCheckable(True)
         self._btn_search_recipes.setCheckable(True)
+        self._btn_inventory_alerts.setCheckable(True)
         
         # Group them into a list for easy state clearing loops later
         self._nav_buttons = [
             self._btn_view_inv, self._btn_search_inv, self._btn_edit_inv,
             self._btn_ask_ai, self._btn_process_recipes, self._btn_view_recipes,
-            self._btn_search_recipes
+            self._btn_search_recipes, self._btn_inventory_alerts, self._btn_editbusinessrules,
         ]
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle("FoodRescue Enterprise Management Dashboard")
-        self.resize(1120, 860)
+        self.setWindowTitle("FoodRescue")
+        self.resize(1200, 860)
         self.setCentralWidget(self._central_widget)
         
-        self._main_layout.setContentsMargins(15, 15, 15, 15)
-        self._main_layout.setSpacing(15)
+        self._main_layout.setContentsMargins(0, 0, 0, 0)
+        self._main_layout.setSpacing(0)
         
         self._sidebar_widget.setFrameShape(QFrame.StyledPanel)
-        self._sidebar_widget.setFixedWidth(240)
-        self._sidebar_layout.setContentsMargins(10, 10, 10, 10)
-        self._sidebar_layout.setSpacing(8)
-        
-        self._sidebar_layout.addWidget(self._status_label)
-        self._sidebar_layout.addWidget(self._btn_view_inv)
-        self._sidebar_layout.addWidget(self._btn_search_inv)
-        self._sidebar_layout.addWidget(self._btn_edit_inv)
-        self._sidebar_layout.addWidget(self._btn_ask_ai)
-        self._sidebar_layout.addWidget(self._btn_process_recipes)
-        self._sidebar_layout.addWidget(self._btn_view_recipes)
-        self._sidebar_layout.addWidget(self._btn_search_recipes)
-        self._sidebar_layout.addStretch()
-        self._sidebar_layout.addWidget(self._btn_exit)
+        self._sidebar_widget.setFixedWidth(232)
+        self._sidebar_layout.setContentsMargins(16, 28, 16, 20)
+        self._sidebar_layout.setSpacing(4)
+        self._setup_main_window_shell()
         
 
         self._display_layout.addWidget(self._inventory_table)
@@ -487,25 +493,36 @@ class GuiView(QMainWindow):
         self._item_details_view.setFixedHeight(220)
 
         # Setup Embed Filter Controls
-        self._search_panel.setFixedHeight(60)
-        self._search_layout.setContentsMargins(10, 4, 10, 4)
-        self._search_layout.setSpacing(10)      
+        self._search_panel.setFixedHeight(108)
+        self._search_layout.setContentsMargins(10, 8, 10, 8)
+        self._search_layout.setSpacing(8)
         # Lock text boxes to single-row heights
         self._input_food.setPlaceholderText("Filter by Ingredient Name... (or press Enter)")
         self._input_id.setPlaceholderText("Filter by precise ID... (or press Enter)")
         self._btn_submit_search.setFixedWidth(100)
 
         # Assemble embedded component toolbar elements
-        self._search_layout.addWidget(self._input_food)
-        self._search_layout.addWidget(self._input_id)
-        self._search_layout.addWidget(self._btn_submit_search)
+        search_text_row = QHBoxLayout()
+        search_text_row.setSpacing(10)
+        search_text_row.addWidget(self._input_food)
+        search_text_row.addWidget(self._input_id)
+        search_text_row.addWidget(self._btn_submit_search)
+        search_filter_row = QHBoxLayout()
+        search_filter_row.setSpacing(10)
+        for combo in self._filter_combos.values():
+            search_filter_row.addWidget(combo, 1)
+        self._btn_reset_search.setFixedWidth(100)
+        search_filter_row.addWidget(self._btn_reset_search)
+        self._search_layout.addLayout(search_text_row)
+        self._search_layout.addLayout(search_filter_row)
         # Add the widgets to your master right-side viewport panel layout stack
         self._display_layout.insertWidget(0, self._search_panel)
         self._search_panel.hide()
 
         # Assemble Main Layout
         self._main_layout.addWidget(self._sidebar_widget)
-        self._main_layout.addWidget(self._display_container)
+        self._workspace_layout.addWidget(self._display_container, 1)
+        self._main_layout.addWidget(self._workspace, 1)
       
         self._log_display.setReadOnly(True)
         self._apply_theme_styles()
@@ -691,7 +708,12 @@ class GuiView(QMainWindow):
             layout.setSpacing(12)
         apply_theme(self, False)
 
+    def _dialog_text_color(self) -> str:
+        # Black on the light theme, white on the dark theme.
+        return "#ffffff" if self._dark_mode else "#000000"
+
     def _toggle_theme(self, dark: bool) -> None:
+        self._dark_mode = dark
         apply_theme(self, dark)
         self._update_theme_icon(dark)
         self._theme_button.setToolTip("Turn off dark mode" if dark else "Turn on dark mode")
@@ -720,8 +742,15 @@ class GuiView(QMainWindow):
         self._input_food.returnPressed.connect(self._execute_embedded_search)
         self._input_id.returnPressed.connect(self._execute_embedded_search)
         self._btn_submit_search.clicked.connect(self._execute_embedded_search)
+        for combo in self._filter_combos.values():
+            combo.currentIndexChanged.connect(lambda _index: self._execute_embedded_search(show_card=False))
+        self._btn_reset_search.clicked.connect(self._on_reset_search_clicked)
         self._btn_edit_inv.clicked.connect(self._on_edit_inventory_triggered)
         self._btn_execute_add.clicked.connect(self._execute_gui_add)
+        self._add_name.returnPressed.connect(self._execute_gui_add)
+        self._add_qty.returnPressed.connect(self._execute_gui_add)
+        self._add_allergens.returnPressed.connect(self._execute_gui_add)
+        self._add_date.lineEdit().returnPressed.connect(self._execute_gui_add)
         self._btn_ask_ai.clicked.connect(self._on_ask_ai_triggered)
         self._btn_process_recipes.clicked.connect(self._on_process_recipes_triggered)
         self._btn_view_recipes.clicked.connect(self._on_recipes_view_triggered)
@@ -747,6 +776,7 @@ class GuiView(QMainWindow):
         self._input_recipe_ingredient.returnPressed.connect(self._execute_embedded_recipe_search)
         self._input_recipe_id.returnPressed.connect(self._execute_embedded_recipe_search)        
         self._btn_submit_recipe_search.clicked.connect(self._execute_embedded_recipe_search)
+        self._btn_editbusinessrules.clicked.connect(self._on_edit_business_rules_triggered)
         self._btn_exit.clicked.connect(self._execute_graceful_exit)
 
     def _show_success_message(self, title: str, text: str) -> None:
@@ -778,7 +808,7 @@ class GuiView(QMainWindow):
         formatted_rich_text = (
             f"<div style='vertical-align: middle; display: flex; align-items: center; word-break: break-all;'> "
             f"  <span style='color: #e74c3c; font-size: 24px; font-weight: bold; font-family: Arial;'>✘</span>"
-            f"  <span style='color: #ffffff; font-size: 13px; font-weight: normal; margin-left: 14px;'>{text}</span>"
+            f"  <span style='color: {self._dialog_text_color()}; font-size: 13px; font-weight: normal; margin-left: 14px;'>{text}</span>"
             f"</div>"
         )
         content_label.setText(formatted_rich_text)
@@ -1261,15 +1291,81 @@ class GuiView(QMainWindow):
 
         self._inventory_table.setMaximumHeight(340)
 
-        # start every visit with empty boxes so they match the full list shown below
-        for box in (self._input_food, self._input_id):
-            box.blockSignals(True)
-            box.clear()
-            box.blockSignals(False)
+        # start every visit with empty boxes and dropdowns so they match the full list shown below
+        self._reset_search_fields()
         self._input_food.setFocus()
 
         if self._controller:
             self.print_current_inventory(self._controller.data_manager.inventory.records)
+
+    @staticmethod
+    def _build_filter_options(records: list) -> dict:
+        # The values to offer in each dropdown, taken from the inventory itself.
+        def unique(values) -> list:
+            seen = {}
+            for value in values:
+                value = (value or "").strip()
+                if value and value.lower() not in seen:
+                    seen[value.lower()] = value
+            return list(seen.values())
+
+        def ordered(values, preferred) -> list:
+            found = unique(values)
+            first = [p for p in preferred if p.lower() in {f.lower() for f in found}]
+            rest = [f for f in found if f.lower() not in {p.lower() for p in first}]
+            return first + sorted(rest, key=str.lower)
+
+        allergens = []
+        for record in records:
+            for part in re.split(r"[,;/]", record.get("allergen info") or ""):
+                name = re.sub(r"\s*\(.*?\)", "", part).strip()        # "Wheat (Gluten)" -> "Wheat"
+                if name.lower() != "none":
+                    allergens.append(name)
+
+        return {
+            "food_category": sorted(unique(r.get("food_category") for r in records), key=str.lower),
+            "storage_condition": sorted(unique(r.get("storage condition") for r in records), key=str.lower),
+            "waste_risk_level": ordered((r.get("waste_risk_level") for r in records), ["Low", "Medium", "High", "Critical"]),
+            "allergen": sorted(unique(allergens), key=str.lower),
+            "demand_level": ordered((r.get("demand level") for r in records), ["Low", "Medium", "High"]),
+        }
+
+    def _reset_search_fields(self) -> None:
+        # Empties both text boxes and refills every dropdown from the current inventory, set to "All".
+        for box in (self._input_food, self._input_id):
+            box.blockSignals(True)
+            box.clear()
+            box.blockSignals(False)
+
+        records = self._controller.data_manager.inventory.records if self._controller else []
+        options = self._build_filter_options(records)
+        all_text = {
+            "food_category": "All categories",
+            "storage_condition": "Any storage",
+            "waste_risk_level": "Any waste risk",
+            "allergen": "Any allergen",
+            "demand_level": "Any demand",
+        }
+        for key, combo in self._filter_combos.items():
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItem(all_text[key], None)
+            if key == "allergen":
+                combo.addItem("No allergens", "none")
+            for value in options[key]:
+                combo.addItem(value, value)
+            combo.setCurrentIndex(0)
+            combo.blockSignals(False)
+
+    def _on_reset_search_clicked(self) -> None:
+        self._reset_search_fields()
+        self._input_food.setFocus()
+        self._execute_embedded_search(show_card=False)
+
+    def _selected_inventory_filters(self) -> dict:
+        # The dropdowns that are set to something other than "All", as filter() arguments.
+        chosen = {key: combo.currentData() for key, combo in self._filter_combos.items()}
+        return {key: value for key, value in chosen.items() if value is not None}
 
     def _execute_embedded_search(self, *_signal_args, show_card: bool = True) -> None:
         # extracts data strings inline from GUI text bars n applies active queries
@@ -1286,6 +1382,11 @@ class GuiView(QMainWindow):
         id_filter = int(id_text) if id_text and id_text.isdigit() else None
 
         results = self._controller.data_manager.inventory.search(food=food_filter, item_id=id_filter)
+
+        # keep only the rows that also pass the dropdown filters
+        dropdown_filter = InventoryFilter(**self._selected_inventory_filters())
+        if dropdown_filter.is_active():
+            results = dropdown_filter.apply(results)
         
         if results:
             record_ids = self._controller._get_record_ids(self._controller.data_manager.inventory.records, results)
@@ -1566,7 +1667,7 @@ class GuiView(QMainWindow):
             msg_box.setWindowTitle("Confirm Record Deletion")
             msg_box.setStyleSheet(
                 "QMessageBox { border-left: 5px solid #c0392b; } "
-                "QLabel { min-width: 480px; color: #ffffff; font-size: 13px; }"
+                "QLabel { min-width: 480px; color: " + self._dialog_text_color() + "; font-size: 13px; }"
             )
             msg_box.setText(f"Are you sure you want to permanently remove '{removed_name}' (ID: {id_str}) from active stock logs?")
             msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
@@ -1612,7 +1713,7 @@ class GuiView(QMainWindow):
 
         # Main Descriptive Title Header Label block
         title_lbl = QLabel("🤖 Run AI Waste Risk & Recipe Assessment Module Engine")
-        title_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 4px;")
+        title_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: " + self._dialog_text_color() + "; margin-bottom: 4px;")
         master_layout.addWidget(title_lbl)
 
         self._ai_inputs_row = QWidget()
@@ -2205,7 +2306,7 @@ class GuiView(QMainWindow):
         
         msg_box.setStyleSheet(
             "QMessageBox { border-left: 5px solid #27ae60; } "
-            "QLabel { min-width: 440px; color: #ffffff; font-size: 13px; }"
+            "QLabel { min-width: 440px; color: " + self._dialog_text_color() + "; font-size: 13px; }"
         )
         msg_box.setText("Are you sure you want to exit and close the management dashboard?")
         msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
