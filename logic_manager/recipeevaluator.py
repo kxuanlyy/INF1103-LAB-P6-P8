@@ -1,4 +1,5 @@
 from logic_manager.ingredientmatcher import IngredientMatcher 
+from logic_manager.exact_name_template_matcher import ExactNameTemplateMatcher
 
 class RecipeEvaluator:
     """Match incoming recipes to templates and classify their results."""
@@ -8,21 +9,10 @@ class RecipeEvaluator:
         "Ingredients do not match valid accepted criteria"
     )
 
-    def __init__(self, ingredient_matcher=None):
-        # Allow a custom matcher to be supplied when needed.
+    def __init__(self, ingredient_matcher=None, template_matcher=None):
         self.ingredient_matcher = ingredient_matcher or IngredientMatcher()
+        self.template_matcher = template_matcher or ExactNameTemplateMatcher()
 
-    @staticmethod
-    def _find_matching_template(recipe_name, accepted_recipes):
-        normalize = lambda name: " ".join(name.casefold().split())
-        target_name = normalize(recipe_name)
-
-        for template in accepted_recipes:
-            template_name = normalize(template.get("name", ""))
-            if target_name == template_name:
-                return template
-
-        return None
 
     @staticmethod
     def _accepted_result(recipe):
@@ -45,7 +35,7 @@ class RecipeEvaluator:
 
         for recipe in recipes_from_json:
             recipe_name = recipe.get("name", "").strip()
-            template = self._find_matching_template(
+            template = self.template_matcher.find_template(
                 recipe_name, accepted_recipes
             )
 

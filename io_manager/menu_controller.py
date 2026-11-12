@@ -2,8 +2,16 @@ import sys
 from typing import Any, Dict, List, Optional
 
 from ai_module.ai_manager import RECIPES_PATH
+from data_manager import data_manager
 from io_manager.input_validator import InputValidator
-from io_manager.key_reader import KeyReader
+from logic_manager.edit_business_rules import BusinessRulesEditor
+from logic_manager.inventory_alert_service import (
+    DEFAULT_EXPIRING_WITHIN_DAYS,
+    InventoryAlertService,
+)
+
+
+#
 
 class MenuController:
     # Coordinates application lifecycle states, routes user selections, n bridges interaction across IO, Data n AI
@@ -15,6 +23,8 @@ class MenuController:
         self.ai_manager = ai_manager
         self.logic_evaluator = logic_evaluator
         self.validator = InputValidator()
+        self.business_rules_editor = BusinessRulesEditor()
+        self.inventory_alert_service = InventoryAlertService()
                 
     def _get_record_ids(self, table: List[Any], records: List[Any]) -> List[int]:
         position = {id(record): n for n, record in enumerate(table, start=1)}
@@ -63,7 +73,56 @@ class MenuController:
                 print("\nExiting program. Goodbye!")
                 break
             else:
-                print("\nError: Please select a number between 1 and 8.")
+                print("\nError: Please select a number between 1 and 9.")
+
+    def handle_inventory_alerts(self, today: Optional[Any] = None) -> None:
+        self.data_manager.load()
+        alerts = self.inventory_alert_service.get_alerts(
+            self.data_manager.inventory.records,
+            today=today,
+        )
+
+        print("\n============= INVENTORY ALERTS =============")
+        print(f"Expired: {len(alerts['expired'])} | "
+              f"Expiring within {DEFAULT_EXPIRING_WITHIN_DAYS} days: "
+              f"{len(alerts['expiring_soon'])} | "
+              f"Low stock: "
+              f"{len(alerts['low_stock'])} | "
+              f"Check expiry date: {len(alerts['unknown_expiry'])}")
+
+        by_id = {}
+        for alert_name, entries in alerts.items():
+            for entry in entries:
+                item_id = entry["id"]
+                item = by_id.setdefault(item_id, {
+                    **entry,
+                    "statuses": [],
+                })
+                item["statuses"].append(alert_name)
+
+        if not by_id:
+            print("No inventory alerts. All recorded items are within the configured thresholds.")
+            return
+
+        print(f"\n{'ID':<5} {'Item':<25} {'Qty':<6} {'Use-by':<13} "
+              f"{'Days left':<11} Alerts")
+        print("-" * 85)
+        for item_id, item in by_id.items():
+            record = item["record"]
+            days_remaining = item["days_remaining"]
+            days_text = str(days_remaining) if days_remaining is not None else "Unknown"
+            quantity = record.get("quantity")
+            quantity_text = str(quantity) if quantity is not None else "Unknown"
+            status_labels = {
+                "expired": "EXPIRED",
+                "expiring_soon": "EXPIRING SOON",
+                "low_stock": "LOW STOCK",
+                "unknown_expiry": "CHECK EXPIRY DATE",
+            }
+            status = ", ".join(status_labels[name] for name in item["statuses"])
+            print(f"{item_id:<5} {record.get('food', '')[:24]:<25} "
+                  f"{quantity_text:<6} {record.get('use-by', ''):<13} "
+                  f"{days_text:<11} {status}")
 
     def handle_edit_menu(self) -> None:
         while True:

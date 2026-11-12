@@ -3,13 +3,59 @@ import csv
 import os
 from ai_module.ai_manager import RECIPES_PATH
 from logic_manager.reciperesultservice import RecipeResultService
-from PySide6.QtCore import Qt, QThread, Signal
+from logic_manager.edit_business_rules import BusinessRulesEditor
+from logic_manager.inventory_alert_service import DEFAULT_EXPIRING_WITHIN_DAYS
+from io_manager.main_window_style import (
+    APPLICATION_QSS, SIDEBAR_QSS, TOOLBAR_QSS, WELCOME_QSS,
+    INVENTORY_QSS, apply_theme, set_themed_html, style_surface, style_inventory_table,
+)
+from io_manager.recipe_cards import RecipeCardsView
+from io_manager.theme_switch import ThemeSwitch
+from PySide6.QtCore import Qt, QThread, Signal, QDate, QPoint
+from PySide6.QtGui import QPalette, QPainter, QPixmap, QPolygon
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
-    QTableWidgetItem, QHeaderView, QMessageBox, 
-    QComboBox, QGridLayout, QScrollArea
+    QTableWidgetItem, QHeaderView, QMessageBox, QListWidget, QSizePolicy,
+    QComboBox as BaseComboBox, QGridLayout, QScrollArea,
+    QDateEdit as BaseDateEdit, QDialog, QDialogButtonBox, QPlainTextEdit,
+    QCheckBox
 )
+
+
+class QComboBox(BaseComboBox):
+    def paintEvent(self, event) -> None:
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(self.palette().color(QPalette.Text))
+        center_x = self.width() - 11
+        center_y = self.height() // 2
+        painter.drawPolygon(QPolygon([
+            QPoint(center_x - 4, center_y - 2),
+            QPoint(center_x + 4, center_y - 2),
+            QPoint(center_x, center_y + 3),
+        ]))
+
+
+class CalendarDateEdit(BaseDateEdit):
+    def paintEvent(self, event) -> None:
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(self.palette().color(QPalette.Text))
+        center_x = self.width() - 11
+        center_y = self.height() // 2
+        painter.drawPolygon(QPolygon([
+            QPoint(center_x - 4, center_y - 2),
+            QPoint(center_x + 4, center_y - 2),
+            QPoint(center_x, center_y + 3),
+        ]))
+
+
 class AIWorker(QThread):
     # Custom signals to safely send results or errors back to the main UI thread
     result_ready = Signal(dict)
@@ -35,7 +81,9 @@ class GuiView(QMainWindow):
     
     def __init__(self, controller=None) -> None:
         QMainWindow.__init__(self)
+        self.setProperty("darkMode", False)
         self._controller = controller
+        self._home_alert_dismissed = False
 
         # Canvas Setup
         self._central_widget = QWidget()
@@ -64,6 +112,15 @@ class GuiView(QMainWindow):
         self._inventory_table = QTableWidget()
         self._item_details_view = QTextEdit()
         self._log_display = QTextEdit()
+        self._alert_panel = QWidget()
+        self._alert_layout = QVBoxLayout(self._alert_panel)
+        self._alert_summary = QLabel()
+        self._alert_table = QTableWidget()
+        self._btn_refresh_alerts = QPushButton("Refresh alerts")
+        self._btn_delete_expired_alert = QPushButton("Delete checked expired items")
+        self._btn_delete_expired_alert.setObjectName("ExecuteDeleteButton")
+        self._btn_delete_expired_alert.setEnabled(False)
+        self._expired_alert_ids = set()
 
         # Search Bar Tool
         self._search_panel = QFrame()
@@ -97,7 +154,11 @@ class GuiView(QMainWindow):
         
         self._add_name = QLineEdit(); self._add_name.setPlaceholderText("Ingredient Name")
         self._add_qty = QLineEdit(); self._add_qty.setPlaceholderText("Stock Qty")
-        self._add_date = QLineEdit(); self._add_date.setPlaceholderText("Use-By (DD/MM/YYYY)")
+        self._add_date = CalendarDateEdit()
+        self._add_date.setCalendarPopup(True)
+        self._add_date.setDisplayFormat("dd/MM/yyyy")
+        self._add_date.setDate(QDate.currentDate())
+        self._add_date.setMinimumDate(QDate.currentDate())
         self._add_category = QComboBox(); self._add_category.addItems(["Dairy", "Meat & Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"])
         self._add_storage = QComboBox(); self._add_storage.addItems(["Chilled", "Frozen", "Ambient"])
         self._add_risk = QComboBox(); self._add_risk.addItems(["Low", "Medium", "High"])
@@ -122,7 +183,9 @@ class GuiView(QMainWindow):
         self._edit_form_layout = QHBoxLayout(self._edit_form_widget)
         self._edit_name = QLineEdit(); self._edit_name.setPlaceholderText("Ingredient Name")
         self._edit_qty = QLineEdit(); self._edit_qty.setPlaceholderText("Stock Qty")
-        self._edit_date = QLineEdit(); self._edit_date.setPlaceholderText("Use-By (DD/MM/YYYY)")
+        self._edit_date = CalendarDateEdit()
+        self._edit_date.setCalendarPopup(True)
+        self._edit_date.setDisplayFormat("dd/MM/yyyy")
         self._edit_category = QComboBox(); self._edit_category.addItems(["Dairy", "Meat & Seafood", "Fresh Produce", "Bakery", "Pantry", "Other"])
         self._edit_storage = QComboBox(); self._edit_storage.addItems(["Chilled", "Frozen", "Ambient"])
         self._edit_risk = QComboBox(); self._edit_risk.addItems(["Low", "Medium", "High"])
@@ -211,6 +274,36 @@ class GuiView(QMainWindow):
         self._display_layout.addWidget(self._inventory_table)
         self._display_layout.addWidget(self._item_details_view)
         self._display_layout.addWidget(self._log_display)
+        self._display_layout.addWidget(self._alert_panel)
+        self._recipe_cards = RecipeCardsView()
+        self._display_layout.addWidget(self._recipe_cards)
+        self._recipe_cards.hide()
+        self._alert_layout.setContentsMargins(8, 8, 8, 8)
+        self._alert_layout.setSpacing(10)
+        self._alert_summary.setWordWrap(True)
+        self._alert_table.setColumnCount(7)
+        self._alert_table.setHorizontalHeaderLabels([
+            "Select", "Item ID", "Item", "Quantity", "Use-by date",
+            "Days remaining", "Alerts",
+        ])
+        self._alert_table.setAlternatingRowColors(True)
+        self._alert_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._alert_table.verticalHeader().hide()
+        alert_header = self._alert_table.horizontalHeader()
+        alert_header.setDefaultAlignment(Qt.AlignCenter)
+        alert_header.setSectionResizeMode(QHeaderView.ResizeToContents)
+        alert_header.setSectionResizeMode(2, QHeaderView.Stretch)
+        alert_header.setSectionResizeMode(6, QHeaderView.Stretch)
+        self._alert_table.setWordWrap(True)
+        self._alert_summary.setAlignment(Qt.AlignCenter)
+        self._alert_layout.addWidget(self._alert_summary)
+        self._alert_layout.addWidget(self._alert_table)
+        alert_actions = QHBoxLayout()
+        alert_actions.addStretch()
+        alert_actions.addWidget(self._btn_delete_expired_alert)
+        alert_actions.addWidget(self._btn_refresh_alerts)
+        self._alert_layout.addLayout(alert_actions)
+        self._alert_panel.hide()
 
         # Setup Recipe Search Panel Controls for option 7
         self._recipe_search_panel.setFixedHeight(60)
@@ -418,224 +511,205 @@ class GuiView(QMainWindow):
         self._apply_theme_styles()
         self._connect_signals()
 
+    def _setup_main_window_shell(self) -> None:
+        """Build presentation around the existing panels and navigation buttons."""
+        self._central_widget.setObjectName("MainCanvas")
+        style_surface(
+            self._central_widget,
+            "QWidget#MainCanvas { background: #1b1f22; }"
+        )
+        self._sidebar_widget.setObjectName("MainSidebar")
+        brand_row = QHBoxLayout()
+        brand_row.setSpacing(10)
+        brand_mark = QLabel("FR")
+        brand_mark.setObjectName("BrandMark")
+        brand_mark.setFixedSize(40, 40)
+        brand_mark.setAlignment(Qt.AlignCenter)
+        self._status_label.setText("FoodRescue")
+        self._status_label.setObjectName("Brand")
+        self._status_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        brand_row.addWidget(brand_mark)
+        brand_row.addWidget(self._status_label, 1)
+        self._sidebar_layout.addLayout(brand_row)
+        tagline = QLabel("Less waste. More possibility.")
+        self._sidebar_layout.addWidget(tagline)
+        self._sidebar_layout.addSpacing(26)
+
+        self._btn_home = QPushButton("Home")
+        self._btn_home.setCheckable(True)
+        self._btn_home.setChecked(True)
+        self._btn_home.setMinimumHeight(38)
+        self._btn_home.setCursor(Qt.PointingHandCursor)
+        self._btn_home.clicked.connect(self._on_home_triggered)
+        self._nav_buttons.insert(0, self._btn_home)
+        self._sidebar_layout.addWidget(self._btn_home)
+        self._sidebar_layout.addSpacing(16)
+
+        self._navigation_titles = {
+            self._btn_home: ("Home", "Your food rescue workspace."),
+            self._btn_view_inv: ("Inventory", "Your ingredients, at a glance."),
+            self._btn_search_inv: ("Search inventory", "Find ingredients and inspect item details."),
+            self._btn_edit_inv: ("Edit inventory", "Manage the ingredients in your inventory."),
+            self._btn_inventory_alerts: ("Inventory alerts", "Review expiry and stock alerts."),
+            self._btn_ask_ai: ("AI assistant", "Assess ingredients and discover possibilities."),
+            self._btn_process_recipes: ("Process recipes", "Evaluate your recipe suggestions."),
+            self._btn_view_recipes: ("Recipe library", "Browse your saved recipes."),
+            self._btn_search_recipes: ("Search recipes", "Find a recipe for your ingredients."),
+        }
+        groups = (
+            ("INVENTORY", (self._btn_view_inv, self._btn_search_inv,
+                           self._btn_edit_inv, self._btn_inventory_alerts)),
+            ("KITCHEN", (self._btn_ask_ai, self._btn_process_recipes,
+                         self._btn_view_recipes, self._btn_search_recipes)),
+        )
+        for title, buttons in groups:
+            section = QLabel(title)
+            section.setObjectName("NavSection")
+            self._sidebar_layout.addWidget(section)
+            self._sidebar_layout.addSpacing(6)
+            for button in buttons:
+                button.setText(self._navigation_titles[button][0])
+                button.setMinimumHeight(38)
+                button.setCursor(Qt.PointingHandCursor)
+                self._sidebar_layout.addWidget(button)
+            self._sidebar_layout.addSpacing(16)
+        self._sidebar_layout.addStretch()
+        self._btn_editbusinessrules.setText("Business rules")
+        self._sidebar_layout.addWidget(self._btn_editbusinessrules)
+        self._btn_exit.setText("Exit application")
+        self._btn_exit.setObjectName("ExitButton")
+        self._sidebar_layout.addWidget(self._btn_exit)
+        style_surface(self._sidebar_widget, SIDEBAR_QSS)
+
+        self._workspace = QWidget()
+        self._workspace_layout = QVBoxLayout(self._workspace)
+        self._workspace_layout.setContentsMargins(0, 0, 0, 0)
+        self._workspace_layout.setSpacing(0)
+        self._toolbar = QFrame()
+        self._toolbar.setObjectName("MainToolbar")
+        toolbar_layout = QHBoxLayout(self._toolbar)
+        toolbar_layout.setContentsMargins(28, 20, 28, 20)
+        toolbar_layout.setSpacing(10)
+        heading_layout = QVBoxLayout()
+        heading_layout.setSpacing(4)
+        self._page_title = QLabel("Home")
+        self._page_title.setObjectName("PageTitle")
+        self._page_subtitle = QLabel("Your food rescue workspace.")
+        self._page_subtitle.setWordWrap(True)
+        heading_layout.addWidget(self._page_title)
+        heading_layout.addWidget(self._page_subtitle)
+        toolbar_layout.addLayout(heading_layout, 1)
+        self._toolbar_search = QPushButton("Search inventory")
+        self._toolbar_edit = QPushButton("Edit inventory")
+        # Forward to the original buttons so their existing slots remain authoritative.
+        self._toolbar_search.clicked.connect(self._btn_search_inv.click)
+        self._toolbar_edit.clicked.connect(self._btn_edit_inv.click)
+        for button in (self._toolbar_search, self._toolbar_edit):
+            button.setCursor(Qt.PointingHandCursor)
+            toolbar_layout.addWidget(button)
+            button.hide()
+        self._theme_bulb = QLabel()
+        self._theme_bulb.setFixedSize(32, 32)
+        self._theme_bulb.setAlignment(Qt.AlignCenter)
+        self._theme_button = ThemeSwitch()
+        self._theme_bulb.setBuddy(self._theme_button)
+        self._update_theme_icon(False)
+        toolbar_layout.addWidget(self._theme_bulb)
+        self._theme_button.setToolTip("Turn on dark mode")
+        self._theme_button.toggled.connect(self._toggle_theme)
+        toolbar_layout.addWidget(self._theme_button)
+        style_surface(self._toolbar, TOOLBAR_QSS)
+        self._workspace_layout.addWidget(self._toolbar)
+        self._display_layout.setContentsMargins(28, 24, 28, 28)
+        self._display_layout.setSpacing(16)
+
+        self._welcome_panel = QFrame()
+        self._welcome_panel.setObjectName("WelcomePanel")
+        welcome_layout = QVBoxLayout(self._welcome_panel)
+        welcome_layout.setContentsMargins(40, 40, 40, 40)
+        welcome_layout.setSpacing(18)
+        self._home_alert_banner = QFrame()
+        self._home_alert_banner.setObjectName("HomeAlertBanner")
+        home_alert_layout = QHBoxLayout(self._home_alert_banner)
+        home_alert_layout.setContentsMargins(14, 10, 14, 10)
+        home_alert_layout.setSpacing(10)
+        self._home_alert_message = QLabel()
+        self._home_alert_message.setWordWrap(True)
+        self._home_alert_message.setObjectName("HomeAlertMessage")
+        self._btn_home_alert_view = QPushButton("View dashboard")
+        self._btn_home_alert_view.setObjectName("HomeAlertViewButton")
+        self._btn_home_alert_dismiss = QPushButton("Dismiss")
+        self._btn_home_alert_dismiss.setObjectName("HomeAlertDismissButton")
+        home_alert_layout.addWidget(self._home_alert_message, 1)
+        home_alert_layout.addWidget(self._btn_home_alert_view)
+        home_alert_layout.addWidget(self._btn_home_alert_dismiss)
+        welcome_layout.addStretch(2)
+        eyebrow = QLabel("MAKE THE MOST OF WHAT YOU HAVE")
+        eyebrow.setObjectName("WelcomeEyebrow")
+        eyebrow.setWordWrap(True)
+        title = QLabel("Good food.\nGreater possibilities.")
+        title.setObjectName("WelcomeTitle")
+        title.setWordWrap(True)
+        description = QLabel(
+            "Keep ingredients in view, spot what needs attention,\n"
+            "and find another purpose for the food you have."
+        )
+        description.setWordWrap(True)
+        for label in (eyebrow, title, description):
+            welcome_layout.addWidget(label)
+        welcome_layout.addSpacing(8)
+        self._welcome_inventory_button = QPushButton("View inventory")
+        self._welcome_inventory_button.setCursor(Qt.PointingHandCursor)
+        self._welcome_inventory_button.clicked.connect(self._btn_view_inv.click)
+        welcome_layout.addWidget(self._welcome_inventory_button, 0, Qt.AlignLeft)
+        welcome_layout.addStretch(3)
+        footnote = QLabel("Inventory  /  Recipes  /  AI assistance")
+        footnote.setObjectName("WelcomeFootnote")
+        footnote.setWordWrap(True)
+        welcome_layout.addWidget(footnote)
+        welcome_layout.addWidget(self._home_alert_banner)
+        self._home_alert_banner.hide()
+        style_surface(self._welcome_panel, WELCOME_QSS)
+        self._display_layout.addWidget(self._welcome_panel, 1)
+        self._log_display.hide()
+
     def _apply_theme_styles(self) -> None:
-        dark_stylesheet = """
-            /* primary window canvas n system frames */
-            QMainWindow { 
-                background-color: #121212; 
-            }
-            QFrame { 
-                background-color: #1e1e1e; 
-                border: 1px solid #2d2d2d; 
-                border-radius: 8px; 
-                padding: 12px;
-                margin-bottom: 4px;
-            }
-            QFrame#AddFrame, QFrame#EditFrame, QFrame#DeleteFrame {
-                background-color: #1a1a1a;
-                border: 1px solid #333333;
-                border-radius: 10px;
-                padding: 16px;
-                margin-top: 8px;
-                border-radius: 10px;
-                margin-top: 8px;
-            }
-            #SearchPanelFrame, QFrame[frameShape="0"] { 
-                background-color: transparent; 
-                border: none; 
-                padding: 2px; 
-            }
-            QScrollArea, QScrollArea > QWidget > QWidget {
-                background-color: #121212 !important;
-                border: none;
-            }
-            QScrollArea QWidget {
-                background-color: transparent;
-            }
+        for title in (self._lbl_add_title, self._lbl_edit_title, self._lbl_delete_title):
+            title.setObjectName("SectionTitle")
+        style_surface(self, APPLICATION_QSS)
+        style_inventory_table(self._inventory_table)
+        style_inventory_table(self._alert_table)
+        style_surface(
+            self._alert_table,
+            INVENTORY_QSS
+            + "\nQTableWidget::item:focus { border: none; }"
+        )
+        for editor in (self._log_display, self._item_details_view):
+            editor.document().setDefaultFont(self.font())
+        for layout in (self._layout_add, self._layout_edit):
+            layout.setContentsMargins(18, 18, 18, 18)
+            layout.setSpacing(12)
+        apply_theme(self, False)
 
-            /* text interaction views n form labels */
-            QLabel {  
-                background: transparent; 
-                border: none; 
-                color: #ffffff; 
-                font-size: 13px; 
-                font-weight: bold; 
-                padding: 0px !important;
-                margin: 0px !important;
-            }
-            QTextEdit { 
-                background-color: #1e1e1e; 
-                color: #f5f5f5; 
-                border: 1px solid #2d2d2d; 
-                border-radius: 8px; 
-                padding: 6px 12px; 
-                font-family: 'Consolas', 'Courier New', monospace; 
-                font-size: 12px;
-                line-height: 14px;
-            }
+    def _toggle_theme(self, dark: bool) -> None:
+        apply_theme(self, dark)
+        self._update_theme_icon(dark)
+        self._theme_button.setToolTip("Turn off dark mode" if dark else "Turn on dark mode")
 
-            /* input n selection widget*/
-            QLineEdit { 
-                background-color: #252526; 
-                color: #ffffff; 
-                border: 1px solid #3e3e42; 
-                border-radius: 6px; 
-                padding: 6px 10px; 
-                font-size: 13px; 
-                selection-background-color: #27ae60;  
-            }
-            QLineEdit:hover { 
-                border: 1px solid #555555; 
-            }
-            QLineEdit:focus { 
-                border: 1px solid #27ae60; 
-                background-color: #1e1e1e; 
-            }
-            QComboBox { 
-                background-color: #252526; 
-                color: #ffffff; 
-                border: 1px solid #3e3e42; 
-                border-radius: 6px; 
-                padding: 5px 10px; 
-                font-size: 13px;
-                min-width: 130px;
-            }
-            QComboBox::drop-down {
-                border: none;
-                padding-right: 4px;
-            }
-            QAbstractItemView { 
-                background-color: #2a2a2a;  
-                color: #ffffff; 
-                border: 1px solid #3a3a3a;
-                selection-background-color: #27ae60;  
-                selection-color: #ffffff;  
-            }
-
-            /* nav action buttons*/
-            QPushButton { 
-                background-color: #2a2a2a; 
-                color: #e0e0e0; 
-                border: 1px solid #3a3a3a; 
-                border-radius: 6px; 
-                padding: 10px 12px; 
-                text-align: left; 
-                font-size: 13px;
-            }
-            QPushButton:hover { 
-                background-color: #353535; 
-                border: 1px solid #4a4a4a; 
-                color: #ffffff; 
-            }
-            QPushButton:pressed, QPushButton:checked { 
-                background-color: #2ecc71; 
-                border: 1px solid #219653; 
-                color: #ffffff; 
-            }
-            QPushButton#ApplyFilterButton { 
-                background-color: #27ae60 !important; 
-                color: #ffffff !important; 
-                border: 1px solid #219653 !important; 
-                border-radius: 6px; 
-                font-weight: bold; 
-                text-align: center; 
-                padding: 6px 16px; 
-                min-width: 80px;
-            }
-            QPushButton#ExecuteDeleteButton {
-                background-color: #c0392b !important;
-                color: #ffffff !important;
-                border: 1px solid #a93226 !important;
-                border-radius: 6px;
-                font-weight: bold;
-                text-align: center !important;
-                padding: 6px 16px;
-            }
-            QPushButton#ExecuteDeleteButton:hover {
-                background-color: #e74c3c !important;
-                border: 1px solid #c0392b !important;
-            }
-            QPushButton#ExecuteDeleteButton:pressed {
-                background-color: #922b21 !important;
-            }
-
-            /* database table */
-            QTableWidget { 
-                background-color: #1e1e1e;  
-                color: #e0e0e0; 
-                gridline-color: #2d2d2d; 
-                border: 1px solid #2d2d2d;  
-                border-radius: 8px; 
-                font-size: 13px; 
-            }
-            QTableWidget::item { 
-                padding: 6px; 
-            }
-            QTableWidget::item:alternate { 
-                background-color: #252525; 
-            }
-            QTableWidget::item:selected { 
-                background-color: #27ae60; 
-                color: #ffffff; 
-            }
-            QHeaderView::section { 
-                background-color: #2a2a2a; 
-                color: #ffffff; 
-                padding: 6px; 
-                border: 1px solid #2d2d2d; 
-                font-weight: bold; 
-                font-size: 13px; 
-            }
-
-            /* form execution anchors */
-            QPushButton#ApplyFilterButton { 
-                background-color: #27ae60 !important; 
-                color: #ffffff !important; 
-                border: 1px solid #219653 !important; 
-                border-radius: 6px; 
-                font-weight: bold; 
-                text-align: center; 
-                padding: 6px 16px; 
-                min-width: 80px;
-            }
-            QPushButton#ApplyFilterButton:hover { 
-                background-color: #2ecc71 !important; 
-                border: 1px solid #27ae60 !important; 
-            }
-            QPushButton#ApplyFilterButton:pressed { 
-                background-color: #1e8449 !important; 
-            }
-
-            /* dialog noti (QMessageBox) */
-            QMessageBox {
-                background-color: #1e1e1e;
-                border: 1px solid #2d2d2d;
-            }
-            QMessageBox QLabel {
-                color: #ffffff !important;
-                font-size: 13px;
-                font-weight: normal;
-                min-width: 320px;
-                max-width: 500px;
-                qproperty-wordWrap: true;
-            }
-            QMessageBox QPushButton {
-                background-color: #2a2a2a;
-                color: #e0e0e0;
-                border: 1px solid #3a3a3a;
-                border-radius: 6px;
-                padding: 5px 18px;
-                text-align: center;
-                min-width: 65px;
-            }
-            QMessageBox QPushButton:hover {
-                background-color: #353535;
-                color: #ffffff;
-            }
-
-
-        """       
-        self.setStyleSheet(dark_stylesheet)
+    def _update_theme_icon(self, dark: bool) -> None:
+        name = "bulb-off.svg" if dark else "bulb-on.svg"
+        renderer = QSvgRenderer(os.path.join(os.path.dirname(__file__), "icons", name))
+        scale = self.devicePixelRatioF()
+        pixmap = QPixmap(round(28 * scale), round(28 * scale))
+        pixmap.setDevicePixelRatio(scale)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter)
+        painter.end()
+        self._theme_bulb.setPixmap(pixmap)
+        description = "Dark mode: light off" if dark else "Light mode: light on"
+        self._theme_bulb.setToolTip(description)
+        self._theme_bulb.setAccessibleName(description)
 
     def _connect_signals(self) -> None:
         self._btn_view_inv.clicked.connect(self._on_inventory_view_triggered)
@@ -652,10 +726,21 @@ class GuiView(QMainWindow):
         self._btn_process_recipes.clicked.connect(self._on_process_recipes_triggered)
         self._btn_view_recipes.clicked.connect(self._on_recipes_view_triggered)
         self._btn_search_recipes.clicked.connect(self._on_search_recipes_triggered)
+        self._btn_inventory_alerts.clicked.connect(self._on_inventory_alerts_triggered)
+        self._btn_refresh_alerts.clicked.connect(self._refresh_inventory_alerts)
+        self._btn_delete_expired_alert.clicked.connect(
+            self._delete_selected_expired_item
+        )
+        self._btn_home_alert_dismiss.clicked.connect(self._dismiss_home_alert)
+        self._btn_home_alert_view.clicked.connect(self._view_alerts_from_home)
         self._inventory_table.itemClicked.connect(self._on_table_row_clicked)
         self._inventory_table.verticalHeader().sectionClicked.connect(self._on_header_section_clicked)
         self._input_edit_id.returnPressed.connect(self._on_edit_id_modified)
         self._btn_execute_update.clicked.connect(self._execute_gui_update)
+        self._edit_name.returnPressed.connect(self._execute_gui_update)
+        self._edit_qty.returnPressed.connect(self._execute_gui_update)
+        self._edit_date.lineEdit().returnPressed.connect(self._execute_gui_update)
+        self._edit_allergens.returnPressed.connect(self._execute_gui_update)
         self._btn_execute_delete.clicked.connect(self._execute_gui_delete)
         self._input_delete_id.returnPressed.connect(self._execute_gui_delete)
         self._btn_execute_ai.clicked.connect(self._execute_threaded_ai_analysis)
@@ -665,26 +750,21 @@ class GuiView(QMainWindow):
         self._btn_exit.clicked.connect(self._execute_graceful_exit)
 
     def _show_success_message(self, title: str, text: str) -> None:
-        # displays a custom themed alert dialog box for success messages
-        msg = QMessageBox(self)
-        msg.setWindowTitle(title)        
-        msg.setIcon(QMessageBox.Icon.NoIcon)
-
-        content_label = QLabel()
-        content_label.setWordWrap(True)
-
-        formatted_rich_text = (
-            f"<div style='vertical-align: middle; display: flex; align-items: center; word-break: break-all;'>"
-            f"  <span style='color: #27ae60; font-size: 24px; font-weight: bold; font-family: Arial;'>✔</span>"
-            f"  <span style='color: #ffffff; font-size: 13px; font-weight: normal; margin-left: 14px;'>{text}</span>"
-            f"</div>"
-        )
-
-        content_label.setText(formatted_rich_text)       
-        msg.layout().addWidget(content_label, 0, 1)
-        # Apply an inline green border highlight style just to this popup's icon layout box
-        msg.setStyleSheet("QMessageBox { border-left: 5px solid #27ae60; }")
-        msg.exec()
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+        dialog.setMinimumSize(480, 130)
+        dialog.resize(520, 145)
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(22, 14, 22, 14)
+        layout.setSpacing(12)
+        message = QLabel(text)
+        message.setWordWrap(True)
+        message.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        layout.addWidget(message)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        buttons.accepted.connect(dialog.accept)
+        layout.addWidget(buttons, 0, Qt.AlignRight)
+        dialog.exec()
 
     def _show_error_message(self, title: str, text: str) -> None:
         # displays a custom themed alert dialog box for error messages
@@ -707,13 +787,78 @@ class GuiView(QMainWindow):
         msg.exec()
 
     def _update_active_navigation_state(self, active_button: QPushButton) -> None:
-        # unchecks all navigation shortcuts n locks the green background on the active menu choice
+        # Presentation only: existing handlers still own panel visibility and data.
+        self._welcome_panel.hide()
+        self._recipe_cards.hide()
+        self._inventory_table.setMinimumHeight(0)
+        self._inventory_table.setMaximumHeight(16777215)
+        self._item_details_view.setMinimumHeight(0)
+        self._item_details_view.setMaximumHeight(16777215)
+        style_surface(self._log_display, "")
+        title, subtitle = self._navigation_titles.get(
+            active_button, ("FoodRescue", "Your food rescue workspace.")
+        )
+        self._page_title.setText(title)
+        self._page_subtitle.setText(subtitle)
+        is_inventory = active_button is self._btn_view_inv
+        self._toolbar_search.setVisible(is_inventory)
+        self._toolbar_edit.setVisible(is_inventory)
         for btn in self._nav_buttons:
             btn.setChecked(btn == active_button)
+        self._alert_panel.hide()
+
+    def _on_home_triggered(self) -> None:
+        """Return to the welcome surface without changing data or background work."""
+        self._update_active_navigation_state(self._btn_home)
+        for panel in (
+            self._search_panel, self._recipe_search_panel, self._edit_scroll_area,
+            self._frame_ai_input, self._inventory_table, self._item_details_view,
+            self._log_display,
+        ):
+            panel.hide()
+        self._welcome_panel.show()
+        self._refresh_home_alert_banner()
 
     def set_controller(self, controller) -> None:
        # safely mutates internal controller reference
         self._controller = controller
+        self._refresh_home_alert_banner()
+
+    def _refresh_home_alert_banner(self) -> None:
+        if self._home_alert_dismissed or not self._controller:
+            self._home_alert_banner.hide()
+            return
+
+        alerts = self._controller.inventory_alert_service.get_alerts(
+            self._controller.data_manager.inventory.records
+        )
+        item_ids = {
+            entry["id"]
+            for entries in alerts.values()
+            for entry in entries
+        }
+        if not item_ids:
+            self._home_alert_banner.hide()
+            return
+
+        item_count = len(item_ids)
+        message = (
+            "1 inventory item requires attention."
+            if item_count == 1
+            else f"{item_count} inventory items require attention."
+        )
+        self._home_alert_message.setText(
+            f"Attention needed: {message}"
+        )
+        self._home_alert_banner.show()
+
+    def _dismiss_home_alert(self) -> None:
+        self._home_alert_dismissed = True
+        self._home_alert_banner.hide()
+
+    def _view_alerts_from_home(self) -> None:
+        self._dismiss_home_alert()
+        self._on_inventory_alerts_triggered()
     
     def display_main_menu(self) -> None:
         self.show()
@@ -736,6 +881,372 @@ class GuiView(QMainWindow):
             self._inventory_table.show()
             records = self._controller.data_manager.inventory.records
             self.print_current_inventory(records)
+
+    def _on_inventory_alerts_triggered(self) -> None:
+        if not self._controller:
+            return
+        self._update_active_navigation_state(self._btn_inventory_alerts)
+        for widget in (
+            self._search_panel,
+            self._recipe_search_panel,
+            self._edit_scroll_area,
+            self._frame_ai_input,
+            self._inventory_table,
+            self._item_details_view,
+            self._log_display,
+        ):
+            widget.hide()
+        self._alert_panel.show()
+        self._refresh_inventory_alerts()
+
+    def _on_edit_business_rules_triggered(self) -> None:
+        if not self._controller:
+            return
+
+        try:
+            rules = self._controller.load_business_rules()
+        except (OSError, ValueError) as exc:
+            self._show_error_message("Could not load business rules", str(exc))
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Edit Business Rules")
+        dialog.resize(850, 600)
+        dialog.setMinimumSize(760, 600)
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(12)
+
+        layout.addWidget(QLabel("Select a recipe:"))
+        recipe_list = QListWidget()
+        recipe_list.setObjectName("BusinessRulesRecipeList")
+        recipe_list.setSelectionMode(QListWidget.SingleSelection)
+        layout.addWidget(recipe_list, 2)
+                
+
+        layout.addWidget(QLabel("Recipe name:"))
+        name_input = QLineEdit()
+        layout.addWidget(name_input)
+        ingredient_list = QListWidget()
+        ingredient_list.setMaximumHeight(170)
+        layout.addWidget(ingredient_list)   
+
+        ingredient_buttons = QHBoxLayout()
+        add_ingredient_button = QPushButton("Add ingredient")
+        remove_ingredient_button = QPushButton("Remove selected ingredient")
+        ingredient_buttons.addWidget(add_ingredient_button)
+        ingredient_buttons.addWidget(remove_ingredient_button)
+        layout.addLayout(ingredient_buttons)
+        
+
+        recipe_buttons = QHBoxLayout()
+        add_recipe_button = QPushButton("Add recipe")
+        remove_recipe_button = QPushButton("Remove selected recipe")
+        recipe_buttons.addWidget(add_recipe_button)
+        recipe_buttons.addWidget(remove_recipe_button)
+        layout.addLayout(recipe_buttons)
+
+
+        save_buttons = QDialogButtonBox(
+            QDialogButtonBox.Save | QDialogButtonBox.Cancel,
+            parent=dialog,
+        )
+        layout.addWidget(save_buttons)
+
+        current_index = None
+        
+        def store_current_recipe() -> None:
+            if current_index is None:
+                return
+
+            rules[current_index]["name"] = name_input.text().strip()
+            rules[current_index]["ingredients"] = [
+                ingredient_list.item(i).text().strip()
+                for i in range(ingredient_list.count())
+            ]
+
+        def show_recipe(index: int) -> None:
+            nonlocal current_index
+            store_current_recipe()
+
+            current_index = index
+            recipe = rules[index]
+            name_input.setText(recipe["name"])
+
+            ingredient_list.clear()
+            ingredient_list.addItems(recipe["ingredients"])
+
+        def refresh_recipe_list(select_index: int = 0) -> None:
+            recipe_list.clear()
+            recipe_list.addItems([rule["name"] for rule in rules])
+
+            if rules:
+                recipe_list.setCurrentRow(select_index)
+                show_recipe(select_index)
+            else:
+                name_input.clear()
+                ingredient_list.clear()
+
+        recipe_list.currentRowChanged.connect(
+            lambda index: show_recipe(index) if index >= 0 else None
+        )
+
+        def add_ingredient() -> None:
+            ingredient, accepted = QInputDialog.getText(
+                dialog, "Add ingredient", "Ingredient name:"
+            )
+            if accepted and ingredient.strip():
+                ingredient_list.addItem(ingredient.strip())
+
+        def remove_ingredient() -> None:
+            row = ingredient_list.currentRow()
+            if row >= 0:
+                ingredient_list.takeItem(row)
+
+        def add_recipe() -> None:
+            name, accepted = QInputDialog.getText(
+                dialog, "Add recipe", "Recipe name:"
+            )
+            if not accepted or not name.strip():
+                return
+
+            store_current_recipe()
+            rules.append({"name": name.strip(), "ingredients": []})
+            refresh_recipe_list(len(rules) - 1)
+
+        def remove_recipe() -> None:
+            nonlocal current_index
+            row = recipe_list.currentRow()
+            if row < 0:
+                return
+
+            rules.pop(row)
+            current_index = None
+            refresh_recipe_list(min(row, len(rules) - 1))
+        def edit_ingredient(item) -> None:
+            new_text, accepted = QInputDialog.getText(
+                dialog,
+                "Edit ingredient",
+                "Ingredient name:",
+                QLineEdit.Normal,
+                item.text(),
+            )
+
+            if accepted and new_text.strip():
+                item.setText(new_text.strip())
+
+        ingredient_list.itemDoubleClicked.connect(edit_ingredient)
+
+        def save_rules() -> None:
+            store_current_recipe()
+            try:
+                self._controller.editbusinessrules(rules)
+            except (OSError, ValueError) as exc:
+                self._show_error_message("Could not save business rules", str(exc))
+                return
+
+            dialog.accept()
+            self._show_success_message(
+                "Business rules saved",
+                "Your recipe rules were updated.",
+            )
+
+        add_ingredient_button.clicked.connect(add_ingredient)
+        remove_ingredient_button.clicked.connect(remove_ingredient)
+        add_recipe_button.clicked.connect(add_recipe)
+        remove_recipe_button.clicked.connect(remove_recipe)
+        save_buttons.accepted.connect(save_rules)
+        save_buttons.rejected.connect(dialog.reject)
+
+        refresh_recipe_list()
+        dialog.exec()
+
+
+    def _refresh_inventory_alerts(self) -> None:
+        if not self._controller:
+            return
+        try:
+            self._controller.data_manager.load()
+            alerts = self._controller.inventory_alert_service.get_alerts(
+                self._controller.data_manager.inventory.records
+            )
+        except (OSError, ValueError, TypeError) as error:
+            self._alert_table.setRowCount(0)
+            self._expired_alert_ids.clear()
+            self._btn_delete_expired_alert.setEnabled(False)
+            self._alert_summary.setText("Could not load inventory alerts.")
+            self._show_error_message("Inventory alerts unavailable", str(error))
+            return
+
+        self._expired_alert_ids = {
+            entry["id"] for entry in alerts["expired"]
+        }
+        status_labels = {
+            "expired": "Expired",
+            "expiring_soon": "Expiring soon",
+            "low_stock": "Low stock",
+            "unknown_expiry": "Check expiry date",
+        }
+        by_id = {}
+        for alert_name, entries in alerts.items():
+            for entry in entries:
+                item_id = entry["id"]
+                item = by_id.setdefault(item_id, {**entry, "statuses": []})
+                item["statuses"].append(status_labels[alert_name])
+
+        self._alert_table.setRowCount(len(by_id))
+        for row, (item_id, item) in enumerate(by_id.items()):
+            record = item["record"]
+            quantity = record.get("quantity")
+            values = (
+                str(item_id),
+                str(record.get("food", "")),
+                str(quantity) if quantity is not None else "Unknown",
+                str(record.get("use-by", "")),
+                (
+                    str(item["days_remaining"])
+                    if item["days_remaining"] is not None
+                    else "Unknown"
+                ),
+                ", ".join(item["statuses"]),
+            )
+            checkbox = QCheckBox()
+            checkbox.setCursor(Qt.PointingHandCursor)
+            checkbox.setEnabled(item_id in self._expired_alert_ids)
+            checkbox.toggled.connect(self._update_expired_delete_button)
+            checkbox_container = QWidget()
+            checkbox_layout = QHBoxLayout(checkbox_container)
+            checkbox_layout.setContentsMargins(0, 0, 0, 0)
+            checkbox_layout.setAlignment(Qt.AlignCenter)
+            checkbox_layout.addWidget(checkbox)
+            self._alert_table.setCellWidget(row, 0, checkbox_container)
+            for column, value in enumerate(values):
+                cell = QTableWidgetItem(value)
+                cell.setTextAlignment(Qt.AlignCenter)
+                self._alert_table.setItem(row, column + 1, cell)
+            self._alert_table.item(row, 1).setData(Qt.UserRole, dict(record))
+
+        self._alert_table.resizeRowsToContents()
+        self._update_expired_delete_button()
+
+        self._alert_summary.setText(
+            f"Expired: {len(alerts['expired'])}  |  "
+            f"Expiring within {DEFAULT_EXPIRING_WITHIN_DAYS} days: "
+            f"{len(alerts['expiring_soon'])}  |  "
+            f"Low stock: "
+            f"{len(alerts['low_stock'])}  |  "
+            f"Check expiry date: {len(alerts['unknown_expiry'])}"
+        )
+        if not by_id:
+            self._alert_summary.setText(
+                self._alert_summary.text() + "\nNo items currently need attention."
+            )
+
+    def _update_expired_delete_button(self) -> None:
+        self._btn_delete_expired_alert.setEnabled(
+            bool(self._get_checked_expired_items())
+        )
+
+    def _get_checked_expired_items(self) -> list:
+        selected_items = []
+        for row in range(self._alert_table.rowCount()):
+            checkbox_container = self._alert_table.cellWidget(row, 0)
+            checkbox = (
+                checkbox_container.findChild(QCheckBox)
+                if checkbox_container is not None
+                else None
+            )
+            item_id_cell = self._alert_table.item(row, 1)
+            if (
+                checkbox is None
+                or item_id_cell is None
+                or not checkbox.isChecked()
+            ):
+                continue
+            try:
+                item_id = int(item_id_cell.text())
+            except ValueError:
+                continue
+            if item_id in self._expired_alert_ids:
+                selected_items.append(
+                    (item_id, item_id_cell.data(Qt.UserRole))
+                )
+        return selected_items
+
+    def _delete_selected_expired_item(self) -> None:
+        if not self._controller:
+            return
+
+        selected_items = self._get_checked_expired_items()
+        if not selected_items:
+            self._show_error_message(
+                "Select an expired item",
+                "Check at least one expired inventory item before deleting.",
+            )
+            return
+
+        inventory = self._controller.data_manager.inventory
+        try:
+            self._controller.data_manager.load()
+            records = inventory.records
+            expired_ids = {
+                entry["id"]
+                for entry in self._controller.inventory_alert_service.get_alerts(
+                    records
+                )["expired"]
+            }
+            stale_selection = any(
+                not isinstance(selected_record, dict)
+                or not 0 < item_id <= len(records)
+                or records[item_id - 1] != selected_record
+                or item_id not in expired_ids
+                for item_id, selected_record in selected_items
+            )
+            if stale_selection:
+                self._refresh_inventory_alerts()
+                self._show_error_message(
+                    "Inventory changed",
+                    "One or more selected items changed or are no longer expired. "
+                    "Alerts have been refreshed; check the items again.",
+                )
+                return
+
+            named_items = [
+                (item_id, records[item_id - 1].get("food", ""))
+                for item_id, _ in selected_items
+            ]
+            item_lines = "\n".join(
+                f"- {name} (ID: {item_id})"
+                for item_id, name in named_items
+            )
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Confirm Record Deletion")
+            msg_box.setTextFormat(Qt.PlainText)
+            msg_box.setText(
+                "Are you sure you want to permanently remove these expired "
+                f"items from active stock logs?\n\n{item_lines}"
+            )
+            msg_box.setMinimumWidth(620)
+            msg_box.setStyleSheet("QLabel { min-width: 560px; }")
+            msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            msg_box.setDefaultButton(QMessageBox.No)
+            if msg_box.exec() != QMessageBox.Yes:
+                return
+
+            for item_id, _ in sorted(selected_items, reverse=True):
+                inventory.delete(item_id - 1)
+            self._refresh_inventory_alerts()
+            self._show_success_message(
+                "Success",
+                f"Success: Removed {len(selected_items)} expired "
+                f"{'item' if len(selected_items) == 1 else 'items'} from the inventory.",
+            )
+        except Exception as error:
+            QMessageBox.critical(
+                self,
+                "System Failure",
+                f"Could not delete the expired inventory item: {error}",
+            )
 
     # Option 2: Search Inventory
     def _on_search_inventory_triggered(self) -> None:
@@ -828,20 +1339,24 @@ class GuiView(QMainWindow):
             days_left = target.get('days_to_expiry', 'N/A')
             expiry_str = f"{days_left} day(s) remaining" if str(days_left).isdigit() else str(days_left)
 
-            # Replicates your terminal string formatting layout perfectly
-            self._item_details_view.append("============================================================")
-            self._item_details_view.append(f"                        FOOD ID: [{db_id + 1}]")
-            self._item_details_view.append("============================================================")
-            self._item_details_view.append(f"Item Name:        {target.get('food', 'Unknown')}")
-            self._item_details_view.append(f"Category:         {target.get('food_category', 'General')}")
-            self._item_details_view.append(f"Stock Quantity:   {target.get('quantity', '0')}")
-            self._item_details_view.append(f"Use-By Date:      {target.get('use-by', 'N/A')}")
-            self._item_details_view.append(f"Days to Expiry:   {expiry_str}")
-            self._item_details_view.append(f"Storage Type:     {storage}")
-            self._item_details_view.append(f"Waste Risk Level: {target.get('waste_risk_level', 'Low')}")
-            self._item_details_view.append(f"Demand Level:     {target.get('demand level', 'Normal')}")
-            self._item_details_view.append(f"Allergen Info:    {allergen}")
-            self._item_details_view.append("============================================================")
+            fields = (
+                ("Category", target.get('food_category', 'General')),
+                ("Stock quantity", target.get('quantity', '0')),
+                ("Use-by date", target.get('use-by', 'N/A')),
+                ("Days to expiry", expiry_str), ("Storage", storage),
+                ("Waste risk", target.get('waste_risk_level', 'Low')),
+                ("Demand level", target.get('demand level', 'Normal')),
+                ("Allergens", allergen),
+            )
+            rows = "".join(
+                f"<tr><td style='color: #a7b7ad;'>{label}</td><td>{escape(str(value))}</td></tr>"
+                for label, value in fields
+            )
+            set_themed_html(self._item_details_view,
+                f"<p style='color: #a7cbb6;'>ITEM {db_id + 1:02d}</p>"
+                f"<h2 style='color: #f0f3f1; font-size: 20px;'>{escape(target.get('food', 'Unknown'))}</h2>"
+                f"<table width='100%' cellpadding='5' style='color: #dce3df;'>{rows}</table>"
+            )
 
     # Data Renders
     def print_current_inventory(self, extracted_items: list, ids: list = None) -> bool:
@@ -970,7 +1485,11 @@ class GuiView(QMainWindow):
             # Map database record fields directly into inputs
             self._edit_name.setText(target.get('food', ''))
             self._edit_qty.setText(str(target.get('quantity', '0')))
-            self._edit_date.setText(target.get('use-by', ''))
+            use_by = target.get("use-by", "")
+            edit_date = QDate.fromString(use_by, "dd/MM/yyyy")
+            if not edit_date.isValid():
+                edit_date = QDate.fromString(use_by, "dd-MM-yyyy")
+            self._edit_date.setDate(edit_date if edit_date.isValid() else QDate.currentDate())
             self._edit_category.setCurrentText(target.get('food_category', 'Other'))
             self._edit_storage.setCurrentText(target.get('storage condition', 'Ambient'))
             self._edit_risk.setCurrentText(target.get('waste_risk_level', 'Low'))
@@ -989,7 +1508,7 @@ class GuiView(QMainWindow):
         
         name = self._edit_name.text().strip()
         qty_str = self._edit_qty.text().strip()
-        date_str = self._edit_date.text().strip()
+        date_str = self._edit_date.date().toString("dd/MM/yyyy")
 
         if not name or not qty_str or not date_str:
             self._show_error_message("Validation Error", "All primary edit lines must be populated.")
@@ -1229,8 +1748,10 @@ class GuiView(QMainWindow):
         else:
             brief_html += "<span style='margin-left: 15px; color: #e74c3c;'>None returned.</span><br/>"
 
-        brief_html += """</div><div style='border-top: 1px solid #333333; padding-top: 8px; color: #f39c12; font-weight: bold;'>👉 [ Recipes sent to 'Process Recipes' menu option! ]</div></div>"""
-        self._log_display.setHtml(brief_html)
+        brief_html += """</table><p style='color: #aabfb2; margin-top: 16px;'>
+            Suggestions are ready in Process recipes.</p>"""
+        style_surface(self._log_display, "QTextEdit { background: #273a31; border-color: #425b4c; }")
+        set_themed_html(self._log_display, brief_html)
         self._controller.data_manager.load()  
         self._lbl_ai_loading.setText("✅ AI Analysis complete!")
 
@@ -1337,14 +1858,19 @@ class GuiView(QMainWindow):
         self._log_display.clear()
         
         # fire up the backend recipe processor engine matrix
-        self._log_display.setHtml(
-            "<div style='font-family: Arial, sans-serif; font-size: 13px; color: #bdc3c7; padding: 10px;'>"
-            "⚙️ <b>Initializing Recipe Validation Engine...</b><br/>⏳ Processing recipes... please wait...</div>"
+        set_themed_html(self._log_display,
+            "<div style=' font-size: 13px; color: #b4c1b9; padding: 10px;'>"
+            " <b>Preparing recipe evaluation...</b><br/> Processing recipes... please wait...</div>"
         )
         self.repaint()
         try:
-            service = RecipeResultService()
-            report = service.create_results()
+            accepted_rules = self._controller.load_business_rules()
+
+            service = RecipeResultService(
+            evaluator=self._controller.logic_evaluator,
+            results_store=self._controller.results_store,
+            )
+            report = service.create_results(accepted_recipes=accepted_rules)
             if isinstance(report, dict) and "error" in report:
                 self._show_error_message("Data Processing Issue", report["error"])
                 return
@@ -1447,7 +1973,7 @@ class GuiView(QMainWindow):
                 </div>
             </div>
             """
-            self._log_display.setHtml(full_html)
+            set_themed_html(self._log_display, full_html)
             
             # show a desktop completion alert box
             self._show_success_message(
@@ -1549,9 +2075,9 @@ class GuiView(QMainWindow):
         self._edit_scroll_area.hide()
         self._frame_ai_input.hide()
         self._log_display.hide()
+        self._recipe_cards.hide()
         
         self._inventory_table.show()
-        self._recipe_search_panel.show()
         self._item_details_view.hide()
 
         self._inventory_table.setMaximumHeight(340)
@@ -1565,7 +2091,15 @@ class GuiView(QMainWindow):
         
         if self._controller:
             self._controller.data_manager.load()
-            self.print_recipes_table(self._controller.data_manager.recipes.records)
+            recipes = self._controller.data_manager.recipes.records
+            self._recipe_search_panel.setVisible(bool(recipes))
+            if recipes:
+                self.print_recipes_table(recipes)
+            else:
+                self._show_recipe_search_empty_state(
+                    "No saved recipes yet",
+                    "Process recipes or use the AI assistant to start building your recipe library.",
+                )
 
     def _execute_embedded_recipe_search(self) -> None:
         if not self._controller:
@@ -1588,12 +2122,25 @@ class GuiView(QMainWindow):
             else:
                 self._item_details_view.hide()
         else:
-            self._inventory_table.setRowCount(0)
-            self._item_details_view.hide()
+            self._show_recipe_search_empty_state(
+                "No matching recipes",
+                "Try a different ingredient or recipe ID, or clear the search fields.",
+            )
+
+    def _show_recipe_search_empty_state(self, title: str, message: str) -> None:
+        self._inventory_table.hide()
+        self._item_details_view.hide()
+        self._recipe_cards.set_recipes(
+            [],
+            empty_title=title,
+            empty_message=message,
+        )
+        self._recipe_cards.show()
 
     def print_recipes_table(self, recipe_list: list, ids: list = None) -> bool:
         self._log_display.hide()
         self._item_details_view.hide()
+        self._recipe_cards.hide()
         self._inventory_table.show()
         self._inventory_table.setRowCount(0)
         if not recipe_list: return False
@@ -1637,46 +2184,19 @@ class GuiView(QMainWindow):
             if "Step " in instructions or "1. " in instructions:
                 formatted_steps = f"<div style='color: #ecf0f1; white-space: pre-wrap;'>{instructions}</div>"
             else:
-                steps = [s.strip() for s in instructions.split(". ") if s.strip()]
-                for step_idx, step_text in enumerate(steps, start=1):
-                    clean_step = step_text if step_text.endswith(".") else f"{step_text}."
-                    formatted_steps += f"<div style='margin-bottom: 6px;'><b>{step_idx}.</b> {clean_step}</div>"
-
-            ingredients_list = [i.strip().capitalize() for i in ingredients.split(",") if i.strip()]
-            bullet_points_html = "".join([f"<li style='margin-bottom: 5px; color: #bdc3c7;'>• {item}</li>" for item in ingredients_list])
-
-
-            html_card = f"""
-            <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6; background-color: #1e1e1e; padding: 10px; border-radius: 8px;'>
-                
-                <!-- Card Header Panel Badge -->
-                <div style='background-color: #2c3e50; color: #ffffff; padding: 8px 12px; font-weight: bold; border-radius: 5px; font-size: 13px; margin-bottom: 14px;'>
-                    📖 RECIPE DISCOVERY CARD &mdash; ENTRY LOG #{db_id + 1}
-                </div>
-                
-                <div style='padding: 2px;'>
-                    <h2 style='color: #2ecc71; margin-top: 0px; font-size: 18px; font-weight: bold; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>
-                        {recipe_name}
-                    </h2>
-                    
-                    <div style='margin-bottom: 15px;'>
-                        <b style='color: #ffffff; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;'>Ingredients</b>
-                        <ul style='list-style-type: none; margin: 6px 0 0 0; padding-left: 5px;'>
-                            {bullet_points_html}
-                        </ul>
-                    </div>
-                    
-                    <div>
-                        <b style='color: #ffffff; font-size: 13px;'>📝 Preparation & Execution Steps:</b>
-                        <div style='color: #ecf0f1; margin-top: 6px; margin-left: 2px;'>
-                            {formatted_steps}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            """
-            
-            self._item_details_view.setHtml(html_card)
+                steps = [step.strip() for step in instructions.split(". ") if step.strip()]
+                formatted_steps = "".join(
+                    f"<p>{index}. {escape(step if step.endswith('.') else step + '.')}</p>"
+                    for index, step in enumerate(steps, start=1)
+                )
+            set_themed_html(self._item_details_view, f"""
+                <p style='color: #a7cbb6;'>RECIPE {db_id + 1:02d}</p>
+                <h2 style='color: #f0f3f1; font-size: 20px;'>{escape(recipe_name)}</h2>
+                <p style='color: #c2d2c9;'><b>Ingredients</b></p>
+                <p style='color: #b9c6bf;'>{escape(ingredients)}</p>
+                <p style='color: #c2d2c9;'><b>Preparation steps</b></p>
+                <div style='color: #dce4df;'>{formatted_steps}</div>
+            """)
 
     # Option 8: Exit Application
     def _execute_graceful_exit(self) -> None:
@@ -1695,3 +2215,4 @@ class GuiView(QMainWindow):
             if self._controller and hasattr(self._controller, "data_manager"):
                 self._controller.data_manager.save_all()
             self.close()
+    

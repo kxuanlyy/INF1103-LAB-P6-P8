@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QFrame, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
-from io_manager.main_window_style import RECIPE_CARDS_QSS, style_surface
+from io_manager.main_window_style import RECIPE_CARDS_QSS, set_themed_html, style_surface
 
 
 def _text_label(text, object_name):
@@ -33,7 +33,13 @@ class RecipeCardsView(QScrollArea):
         style_surface(self, RECIPE_CARDS_QSS)
         self.set_recipes([])
 
-    def set_recipes(self, recipes, summary=None):
+    def set_recipes(
+        self,
+        recipes,
+        summary=None,
+        empty_title=None,
+        empty_message=None,
+    ):
         contents = QWidget()
         contents.setObjectName("RecipeCardContents")
         layout = QVBoxLayout(contents)
@@ -92,15 +98,25 @@ class RecipeCardsView(QScrollArea):
             empty_layout.setContentsMargins(28, 28, 28, 28)
             empty_layout.setSpacing(12)
             empty_layout.addWidget(_text_label(
-                "No recipe suggestions" if summary is not None else "No saved recipes yet", "RecipeTitle"
+                empty_title or (
+                    "No recipe suggestions"
+                    if summary is not None
+                    else "No saved recipes yet"
+                ),
+                "RecipeTitle",
             ))
             empty_layout.addWidget(_text_label(
-                "See the assessment above for details." if summary is not None else
-                "Run an assessment with the AI assistant or process recipes to build your library.",
+                empty_message or (
+                    "See the assessment above for details."
+                    if summary is not None
+                    else "Run an assessment with the AI assistant or process recipes to build your library."
+                ),
                 "RecipeIngredients",
             ))
             layout.addWidget(empty)
         layout.addStretch()
         # QScrollArea owns and deletes the previous contents on replacement.
         self.setWidget(contents)
+        if summary is not None:
+            set_themed_html(summary_label, summary)
         self.verticalScrollBar().setValue(0)
