@@ -14,72 +14,23 @@ from io_manager.main_window_style import (
 )
 from io_manager.recipe_cards import RecipeCardsView
 from io_manager.theme_switch import ThemeSwitch
-from PySide6.QtCore import Qt, QThread, Signal, QDate, QPoint
-from PySide6.QtGui import QPalette, QPainter, QPixmap, QPolygon
+from io_manager.combo_box import QComboBox
+from io_manager.calendar_date_edit import CalendarDateEdit
+from io_manager.ai_worker import AIWorker
+from PySide6.QtCore import Qt, QDate
+from PySide6.QtGui import QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QInputDialog,
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
     QTableWidgetItem, QHeaderView, QMessageBox, QListWidget, QSizePolicy,
-    QComboBox as BaseComboBox, QGridLayout, QScrollArea,
-    QDateEdit as BaseDateEdit, QDialog, QDialogButtonBox, QPlainTextEdit,
+    QGridLayout, QScrollArea,
+    QDialog, QDialogButtonBox, QPlainTextEdit,
     QCheckBox
 )
 
 
-class QComboBox(BaseComboBox):
-    def paintEvent(self, event) -> None:
-        super().paintEvent(event)
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(self.palette().color(QPalette.Text))
-        center_x = self.width() - 11
-        center_y = self.height() // 2
-        painter.drawPolygon(QPolygon([
-            QPoint(center_x - 4, center_y - 2),
-            QPoint(center_x + 4, center_y - 2),
-            QPoint(center_x, center_y + 3),
-        ]))
-
-
-class CalendarDateEdit(BaseDateEdit):
-    def paintEvent(self, event) -> None:
-        super().paintEvent(event)
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(self.palette().color(QPalette.Text))
-        center_x = self.width() - 11
-        center_y = self.height() // 2
-        painter.drawPolygon(QPolygon([
-            QPoint(center_x - 4, center_y - 2),
-            QPoint(center_x + 4, center_y - 2),
-            QPoint(center_x, center_y + 3),
-        ]))
-
-
-class AIWorker(QThread):
-    # Custom signals to safely send results or errors back to the main UI thread
-    result_ready = Signal(dict)
-    error_occurred = Signal(str)
-
-    def __init__(self, ai_manager, payload: dict) -> None:
-        super().__init__()
-        self.ai_manager = ai_manager
-        self.payload = payload
-
-    def run(self) -> None:
-        # Executes the blocking API network request on a separate thread
-        try:
-            res, err = self.ai_manager.suggest_recipes(self.payload)
-            if err:
-                self.error_occurred.emit(err)
-            else:
-                self.result_ready.emit(res)
-        except Exception as e:
-            self.error_occurred.emit(str(e))
-
+# Coordinate the main window and its inventory, recipe and assessment screens.
 class GuiView(QMainWindow):
     
     def __init__(self, controller=None) -> None:
