@@ -3,13 +3,11 @@ import json
 from pathlib import Path
 from typing import Optional, Union
 
-
-# --------------------------------------------------------------------------- #
 # Created and writing files for accepted and rejected recipes
-# --------------------------------------------------------------------------- #
+
 class RecipeResultsStore:
     # Reads accepted_recipe.json / recipes.json and writes recipe_results.csv and
-    # rejected.txt. By default everything lives next to this file.
+    # rejected.txt. By default everything lives next to this file
 
     def __init__(self, folder: Optional[Union[str, Path]] = None):
         self.folder = Path(folder) if folder is not None else Path(__file__).resolve().parent

@@ -5,23 +5,6 @@ Values = Union[str, Iterable[str], None]
 
 class InventoryFilter:
     # Decides which inventory rows pass a set of dropdown-style filters.
-    #
-    #     rule = InventoryFilter(waste_risk_level=["High", "Critical"], demand_level="High")
-    #     rows = rule.apply(table.records)       # every row that passes
-    #     rule.matches(table.records[0])         # True / False for one row
-    #
-    # Each filter takes one value ("High") or several (["High", "Critical"]).
-    # With several values a row passes that filter if it matches ANY of them,
-    # and it must pass EVERY filter that was supplied. Filters left as None are ignored.
-    # Matching ignores upper/lower case and blank values are ignored.
-    #
-    #   food_category      exact match, e.g. "Bakery"
-    #   storage_condition  contains,    e.g. "chilled" matches "Chilled (1-5°C)"
-    #   waste_risk_level   exact match, e.g. "High"
-    #   allergen           contains,    e.g. "milk"; "none" means no allergen listed
-    #   demand_level       exact match, e.g. "Low"
-    #   exclude_allergen   drops rows containing any of these allergens
-
     NO_ALLERGENS = "none"
 
     def __init__(
@@ -40,7 +23,7 @@ class InventoryFilter:
         self.demand_level = self._wanted(demand_level)
         self.exclude_allergen = self._wanted(exclude_allergen)
 
-    # ---- using the filter ------------------------------------------------------- #
+    # using the filter
     def is_active(self) -> bool:
         # False when no filter was supplied (every row would pass).
         return any((self.food_category, self.storage_condition, self.waste_risk_level,
@@ -69,7 +52,7 @@ class InventoryFilter:
         used = {name: values for name, values in vars(self).items() if values}
         return f"InventoryFilter({', '.join(f'{k}={v}' for k, v in used.items())})"
 
-    # ---- helpers ---------------------------------------------------------------- #
+    #helpers
     @staticmethod
     def _wanted(value: Values) -> list:
         # One value or many -> a clean list with blanks and None removed.

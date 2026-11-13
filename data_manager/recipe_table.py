@@ -4,10 +4,8 @@ from data_manager.csv_table import CsvTable
 
 RECIPE_COLUMNS = ["name", "ingredients", "instructions"]
 
-
-# --------------------------------------------------------------------------- #
 # recipe_results.csv
-# --------------------------------------------------------------------------- #
+
 class RecipeTable(CsvTable):
     COLUMNS = RECIPE_COLUMNS
 
@@ -22,9 +20,7 @@ class RecipeTable(CsvTable):
         return ingredients.strip()
 
     def add(self, name: str, ingredients: Union[str, Iterable[str]], instructions: str) -> dict:
-        # Append a recipe and write it to recipe_results.csv.
-        #
-        # `ingredients` can be a comma-separated string or a list of strings.
+        # Append a recipe and write it to recipe_results.csv
 
         if not name.strip():
             raise ValueError("name is required")
@@ -39,8 +35,6 @@ class RecipeTable(CsvTable):
         instructions: Optional[str] = None,
     ) -> dict:
         # Change fields of the recipe at `index` and save (omitted fields are kept).
-        #
-        # Returns the updated record.
 
         self._check_index(index)
         record = dict(self.records[index])
@@ -63,11 +57,7 @@ class RecipeTable(CsvTable):
         instructions: Optional[str] = None,                      # substring
         item_id: Optional[int] = None,                           # the recipe's number in the list (position + 1)
     ) -> list:
-        # Return recipes matching ALL supplied filters (unset = ignored).
-        #
-        # Ingredient terms match as substrings, so "tomato" finds "tomatoes".
-        # `item_id` is the number shown next to the recipe in the full recipe list
-        # (1 = first recipe), so it changes if recipes above it are added or removed.
+        # Return recipes matching ALL supplied filters (unset = ignored)
 
         need_all = [i.lower() for i in self._as_list(ingredient)]
         need_any = [i.lower() for i in self._as_list(any_ingredient)]

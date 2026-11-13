@@ -838,7 +838,7 @@ class GuiView(QMainWindow):
         self._alert_panel.hide()
 
     def _on_home_triggered(self) -> None:
-        """Return to the welcome surface without changing data or background work."""
+        #Return to the welcome surface without changing data or background work.
         self._update_active_navigation_state(self._btn_home)
         for panel in (
             self._search_panel, self._recipe_search_panel, self._edit_scroll_area,
@@ -2316,4 +2316,4 @@ class GuiView(QMainWindow):
             if self._controller and hasattr(self._controller, "data_manager"):
                 self._controller.data_manager.save_all()
             self.close()
-    
+    

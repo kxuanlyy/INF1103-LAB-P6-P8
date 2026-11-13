@@ -7,18 +7,9 @@ from typing import Iterable, Optional, Union
 
 log = logging.getLogger("data_manager")
 
-
-# --------------------------------------------------------------------------- #
 # Base class: one CSV file held in memory
-# --------------------------------------------------------------------------- #
+
 class CsvTable:
-    # A CSV file loaded into memory as a list of dict records (self.records).
-    #
-    # This base class handles what every table needs: reading the file (and
-    # repairing it if it is missing or corrupt), saving it atomically, and the
-    # add / replace / delete bookkeeping. Every change is saved straight away and
-    # is undone in memory if the save fails, so memory and disk never disagree.
-    # Subclasses set COLUMNS and add their own fields and searches.
 
     COLUMNS: list = []
 
@@ -65,12 +56,7 @@ class CsvTable:
             return None
 
     def _read(self) -> list:
-        # Read the CSV into a list of dicts, repairing missing/corrupt files.
-        #
-        # Always returns a list (possibly empty); only raises for problems that
-        # aren't about the file's contents, such as a permissions error on read.
-
-        # Missing or zero-byte file -> create a header-only CSV.
+        # Read the CSV into a list of dicts, repairing missing/corrupt files
         if not os.path.exists(self.path) or os.path.getsize(self.path) == 0:
             log.warning("%s is missing or empty; creating a new one.", self.path)
             self._create_empty()
