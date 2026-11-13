@@ -12,6 +12,19 @@ except ImportError:
 
 class KeyReader:
     # Reads single key presses from the terminal, without waiting for Enter.
+    #
+    #     if KeyReader.is_interactive():
+    #         with KeyReader() as keys:
+    #             key = keys.read_key()
+    #
+    # read_key() returns one of:
+    #   - a single printable character, e.g. "a" or "é"
+    #   - "ENTER", "BACKSPACE", "ESC", "CTRL_U"
+    #   - "OTHER" for keys we don't use (arrows, Delete, function keys, ...)
+    # Ctrl+C raises KeyboardInterrupt as usual.
+    #
+    # The terminal is put back exactly as it was when the `with` block ends,
+    # even if an error happens inside it.
 
     ESCAPE_WAIT = 0.05   # seconds to wait to tell a lone Esc from an arrow-key sequence
 
@@ -34,12 +47,13 @@ class KeyReader:
             termios.tcsetattr(self._fd, termios.TCSADRAIN, self._saved)
         return False
 
+    # ---- is there more input waiting? (lets pasted text be handled in one go) ---- #
     def pending(self, timeout: float = 0) -> bool:
         if msvcrt:
             return msvcrt.kbhit()
         return bool(select.select([self._fd], [], [], timeout)[0])
 
-    #reading
+    # ---- reading ---------------------------------------------------------------- #
     def read_key(self) -> str:
         return self._read_key_windows() if msvcrt else self._read_key_posix()
 
@@ -58,7 +72,7 @@ class KeyReader:
             raise EOFError("Input closed.")
         if first == b"\x1b":
             return self._read_escape()
-        # A character outside ASCII arrives as several bytes; collect them all
+        # A character outside ASCII arrives as several bytes; collect them all.
         lead = first[0]
         extra = 3 if lead >= 0xF0 else 2 if lead >= 0xE0 else 1 if lead >= 0xC0 else 0
         data = first
@@ -67,7 +81,7 @@ class KeyReader:
         return self._name_for(data.decode("utf-8", errors="replace"))
 
     def _read_escape(self) -> str:
-        # A lone Esc press has nothing after it; arrow keys etc. send "ESC [ A" and so on
+        # A lone Esc press has nothing after it; arrow keys etc. send "ESC [ A" and so on.
         if not self.pending(self.ESCAPE_WAIT):
             return "ESC"
         os.read(self._fd, 1)           # the "[" or "O"

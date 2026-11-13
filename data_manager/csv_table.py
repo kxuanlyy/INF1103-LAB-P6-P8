@@ -7,9 +7,8 @@ from typing import Iterable, Optional, Union
 
 log = logging.getLogger("data_manager")
 
-# Base class: one CSV file held in memory
-
 class CsvTable:
+    # A CSV file loaded into memory as a list of dict records (self.records)
 
     COLUMNS: list = []
 
@@ -17,7 +16,7 @@ class CsvTable:
         self.path = path
         self.records: list = []
 
-    # ---- file helpers ----------------------------------------------------- #
+    #file helpers
     def _write(self, rows: list) -> None:
         # Write atomically so a crash mid-save can't corrupt the file.
         folder = os.path.dirname(self.path) or "."
@@ -35,14 +34,14 @@ class CsvTable:
             raise
 
     def _create_empty(self) -> None:
-        # Create a header-only CSV. If that isn't possible, carry on in memory.
+        # Create a header-only CSV. If that isn't possible, carry on in memory
         try:
             self._write([])
         except OSError as exc:
             log.error("Could not create %s (%s). Continuing with in-memory data only.", self.path, exc)
 
     def _quarantine(self) -> Optional[str]:
-        # Move a corrupt file aside (never delete it). Returns the new path, or None.
+        # Move a corrupt file aside (never delete it). Returns the new path, or None
         backup = f"{self.path}.corrupt-{datetime.now().strftime('%d%m%Y-%H%M%S')}"
         n = 1
         while os.path.exists(backup):
@@ -57,6 +56,7 @@ class CsvTable:
 
     def _read(self) -> list:
         # Read the CSV into a list of dicts, repairing missing/corrupt files
+        # Missing or zero-byte file -> create a header-only CSV.
         if not os.path.exists(self.path) or os.path.getsize(self.path) == 0:
             log.warning("%s is missing or empty; creating a new one.", self.path)
             self._create_empty()
@@ -76,39 +76,38 @@ class CsvTable:
                         rows.append(clean)
                 return rows
         except (UnicodeDecodeError, csv.Error, ValueError) as exc:
-            # UnicodeDecodeError is a ValueError subclass; listed for clarity.
+            # UnicodeDecodeError is a ValueError subclass; listed for clarity
             backup = self._quarantine()
             log.error("%s is corrupt (%s). %s Starting with an empty file.",
                       self.path, exc, f"Original saved as {backup}." if backup else "Original left in place.")
             self._create_empty()
             return []
 
-    # ---- load / save ------------------------------------------------------ #
+    #load / save
     def _clean(self, rows: list) -> list:
-        # Hook: subclasses tidy freshly read rows here (default: leave as is).
+        # Hook: subclasses tidy freshly read rows here (default: leave as is)
         return rows
 
     def _rows_for_saving(self) -> list:
-        # Hook: subclasses adjust records just before writing (default: as is).
+        # Hook: subclasses adjust records just before writing (default: as is)
         return self.records
 
     def load(self) -> None:
         # (Re)load the file from disk. self.records is replaced in place, so any
-        # outside reference to the list stays valid.
+        # outside reference to the list stays valid
         self.records[:] = self._clean(self._read())
 
     def save(self) -> None:
         self._write(self._rows_for_saving())
 
-    # ---- change bookkeeping (saved immediately, undone if saving fails) ---- #
+    #change bookkeeping (saved immediately, undone if saving fails)
     def _check_index(self, index: int) -> None:
         # Raise IndexError unless `index` is a valid position in the table.
         if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < len(self.records):
             raise IndexError(f"No record at index {index!r}; there are {len(self.records)} record(s).")
 
     def _append_and_save(self, record: dict) -> dict:
-        # Add a record and save. If saving fails (e.g. file locked or disk
-        # full) the record is removed again so memory and disk stay in sync.
+        # Add a record and save. If saving fails the record is removed again so memory and disk stay in sync
         self.records.append(record)
         try:
             self.save()
@@ -119,7 +118,7 @@ class CsvTable:
         return record
 
     def _replace_and_save(self, index: int, record: dict) -> dict:
-        # Swap in an updated record and save; restore the old one if saving fails.
+        # Swap in an updated record and save; restore the old one if saving fails
         old = self.records[index]
         self.records[index] = record
         try:
@@ -131,7 +130,7 @@ class CsvTable:
         return record
 
     def _delete_and_save(self, index: int) -> dict:
-        # Remove a record and save; put it back if saving fails.
+        # Remove a record and save; put it back if saving fails
         old = self.records.pop(index)
         try:
             self.save()
@@ -142,11 +141,11 @@ class CsvTable:
         return old
 
     def delete(self, index: int) -> dict:
-        # Remove the record at `index`, save, and return the removed record.
+        # Remove the record at `index`, save, and return the removed record
         self._check_index(index)
         return self._delete_and_save(index)
 
-    # ---- matching helpers shared by the searches -------------------------- #
+    #matching helpers shared by the searches
     @staticmethod
     def _contains(haystack: str, needle: Optional[str]) -> bool:
         # Case-insensitive substring match. needle=None means 'no filter'.

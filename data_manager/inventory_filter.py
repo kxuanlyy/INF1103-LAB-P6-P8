@@ -4,7 +4,8 @@ Values = Union[str, Iterable[str], None]
 
 
 class InventoryFilter:
-    # Decides which inventory rows pass a set of dropdown-style filters.
+    # Decides which inventory rows pass a set of dropdown-style filters
+
     NO_ALLERGENS = "none"
 
     def __init__(
@@ -23,9 +24,9 @@ class InventoryFilter:
         self.demand_level = self._wanted(demand_level)
         self.exclude_allergen = self._wanted(exclude_allergen)
 
-    # using the filter
+    #filter
     def is_active(self) -> bool:
-        # False when no filter was supplied (every row would pass).
+        # False when no filter was supplied (every row would pass)
         return any((self.food_category, self.storage_condition, self.waste_risk_level,
                     self.allergen, self.demand_level, self.exclude_allergen))
 
@@ -45,7 +46,7 @@ class InventoryFilter:
         return True
 
     def apply(self, records: Iterable[dict]) -> list:
-        # The rows that pass, in their original order (the same row objects, not copies).
+        # The rows that pass, in their original order (the same row objects, not copies)
         return [record for record in records if self.matches(record)]
 
     def __repr__(self) -> str:
@@ -55,7 +56,7 @@ class InventoryFilter:
     #helpers
     @staticmethod
     def _wanted(value: Values) -> list:
-        # One value or many -> a clean list with blanks and None removed.
+        # One value or many -> a clean list with blanks and None removed
         if value is None:
             return []
         items = [value] if isinstance(value, str) else list(value)

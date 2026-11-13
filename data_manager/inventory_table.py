@@ -24,7 +24,6 @@ INVENTORY_ARGS = {
     "quantity": "quantity",
 }
 
-# food_inventory.csv
 class InventoryTable(CsvTable):
     COLUMNS = INVENTORY_COLUMNS
     INT_FIELDS = INVENTORY_INT_FIELDS
@@ -49,7 +48,7 @@ class InventoryTable(CsvTable):
         raise ValueError(f"Unrecognised date '{value}'. Use DD-MM-YYYY.")
 
     def _clean(self, rows: list) -> list:
-        # Numeric columns become ints; anything that isn't a whole number becomes None.
+        # Numeric columns become ints; anything that isn't a whole number becomes None
         for row in rows:
             for field in self.INT_FIELDS:
                 try:
@@ -94,6 +93,7 @@ class InventoryTable(CsvTable):
 
     def update(self, index: int, **changes) -> dict:
         # Change fields of the inventory record at `index` and save
+
         self._check_index(index)
         unknown = [k for k in changes if k not in self.ARGS]
         if unknown:
@@ -127,7 +127,7 @@ class InventoryTable(CsvTable):
         max_quantity: Optional[int] = None,
         item_id: Optional[int] = None,              # the item's number in the list (position + 1)
     ) -> list:
-        # Return inventory rows matching ALL supplied filters (unset = ignored).
+        # Return inventory rows matching ALL supplied filters (unset = ignored)
 
         before, after = self._to_date(use_by_before), self._to_date(use_by_after)
         results = []

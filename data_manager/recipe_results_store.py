@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Optional, Union
 
 # Created and writing files for accepted and rejected recipes
-
 class RecipeResultsStore:
     # Reads accepted_recipe.json / recipes.json and writes recipe_results.csv and
     # rejected.txt. By default everything lives next to this file

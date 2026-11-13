@@ -4,8 +4,6 @@ from data_manager.csv_table import CsvTable
 
 RECIPE_COLUMNS = ["name", "ingredients", "instructions"]
 
-# recipe_results.csv
-
 class RecipeTable(CsvTable):
     COLUMNS = RECIPE_COLUMNS
 
@@ -21,6 +19,7 @@ class RecipeTable(CsvTable):
 
     def add(self, name: str, ingredients: Union[str, Iterable[str]], instructions: str) -> dict:
         # Append a recipe and write it to recipe_results.csv
+        # `ingredients` can be a comma-separated string or a list of strings
 
         if not name.strip():
             raise ValueError("name is required")
@@ -34,7 +33,8 @@ class RecipeTable(CsvTable):
         ingredients: Union[str, Iterable[str], None] = None,
         instructions: Optional[str] = None,
     ) -> dict:
-        # Change fields of the recipe at `index` and save (omitted fields are kept).
+        # Change fields of the recipe at `index` and save
+        # Returns the updated record
 
         self._check_index(index)
         record = dict(self.records[index])
