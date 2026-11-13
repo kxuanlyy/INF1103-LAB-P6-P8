@@ -27,6 +27,14 @@ class MenuController:
         self.business_rules_editor = BusinessRulesEditor()
         self.inventory_alert_service = InventoryAlertService()
                 
+    def load_business_rules(self) -> List[Dict[str, Any]]:
+        # Supply validated recipe rules to the GUI through the existing service.
+        return self.business_rules_editor.load_rules()
+
+    def editbusinessrules(self, updated_rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        # Keep validation and file saving in BusinessRulesEditor.
+        return self.business_rules_editor.editbusinessrules(updated_rules)
+
     def _get_record_ids(self, table: List[Any], records: List[Any]) -> List[int]:
         position = {id(record): n for n, record in enumerate(table, start=1)}
         return [position[id(record)] for record in records]
