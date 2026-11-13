@@ -1625,16 +1625,17 @@ class GuiView(QMainWindow):
             while old_layout.count():
                 child = old_layout.takeAt(0)
                 if child.widget() and child.widget() != self._log_display:
+                    child.widget().hide()
                     child.widget().deleteLater()
             QWidget().setLayout(old_layout)
 
         master_layout = QVBoxLayout(self._frame_ai_input)
-        master_layout.setContentsMargins(16, 14, 16, 16)
-        master_layout.setSpacing(10)
+        master_layout.setContentsMargins(20, 20, 20, 20)
+        master_layout.setSpacing(14)
 
         # Main Descriptive Title Header Label block
-        title_lbl = QLabel("🤖 Run AI Waste Risk & Recipe Assessment Module Engine")
-        title_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: " + self._dialog_text_color() + "; margin-bottom: 4px;")
+        title_lbl = QLabel("Ingredient assessment")
+        title_lbl.setObjectName("SectionTitle")
         master_layout.addWidget(title_lbl)
 
         self._ai_inputs_row = QWidget()
@@ -1643,15 +1644,15 @@ class GuiView(QMainWindow):
         row_layout.setSpacing(12)
 
         self._input_ai_id = QLineEdit()
-        self._input_ai_id.setPlaceholderText("Enter Item ID (e.g. 36)...")
-        self._input_ai_id.setFixedWidth(180)
+        self._input_ai_id.setPlaceholderText("Item ID, e.g. 36")
+        self._input_ai_id.setFixedWidth(145)
 
         self._input_ai_notes = QLineEdit()
-        self._input_ai_notes.setPlaceholderText("Enter quality observations / structural notes (optional)...")
+        self._input_ai_notes.setPlaceholderText("Quality observations (optional)")
 
-        self._btn_execute_ai = QPushButton("Enquire")
+        self._btn_execute_ai = QPushButton("Assess item")
         self._btn_execute_ai.setObjectName("ApplyFilterButton")
-        self._btn_execute_ai.setFixedWidth(100)
+        self._btn_execute_ai.setFixedWidth(116)
         self._btn_execute_ai.clicked.connect(self._execute_threaded_ai_analysis)
 
         # Assemble inline components horizontally onto the row layout matrix
@@ -1664,12 +1665,13 @@ class GuiView(QMainWindow):
         status_row_layout = QHBoxLayout(status_row)
         status_row_layout.setContentsMargins(0, 0, 0, 0)
         
-        self._lbl_ai_loading = QLabel("")
+        self._lbl_ai_loading = QLabel("Choose an item from your inventory to begin.")
         self._lbl_ai_loading.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self._lbl_ai_loading.setStyleSheet("font-family: 'Consolas', monospace; font-size: 13px; color: #2ecc71;")
+        self._lbl_ai_loading.setObjectName("AssistantStatus")
+        self._lbl_ai_loading.setWordWrap(True)
         status_row_layout.addWidget(self._lbl_ai_loading)
         
-        self._btn_more_details = QPushButton("📋 More Details")
+        self._btn_more_details = QPushButton("More details")
         self._btn_more_details.setObjectName("ApplyFilterButton")
         self._btn_more_details.setFixedWidth(145)
         self._btn_more_details.hide()
@@ -1680,11 +1682,11 @@ class GuiView(QMainWindow):
         self._log_display.setParent(self._frame_ai_input)
         self._log_display.setMinimumHeight(240)
         self._log_display.setMaximumHeight(16777215)
-        master_layout.addWidget(self._log_display)
+        master_layout.addWidget(self._log_display, 1)
         self._log_display.hide()
         self._log_display.clear()
 
-        master_layout.addStretch()
+        master_layout.setAlignment(Qt.AlignTop)
 
         self._frame_ai_input.show()
         self._btn_execute_ai.setEnabled(True)
@@ -1731,11 +1733,12 @@ class GuiView(QMainWindow):
         self._ai_inputs_row.hide()
         self._btn_more_details.hide()
         self._log_display.setParent(self._frame_ai_input)
-        self._frame_ai_input.layout().addWidget(self._log_display)
-        self._lbl_ai_loading.setText(f"⚙️ Processing AI Assessment for '{selected_record['food']}'...\nPlease wait.")
+        self._frame_ai_input.layout().addWidget(self._log_display, 1)
+        self._lbl_ai_loading.setText(f"Assessing {selected_record['food']} - Please wait.")
         self._log_display.show()
         self._log_display.clear()
-        self._log_display.setFixedHeight(300)
+        self._log_display.setMinimumHeight(240)
+        self._log_display.setMaximumHeight(16777215)
 
         self._ai_thread = AIWorker(self._controller.ai_manager, payload)
 
@@ -1749,38 +1752,39 @@ class GuiView(QMainWindow):
     def _handle_ai_success(self, res: dict, selected_record: dict) -> None:
         # Handles updating the main text UI view elements once the thread exits successfully
         brief_html = f"""
-        <div style='font-family: Arial; font-size: 13px; color: #e0e0e0; line-height: 1.5;'>
-            <div style='background-color: #27ae60; color: #ffffff; padding: 8px; font-weight: bold; border-radius: 4px; text-align: center; margin-bottom: 10px;'>
-                🤖 AI DISCOVERY ASSESSMENT MATRIX SAVED 🤖
-            </div>
-            <p><b>✅ Successfully processed item:</b> <span style='color: #2ecc71;'>{selected_record['food'].upper()}</span></p>
-            <p><b>⭐ Waste Risk Checked:</b> {selected_record['waste_risk_level']}</p>
-            <div style='margin-top: 10px; margin-bottom: 10px;'>
-                <b style='color: #ffffff;'>📝 Suggested Recipes:</b><br/>
+        <div style='font-size: 13px; color: #dce3df;'>
+            <p style='color: #a7c6b4; font-size: 11px;'>ASSESSMENT SAVED</p>
+            <h2 style='color: #f1f4f2; font-size: 20px;'>{escape(selected_record['food'].capitalize())}</h2>
+            <p style='color: #b9c6bf;'>Waste risk checked: <b>{escape(str(selected_record['waste_risk_level']))}</b></p>
+            <p><b>Suggested recipes</b></p>
+            <table width='100%' cellspacing='4' cellpadding='8'>
         """
         
         if res and isinstance(res, dict) and res.get('recipes'):
             for number, recipe in enumerate(res.get('recipes', []), start=1):
-                brief_html += f"<span style='margin-left: 15px; color: #3498db;'>• [{number}] {recipe.get('name', 'Unknown Recipe').upper()}</span><br/>"
+                brief_html += (
+                    "<tr style='background-color: #30463a;'>"
+                    f"<td width='36' style='color: #a7c6b4;'>{number:02d}</td>"
+                    f"<td>{escape(recipe.get('name', 'Unknown Recipe'))}</td></tr>"
+                )
             self._btn_more_details.setProperty("latest_res", res)
             if not hasattr(self._btn_more_details, '_is_connected'):
                 self._btn_more_details.clicked.connect(lambda: self.print_ai_result(self._btn_more_details.property("latest_res"), RECIPES_PATH))
                 self._btn_more_details._is_connected = True
             self._btn_more_details.show()
         else:
-            brief_html += "<span style='margin-left: 15px; color: #e74c3c;'>None returned.</span><br/>"
+            brief_html += "<tr><td>No recipe suggestions returned.</td></tr>"
 
-        brief_html += """</table><p style='color: #aabfb2; margin-top: 16px;'>
-            Suggestions are ready in Process recipes.</p>"""
+        brief_html += "</table></div>"
         style_surface(self._log_display, "QTextEdit { background: #273a31; border-color: #425b4c; }")
         set_themed_html(self._log_display, brief_html)
         self._controller.data_manager.load()  
-        self._lbl_ai_loading.setText("✅ AI Analysis complete!")
+        self._lbl_ai_loading.setText("Assessment complete - Suggestions ready to review")
 
     def _handle_ai_failure(self, err_msg: str) -> None:
         # Handles displaying connection exceptions without crashing the UI loop thread
         QMessageBox.critical(self, "API Connection Failure", f"Assessment failed: {err_msg}")
-        self._lbl_ai_loading.setText("⚠️ Failed to load AI data.")
+        self._lbl_ai_loading.setText("Assessment failed. Please try again.")
         self._ai_inputs_row.show()
 
     def print_ai_result(self, result: dict, recipes_path: str) -> None:
@@ -1903,12 +1907,12 @@ class GuiView(QMainWindow):
             rej_file = str(folder / "rejected.txt")
 
             table_html = """
-            <table width='100%' cellpadding='8' cellspacing='0' style='border-collapse: collapse; font-family: Arial, sans-serif; font-size: 13px; margin-top: 15px; color: #f5f5f5;'>
+            <table width='100%' cellpadding='10' cellspacing='0' style='border-collapse: collapse; font-size: 13px; margin-top: 15px; color: #f5f5f5;'>
                 <thead>
-                    <tr style='background-color: #2a2a2a;'>
-                        <th width='20%' style='border: 1px solid #2d2d2d; text-align: left; padding: 10px; color: #ffffff; font-weight: bold;'>Status</th>
-                        <th width='35%' style='border: 1px solid #2d2d2d; text-align: left; padding: 10px; color: #ffffff; font-weight: bold;'>Recipe Name</th>
-                        <th width='45%' style='border: 1px solid #2d2d2d; text-align: left; padding: 10px; color: #ffffff; font-weight: bold;'>Evaluation Details</th>
+                    <tr style='background-color: #30383c;'>
+                        <th width='20%' style='border: 1px solid #3c464a; text-align: left; padding: 10px; color: #ffffff; font-weight: bold;'>Status</th>
+                        <th width='35%' style='border: 1px solid #3c464a; text-align: left; padding: 10px; color: #ffffff; font-weight: bold;'>Recipe Name</th>
+                        <th width='45%' style='border: 1px solid #3c464a; text-align: left; padding: 10px; color: #ffffff; font-weight: bold;'>Evaluation Details</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1922,12 +1926,12 @@ class GuiView(QMainWindow):
                     for row in reader:
                         if row:
                             recipe_name = row[0].strip().title()
-                            bg_color = "#252525" if row_idx % 2 == 0 else "#1e1e1e"
+                            bg_color = "#293034" if row_idx % 2 == 0 else "#242a2d"
                             table_html += f"""
-                            <tr style='background-color: {bg_color}; font-family: Arial, sans-serif;'>
-                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #2ecc71; font-weight: bold;'><img src="foodrescue-icon:accepted" width="16" height="16" /> Accepted</span></td>
-                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><b>{recipe_name}</b></td>
-                                <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #a0a0a0;'>Passed business rules verification (Matched template)</span></td>
+                            <tr style='background-color: {bg_color}; '>
+                                <td style='border: 1px solid #3c464a; padding: 8px;'><span style='color: #b0cfbc; font-weight: bold;'>Accepted</span></td>
+                                <td style='border: 1px solid #3c464a; padding: 8px;'><b>{recipe_name}</b></td>
+                                <td style='border: 1px solid #3c464a; padding: 8px;'><span style='color: #99a3a9;'>Passed business rules verification (Matched template)</span></td>
                             </tr>
                             """
                             row_idx += 1
@@ -1951,21 +1955,21 @@ class GuiView(QMainWindow):
                             clean_line = clean_line.replace("Rejected recipe:", "").strip()
                             recipe_name = clean_line.title()
 
-                        bg_color = "#252525" if row_idx % 2 == 0 else "#1e1e1e"
+                        bg_color = "#293034" if row_idx % 2 == 0 else "#242a2d"
                         table_html += f"""
-                        <tr style='background-color: {bg_color}; font-family: Arial, sans-serif;'>
-                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #e74c3c; font-weight: bold;'><img src="foodrescue-icon:rejected" width="16" height="16" /> Rejected</span></td>
-                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><b>{recipe_name}</b></td>
-                            <td style='border: 1px solid #2d2d2d; padding: 8px;'><span style='color: #f1c40f;'><img src="foodrescue-icon:warning" width="16" height="16" /> {reason}</span></td>
+                        <tr style='background-color: {bg_color}; '>
+                            <td style='border: 1px solid #3c464a; padding: 8px;'><span style='color: #dcaaa9; font-weight: bold;'>Rejected</span></td>
+                            <td style='border: 1px solid #3c464a; padding: 8px;'><b>{recipe_name}</b></td>
+                            <td style='border: 1px solid #3c464a; padding: 8px;'><span style='color: #cfbc97;'>{reason}</span></td>
                         </tr>
                         """
                         row_idx += 1
 
             if row_idx == 0:
                 table_html += """
-                <tr style='font-family: Arial, sans-serif;'>
-                    <td colspan='3' style='border: 1px solid #2d2d2d; text-align: center; padding: 15px; color: #bdc3c7;'>
-                        <img src="foodrescue-icon:warning" width="16" height="16" /> No validation data records found. Run an evaluation via 'Ask AI Assistant' first!
+                <tr style=''>
+                    <td colspan='3' style='border: 1px solid #3c464a; text-align: center; padding: 15px; color: #bdc3c7;'>
+                        No validation data records found. Run an evaluation via 'Ask AI Assistant' first!
                     </td>
                 </tr>
                 """
@@ -1973,24 +1977,24 @@ class GuiView(QMainWindow):
             table_html += "</tbody></table>"
 
             full_html = f"""
-            <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
-                <div style='background-color: #2c3e50; color: #ffffff; padding: 12px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 16px; margin-bottom: 15px;'>
+            <div style='font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
+                <div style='background-color: #273a31; color: #ffffff; padding: 12px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 16px; margin-bottom: 15px;'>
                     Recipe processing results
                 </div>
                 
                 {table_html}
                 
-                <div style='margin-top: 25px; background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 6px; padding: 15px;'>
-                    <h3 style='color: #ffffff; margin-top: 0px; margin-bottom: 12px; font-size: 16px; border-bottom: 2px solid #2ecc71; padding-bottom: 6px;'>
-                        <img src="foodrescue-icon:summary" width="16" height="16" /> Summary Report
+                <div style='margin-top: 25px; background-color: #242a2d; border: 1px solid #3c464a; border-radius: 6px; padding: 15px;'>
+                    <h3 style='color: #ffffff; margin-top: 0px; margin-bottom: 12px; font-size: 16px; border-bottom: 2px solid #b0cfbc; padding-bottom: 6px;'>
+                        Evaluation summary
                     </h3>
-                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #2ecc71; font-weight: bold;'><img src="foodrescue-icon:accepted" width="16" height="16" /> Accepted Recipes :</span> <b>{report.get("accepted", 0)}</b></p>
-                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #e74c3c; font-weight: bold;'><img src="foodrescue-icon:rejected" width="16" height="16" /> Rejected Recipes :</span> <b>{report.get("rejected", 0)}</b></p>
+                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #b0cfbc; font-weight: bold;'>Accepted Recipes :</span> <b>{report.get("accepted", 0)}</b></p>
+                    <p style='margin: 6px 0; font-size: 13px;'><span style='color: #dcaaa9; font-weight: bold;'>Rejected Recipes :</span> <b>{report.get("rejected", 0)}</b></p>
                     
                     <div style='margin-top: 14px; padding-top: 10px; border-top: 1px dashed #3a3a3a; font-size: 12px; color: #bdc3c7;'>
-                        <p style='margin: 0 0 6px 0; color: #ffffff; font-weight: bold;'><img src="foodrescue-icon:folder" width="16" height="16" /> Saved Outputs Location:</p>
-                        <p style='margin: 4px 0; font-family: monospace; color: #2ecc71; word-break: break-all;'><b>Accepted:</b> {r_file}</p>
-                        <p style='margin: 4px 0; font-family: monospace; color: #e74c3c; word-break: break-all;'><b>Rejections:</b> {rej_file}</p>
+                        <p style='margin: 0 0 6px 0; color: #ffffff; font-weight: bold;'>Saved files</p>
+                        <p style='margin: 4px 0; color: #b0cfbc; word-break: break-all;'><b>Accepted:</b> {r_file}</p>
+                        <p style='margin: 4px 0; color: #dcaaa9; word-break: break-all;'><b>Rejections:</b> {rej_file}</p>
                     </div>
                 </div>
             </div>
@@ -2018,75 +2022,15 @@ class GuiView(QMainWindow):
         self._inventory_table.hide()
         self._recipe_search_panel.hide()
 
-        self._log_display.setParent(self._display_container)
-        self._display_layout.addWidget(self._log_display)
-        
-        self._log_display.setMaximumHeight(16777215)
-        self._log_display.setMinimumHeight(0)
-        
-        self._log_display.show()
-        self._log_display.clear()
-        
+        self._log_display.hide()
+
         try:
             self._controller.data_manager.load()
             saved_recipes = self._controller.data_manager.recipes.records
-            
-            if not saved_recipes:
-                set_themed_html(self._log_display,
-                    "<div style='font-family: Arial, sans-serif; font-size: 14px; color: #bdc3c7; "
-                    "background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 6px; "
-                    "padding: 15px; text-align: center;'>"
-                    "ℹ️ <b>No historical recipes found in database logs.</b><br/>"
-                    "<span style='font-size: 12px; color: #777777;'>"
-                    "Run an assessment query via the AI Assistant or Process Recipes first!</span></div>"
-                )
-                return
+            # Reuse the themed, naturally sized cards without changing stored recipes.
+            self._recipe_cards.set_recipes(saved_recipes)
+            self._recipe_cards.show()
 
-            html_content = """
-            <div style='font-family: Arial, sans-serif; font-size: 13px; color: #f5f5f5; line-height: 1.6;'>
-                <div style='background-color: #2c3e50; color: #ffffff; padding: 12px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 15px; margin-bottom: 18px;'>
-                    <img src="foodrescue-icon:book" width="16" height="16" /> Recipe library
-                </div>
-            """
-
-            for number, recipe in enumerate(saved_recipes, start=1):
-                recipe_name = recipe.get('name', 'Unknown Recipe').upper()
-                ingredients = recipe.get('ingredients', 'None listed')
-                instructions = recipe.get('instructions', 'No execution steps provided.')
-                
-                formatted_steps = ""
-                if "Step " in instructions or "1. " in instructions:
-                    formatted_steps = f"<div style='color: #ecf0f1; white-space: pre-wrap;'>{instructions}</div>"
-                else:
-                    steps = [s.strip() for s in instructions.split(". ") if s.strip()]
-                    for step_idx, step_text in enumerate(steps, start=1):
-                        # Ensure trailing periods remain intact
-                        clean_step = step_text if step_text.endswith(".") else f"{step_text}."
-                        formatted_steps += f"<div style='margin-bottom: 4px;'><b>{step_idx}.</b> {clean_step}</div>"
-
-                html_content += f"""
-                <div style='background-color: #1e1e1e; border: 1px solid #2d2d2d; border-left: 5px solid #27ae60; border-radius: 6px; padding: 16px; margin-bottom: 15px;'>
-                    <div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2d2d2d; padding-bottom: 6px; margin-bottom: 10px;'>
-                        <span style='color: #27ae60; font-size: 14px; font-weight: bold;'><img src="foodrescue-icon:recipe" width="16" height="16" /> [{number}] {recipe_name}</span>
-                    </div>
-                    
-                    <p style='margin: 4px 0 10px 0;'>
-                        <b style='color: #ffffff;'><img src="foodrescue-icon:ingredients" width="16" height="16" /> Ingredients Checklist:</b><br/>
-                        <span style='color: #bdc3c7; font-family: monospace; font-size: 12px;'>{ingredients}</span>
-                    </p>
-                    
-                    <div style='margin-top: 8px;'>
-                        <b style='color: #ffffff;'><img src="foodrescue-icon:steps" width="16" height="16" /> Preparation Steps:</b>
-                        <div style='color: #ecf0f1; margin-left: 5px; margin-top: 4px;'>
-                            {formatted_steps}
-                        </div>
-                    </div>
-                </div>
-                """
-
-            html_content += "</div>"
-            set_themed_html(self._log_display,html_content)
-            
         except Exception as e:
             self._show_error_message("System Error", f"Could not load recipe history: {str(e)}")
 
