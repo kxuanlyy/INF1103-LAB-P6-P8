@@ -19,7 +19,6 @@ from io_manager.calendar_date_edit import CalendarDateEdit
 from io_manager.ai_worker import AIWorker
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QPainter, QPixmap
-from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QInputDialog,
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
@@ -640,17 +639,20 @@ class GuiView(QMainWindow):
         self._theme_button.setToolTip("Turn off dark mode" if dark else "Turn on dark mode")
 
     def _update_theme_icon(self, dark: bool) -> None:
-        name = "bulb-off.svg" if dark else "bulb-on.svg"
-        renderer = QSvgRenderer(os.path.join(os.path.dirname(__file__), "icons", name))
+        name = "dark-mode.png" if dark else "light-mode.png"
+        source = QPixmap(os.path.join(os.path.dirname(__file__), "icons", name))
         scale = self.devicePixelRatioF()
-        pixmap = QPixmap(round(28 * scale), round(28 * scale))
+        pixmap = source.scaled(round(28 * scale), round(28 * scale),
+                               Qt.KeepAspectRatio, Qt.SmoothTransformation)
         pixmap.setDevicePixelRatio(scale)
-        pixmap.fill(Qt.transparent)
-        painter = QPainter(pixmap)
-        renderer.render(painter)
-        painter.end()
+        # Keep the supplied silhouette visible against the dark toolbar.
+        if dark:
+            painter = QPainter(pixmap)
+            painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+            painter.fillRect(pixmap.rect(), Qt.lightGray)
+            painter.end()
         self._theme_bulb.setPixmap(pixmap)
-        description = "Dark mode: light off" if dark else "Light mode: light on"
+        description = "Dark mode" if dark else "Light mode"
         self._theme_bulb.setToolTip(description)
         self._theme_bulb.setAccessibleName(description)
 
