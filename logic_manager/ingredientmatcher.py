@@ -1,9 +1,9 @@
 
 class IngredientMatcher:
-    """Compare recipe ingredients with a standard ingredient template."""
+    
 
-    def __init__(self, minimum_match_ratio=0.6):
-        # Minimum fraction of template ingredients that must match.
+    def __init__(self, minimum_match_ratio=0.6): # compare ingredients or recipes in recipe.json to recipes in accepted_recipe.json.
+        # Minimum fraction of template ingredients that must match - 60%, subject to change.
         self.minimum_match_ratio = minimum_match_ratio
 
     @staticmethod
