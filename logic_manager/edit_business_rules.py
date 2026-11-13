@@ -6,17 +6,16 @@ from typing import Any
 
 
 class BusinessRulesEditor:
-    """Loads, validates, and saves the recipe templates used as business rules."""
 
-    def __init__(self, rules_path=None):
+    def __init__(self, rules_path=None): #saves and loads business rules from json file, path is data_manager/accepted_recipe.json
         project_root = Path(__file__).resolve().parents[1]
         self.rules_path = (
             Path(rules_path)
             if rules_path is not None
             else project_root / "data_manager" / "accepted_recipe.json"
         )
-    def load_rules(self) -> list[dict[str, Any]]:
-        """Return the current rules, or raise a clear error if the file is invalid."""
+    def load_rules(self) -> list[dict[str, Any]]: #load business rules, error if invalid or file not found.
+        
         try:
             with self.rules_path.open("r", encoding="utf-8") as rules_file:
                 rules = json.load(rules_file)
@@ -29,8 +28,8 @@ class BusinessRulesEditor:
     def editbusinessrules(
         self, updated_rules: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
-        """Validate and save rules supplied by the GUI; return the saved rules."""
-        self._validate_rules(updated_rules)
+        
+        self._validate_rules(updated_rules) #save updated rules to json file, valiate and load updated file.
         self._save_atomically(updated_rules)
         return updated_rules
 
@@ -59,8 +58,7 @@ class BusinessRulesEditor:
                     f"Rule {index} must have a non-empty list of ingredients."
                 )
 
-    def _save_atomically(self, rules: list[dict[str, Any]]) -> None:
-        """Write to a temporary file first so a failed save won't corrupt the rules."""
+    def _save_atomically(self, rules: list[dict[str, Any]]) -> None: # write to temporary file so that malformed input or corrupted file wont affect real file
         temp_path: Path | None = None
 
         try:
