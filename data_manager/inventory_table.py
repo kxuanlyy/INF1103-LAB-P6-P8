@@ -24,10 +24,6 @@ INVENTORY_ARGS = {
     "quantity": "quantity",
 }
 
-
-# --------------------------------------------------------------------------- #
-# food_inventory.csv
-# --------------------------------------------------------------------------- #
 class InventoryTable(CsvTable):
     COLUMNS = INVENTORY_COLUMNS
     INT_FIELDS = INVENTORY_INT_FIELDS
@@ -52,7 +48,7 @@ class InventoryTable(CsvTable):
         raise ValueError(f"Unrecognised date '{value}'. Use DD-MM-YYYY.")
 
     def _clean(self, rows: list) -> list:
-        # Numeric columns become ints; anything that isn't a whole number becomes None.
+        # Numeric columns become ints; anything that isn't a whole number becomes None
         for row in rows:
             for field in self.INT_FIELDS:
                 try:
@@ -78,9 +74,7 @@ class InventoryTable(CsvTable):
         demand_level: str = "",
         quantity: int = 0,
     ) -> dict:
-        # Append an inventory record and write it to food_inventory.csv.
-        #
-        # `use_by` should be D/M/YYYY to stay consistent with existing rows.
+        # Append an inventory record and write it to food_inventory.csv
 
         if not food.strip():
             raise ValueError("food is required")
@@ -98,12 +92,7 @@ class InventoryTable(CsvTable):
         return self._append_and_save(record)
 
     def update(self, index: int, **changes) -> dict:
-        # Change fields of the inventory record at `index` and save.
-        #
-        # Only the fields you pass are changed. Use the same names as add():
-        # food, food_category, use_by, storage_condition, days_to_expiry,
-        # waste_risk_level, allergen_info, demand_level, quantity.
-        # Returns the updated record.
+        # Change fields of the inventory record at `index` and save
 
         self._check_index(index)
         unknown = [k for k in changes if k not in self.ARGS]
@@ -138,10 +127,7 @@ class InventoryTable(CsvTable):
         max_quantity: Optional[int] = None,
         item_id: Optional[int] = None,              # the item's number in the list (position + 1)
     ) -> list:
-        # Return inventory rows matching ALL supplied filters (unset = ignored).
-        #
-        # `item_id` is the number shown next to the item in the full inventory list
-        # (1 = first row), so it changes if rows above it are added or removed.
+        # Return inventory rows matching ALL supplied filters (unset = ignored)
 
         before, after = self._to_date(use_by_before), self._to_date(use_by_after)
         results = []
