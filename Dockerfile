@@ -2,22 +2,48 @@ FROM python:3.12-slim AS base
 
 WORKDIR /app
 
+# System libraries the PySide6 (Qt) GUI needs to import and start inside a slim image
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        fonts-dejavu-core libgl1 libegl1 libglib2.0-0 libfontconfig1 libdbus-1-3 libxkbcommon0 libxkbcommon-x11-0 \
+        libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+        libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 libx11-xcb1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Dependencies first so this layer is cached until a requirements file changes
 COPY requirements.txt .
 COPY ai_module/requirements.txt ./ai_module/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir -r ai_module/requirements.txt
 
-RUN pip install --no-cache-dir -r requirements.txt
+# Application code: every package folder is copied whole (this also brings in
+# food_inventory.csv, the icons folder and any json files that live inside them)
+COPY main.py ./
+COPY ai_module/ ./ai_module/
+COPY data_manager/ ./data_manager/
+COPY io_manager/ ./io_manager/
+COPY logic_manager/ ./logic_manager/
 
-COPY ai_module/__init__.py ai_module/ai_manager.py ./ai_module/
-COPY main.py io_manager.py data_manager.py logic_manager.py test_logic_manager.py ./
-COPY food_inventory.csv accepted_recipe.json recipes.json ./
+# Files the app reads or rewrites at the project root
+COPY rejected.txt ./
 
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 ENV TZ=Asia/Singapore
+# A container has no GPU: draw with software rendering over X11 so the window is not blank
+ENV QT_QPA_PLATFORM=xcb
+ENV QT_XCB_GL_INTEGRATION=none
+ENV LIBGL_ALWAYS_SOFTWARE=1
 
 # --- Target 1: Interactive Application ---
+# Terminal:  docker run -it --env-file .env foodapp
+# GUI:       docker run --env-file .env -e DISPLAY=... foodapp --gui   (see notes on showing the window)
 FROM base AS app
-CMD ["python", "main.py"]
+ENTRYPOINT ["python", "main.py"]
+CMD []
 
 # --- Target 2: Automated Unit Tests ---
 FROM base AS test
-CMD ["python", "-m", "unittest", "test_logic_manager.py", "-v"]
+COPY tests/ ./tests/
+# Qt has no screen in a container, so GUI tests use the offscreen platform
+ENV QT_QPA_PLATFORM=offscreen
+CMD ["sh", "-c", "python -m unittest discover -s tests -v && python -m unittest discover -s ai_module -p 'test_*.py' -v"]

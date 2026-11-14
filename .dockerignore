@@ -3,12 +3,12 @@
 
 # Main Python files
 !main.py
-!io_manager.py
-!data_manager.py
-!logic_manager.py
+!io_manager
+!data_manager
+!logic_manager
 
 # Test Script
-!test_logic_manager.py
+!tests
 
 # Main dependencies
 !requirements.txt
@@ -16,13 +16,21 @@
 # AI module
 !ai_module/
 !ai_module/__init__.py
+!ai_module/_constants
 !ai_module/ai_manager.py
+!ai_module/ai_provider.py
+!ai_module/assessment_promt.py
+!ai_module/assessment_validator.py
+!ai_module/groq_provider.py
+!ai_module/recipe_store.py
 !ai_module/requirements.txt
 
 # Input data
 !food_inventory.csv
 !accepted_recipe.json
 !recipes.json
+!rejected.txt
+!test_recipe.json
 
 # Docker configuration
 !Dockerfile
