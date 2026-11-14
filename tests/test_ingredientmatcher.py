@@ -27,12 +27,15 @@ def expect_error(fn, error_type=ValueError):
 from logic_manager.ingredientmatcher import IngredientMatcher
 
 
-def test_normalization():
-    assert IngredientMatcher.normalize_items([" Milk ", "MILK", "  Eggs  "]) == {"milk", "eggs"}
+def test_capitalisation():
+    assert IngredientMatcher.test_capitalisation([" Milk ", "MILK", "  Eggs  "]) == {"milk", "egg"}
 
 
 def test_full_match():
-    result = IngredientMatcher().compare(["fresh tomato", "red onion"], ["tomato", "onion"])
+    result = IngredientMatcher().compare(
+        ["2 cups chopped tomatoes", "1 red onion"],
+        ["tomato", "red onion"],
+    )
     print("  matched:", result["matched"], "ratio:", result["match_ratio"])
     assert result["matches"] is True and result["match_ratio"] == 1.0
 
@@ -53,23 +56,29 @@ def test_empty_and_duplicates():
     matcher = IngredientMatcher()
     assert matcher.matches([], ["milk"]) is False
     assert matcher.matches(["milk"], []) is False
-    assert matcher.compare(["milk", "MILK"], ["milk"])["match_ratio"] == 1.0
+    result = matcher.compare(["milk", "MILK"], ["milk"])
+    assert result["matches"] is False
+    assert result["matched"] == ["milk"]
+    assert result["unmatched"] == ["MILK"]
+    assert result["match_ratio"] == 0.5
 
 
-def test_word_overlap_behavior():
-    # Current implementation matches if ANY word overlaps, not exact ingredient identity.
+def test_word_overlap_behaviour():
     result = IngredientMatcher().compare(["red pepper"], ["red apple"])
-    assert result["matches"] is True
-    print("  Note: 'red pepper' matches 'red apple' under the current word-overlap rule.")
+    assert result["matches"] is False
+    assert result["matched"] == []
+    assert result["unmatched"] == ["red pepper"]
+    assert result["match_ratio"] == 0.0
 
 
 if __name__ == "__main__":
     print("=== INGREDIENT MATCHER TESTS ===")
     run_tests([
-        ("Whitespace and case normalisation", test_normalization),
+        (""
+        "Whitespace and case normalisation", test_capitalisation),
         ("Full ingredient match", test_full_match),
         ("Threshold boundary", test_threshold_boundary),
         ("Below threshold", test_below_threshold),
         ("Empty inputs and duplicates", test_empty_and_duplicates),
-        ("Current word-overlap behaviour", test_word_overlap_behavior),
+        ("Non-matching ingredient word overlap", test_word_overlap_behaviour),
     ])
