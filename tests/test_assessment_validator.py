@@ -1,36 +1,13 @@
 from pathlib import Path
 import sys
+import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
-def run_tests(tests):
-    passed = 0
-    for name, fn in tests:
-        try:
-            fn()
-            print(f"PASS: {name}")
-            passed += 1
-        except Exception as exc:
-            print(f"FAIL: {name} - {type(exc).__name__}: {exc}")
-    print(f"\nFINAL RESULTS: {passed}/{len(tests)} TESTS PASSED")
-    if passed != len(tests):
-        raise SystemExit(1)
-
-
-def expect_error(fn, error_type=ValueError):
-    try:
-        fn()
-    except error_type:
-        return
-    raise AssertionError(f"Expected {error_type.__name__}")
-
-import json
 from copy import deepcopy
 from datetime import date, datetime
 from types import SimpleNamespace
 from ai_module.assessment_validator import AssessmentValidator
-
-validator = AssessmentValidator()
 
 
 def stock():
@@ -48,74 +25,117 @@ def analysis():
             ]}
 
 
-def test_valid_stock_and_inventory():
-    item = stock()
-    validator.validate_stock_item(item)
-    assert validator.validate_inputs(item, [item], date(2026, 11, 13)) == {"I001"}
+class TestAssessmentValidator(unittest.TestCase):
+    def setUp(self):
+        self.validator = AssessmentValidator()
 
+    def test_valid_stock_and_inventory(self):
+        item = stock()
+        self.validator.validate_stock_item(item)
+        self.assertEqual(
+            self.validator.validate_inputs(item, [item], date(2026, 11, 13)),
+            {"I001"},
+        )
 
-def test_invalid_stock():
-    for bad_quantity in [0, -1, True, float("nan")]:
-        item = stock(); item["quantity"] = bad_quantity
-        expect_error(lambda item=item: validator.validate_stock_item(item))
-    item = stock(); item["use_by"] = "15/11/2026"
-    expect_error(lambda: validator.validate_stock_item(item))
+    def test_invalid_stock(self):
+        for bad_quantity in [0, -1, True, float("nan")]:
+            with self.subTest(quantity=bad_quantity):
+                item = stock()
+                item["quantity"] = bad_quantity
+                with self.assertRaises(ValueError):
+                    self.validator.validate_stock_item(item)
 
+        item = stock()
+        item["use_by"] = "15/11/2026"
+        with self.assertRaises(ValueError):
+            self.validator.validate_stock_item(item)
 
-def test_invalid_inventory():
-    item = stock()
-    expect_error(lambda: validator.validate_inputs(item, [item, deepcopy(item)], date(2026, 11, 13)))
-    expect_error(lambda: validator.validate_inputs(item, [item], datetime(2026, 11, 13)))
-    expect_error(lambda: validator.validate_inputs(item, [], date(2026, 11, 13)))
+    def test_invalid_inventory(self):
+        item = stock()
+        with self.assertRaises(ValueError):
+            self.validator.validate_inputs(
+                item, [item, deepcopy(item)], date(2026, 11, 13)
+            )
+        with self.assertRaises(ValueError):
+            self.validator.validate_inputs(item, [item], datetime(2026, 11, 13))
+        with self.assertRaises(ValueError):
+            self.validator.validate_inputs(item, [], date(2026, 11, 13))
 
+    def test_valid_analysis(self):
+        value = analysis()
+        self.assertIs(
+            self.validator.validate_analysis(
+                value, "I001", {"I001"}, require_steps=True
+            ),
+            value,
+        )
 
-def test_valid_analysis():
-    value = analysis()
-    assert validator.validate_analysis(value, "I001", {"I001"}, require_steps=True) is value
+    def test_invalid_analysis(self):
+        value = analysis()
+        value["item_id"] = "WRONG"
+        with self.assertRaises(ValueError):
+            self.validator.validate_analysis(value, "I001")
 
+        value = analysis()
+        value["confidence"] = 1.5
+        with self.assertRaises(ValueError):
+            self.validator.validate_analysis(value, "I001")
 
-def test_invalid_analysis():
-    value = analysis(); value["item_id"] = "WRONG"
-    expect_error(lambda: validator.validate_analysis(value, "I001"))
-    value = analysis(); value["confidence"] = 1.5
-    expect_error(lambda: validator.validate_analysis(value, "I001"))
-    value = analysis(); value["allergen_uncertain"] = "false"
-    expect_error(lambda: validator.validate_analysis(value, "I001"))
+        value = analysis()
+        value["allergen_uncertain"] = "false"
+        with self.assertRaises(ValueError):
+            self.validator.validate_analysis(value, "I001")
 
+    def test_invalid_recipes(self):
+        value = analysis()
+        value["recipe_suggestions"][0]["ingredient_ids"] = ["I002"]
+        with self.assertRaises(ValueError):
+            self.validator.validate_analysis(value, "I001", {"I001"})
 
-def test_invalid_recipes():
-    value = analysis(); value["recipe_suggestions"][0]["ingredient_ids"] = ["I002"]
-    expect_error(lambda: validator.validate_analysis(value, "I001", {"I001"}))
-    value = analysis(); value["recipe_suggestions"][0]["how_to_make"] = []
-    expect_error(lambda: validator.validate_analysis(value, "I001", {"I001"}, require_steps=True))
-    value = analysis(); value["recipe_suggestions"][0]["additional_ingredients"] = ["Salt", " salt "]
-    expect_error(lambda: validator.validate_analysis(value, "I001"))
+        value = analysis()
+        value["recipe_suggestions"][0]["how_to_make"] = []
+        with self.assertRaises(ValueError):
+            self.validator.validate_analysis(
+                value, "I001", {"I001"}, require_steps=True
+            )
 
+        value = analysis()
+        value["recipe_suggestions"][0]["additional_ingredients"] = ["Salt", " salt "]
+        with self.assertRaises(ValueError):
+            self.validator.validate_analysis(value, "I001")
 
-def test_json_parsing():
-    assert validator.parse_response('```json\n{"ok": true}\n```') == {"ok": True}
-    expect_error(lambda: validator.parse_response('{"a":1,"a":2}'))
-    expect_error(lambda: validator.parse_response('{"score":NaN}'))
-    expect_error(lambda: validator.parse_response('[1,2]'))
+    def test_json_parsing(self):
+        self.assertEqual(
+            self.validator.parse_response('```json\n{"ok": true}\n```'),
+            {"ok": True},
+        )
+        for response in ['{"a":1,"a":2}', '{"score":NaN}', '[1,2]']:
+            with self.subTest(response=response):
+                with self.assertRaises(ValueError):
+                    self.validator.parse_response(response)
 
+    def test_completion_handling(self):
+        completion = SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    finish_reason="stop",
+                    message=SimpleNamespace(content='{"ok":true}', refusal=None),
+                )
+            ]
+        )
+        self.assertEqual(
+            self.validator.extract_response(completion), '{"ok":true}'
+        )
 
-def test_completion_handling():
-    completion = SimpleNamespace(choices=[SimpleNamespace(finish_reason="stop", message=SimpleNamespace(content='{"ok":true}', refusal=None))])
-    assert validator.extract_response(completion) == '{"ok":true}'
-    refused = SimpleNamespace(choices=[SimpleNamespace(finish_reason="length", message=SimpleNamespace(content="partial", refusal=None))])
-    expect_error(lambda: validator.extract_response(refused))
-    expect_error(lambda: validator.extract_response(SimpleNamespace(choices=[])))
-
-
-if __name__ == "__main__":
-    print("=== ASSESSMENT VALIDATOR TESTS ===")
-    run_tests([
-        ("Valid stock and inventory", test_valid_stock_and_inventory),
-        ("Invalid stock values", test_invalid_stock),
-        ("Invalid inventory and dates", test_invalid_inventory),
-        ("Valid AI assessment", test_valid_analysis),
-        ("Invalid AI assessment fields", test_invalid_analysis),
-        ("Invalid recipe suggestions", test_invalid_recipes),
-        ("JSON parsing and malformed JSON", test_json_parsing),
-        ("AI completion handling", test_completion_handling),
-    ])
+        refused = SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    finish_reason="length",
+                    message=SimpleNamespace(content="partial", refusal=None),
+                )
+            ]
+        )
+        with self.assertRaises(ValueError):
+            self.validator.extract_response(refused)
+        with self.assertRaises(ValueError):
+            self.validator.extract_response(SimpleNamespace(choices=[]))
