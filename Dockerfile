@@ -29,7 +29,6 @@ COPY rejected.txt ./
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 ENV TZ=Asia/Singapore
-# A container has no GPU: draw with software rendering over X11 so the window is not blank
 ENV QT_QPA_PLATFORM=xcb
 ENV QT_XCB_GL_INTEGRATION=none
 ENV LIBGL_ALWAYS_SOFTWARE=1
@@ -44,6 +43,5 @@ CMD []
 # --- Target 2: Automated Unit Tests ---
 FROM base AS test
 COPY tests/ ./tests/
-# Qt has no screen in a container, so GUI tests use the offscreen platform
 ENV QT_QPA_PLATFORM=offscreen
 CMD ["sh", "-c", "python -m unittest discover -s tests -v && python -m unittest discover -s ai_module -p 'test_*.py' -v"]
