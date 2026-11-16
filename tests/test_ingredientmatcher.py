@@ -28,7 +28,7 @@ from logic_manager.ingredientmatcher import IngredientMatcher
 
 
 def test_capitalisation():
-    assert IngredientMatcher.test_capitalisation([" Milk ", "MILK", "  Eggs  "]) == {"milk", "egg"}
+    assert IngredientMatcher.normalize_items([" Milk ", "MILK", "  Eggs  "]) == {"milk", "egg"}
 
 
 def test_full_match():
