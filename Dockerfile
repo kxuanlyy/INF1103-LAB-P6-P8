@@ -27,15 +27,13 @@ COPY logic_manager/ ./logic_manager/
 COPY rejected.txt ./
 
 ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
-ENV TZ=Asia/Singapore
-ENV QT_QPA_PLATFORM=xcb
 ENV QT_XCB_GL_INTEGRATION=none
 ENV LIBGL_ALWAYS_SOFTWARE=1
 
 # --- Target 1: Interactive Application ---
-# Terminal:  docker run -it --env-file .env foodapp
-# GUI:       docker run --env-file .env -e DISPLAY=... foodapp --gui   (see notes on showing the window)
+# Terminal:  docker run -it apikey.env foodrescue-ai-oop
+# GUI:       docker run --rm -it --env-file apikey.env -e DISPLAY=host.docker.internal:0.0 foodrescue-ai-oop --gui
+
 FROM base AS app
 ENTRYPOINT ["python", "main.py"]
 CMD []
