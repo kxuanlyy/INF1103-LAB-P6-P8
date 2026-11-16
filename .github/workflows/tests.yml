@@ -1,5 +1,8 @@
 name: Tests
-
+run: |
+          sudo apt-get update
+          sudo apt-get install --yes libegl1 libgl1
+          
 on:
   push:
   pull_request:
