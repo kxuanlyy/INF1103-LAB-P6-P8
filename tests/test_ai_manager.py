@@ -1,4 +1,5 @@
-# Offline behaviour and OOP tests. Run: python -m unittest discover -s ai_module -v.
+# Offline behaviour and OOP tests.
+# Run: python -m unittest discover -s tests -p test_ai_manager.py -v
 
 import contextlib
 import io
@@ -13,8 +14,13 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from ai_module import ai_manager as ai
+from data_manager.inventory_table import InventoryTable
 import io_manager.io_manager as io_manager
+from io_manager.console_view import ConsoleView
+from io_manager.key_reader import KeyReader
 
 
 TODAY = date(2026, 10, 1)
@@ -493,6 +499,19 @@ def io_record():
     }
 
 
+@contextlib.contextmanager
+def isolated_console(records):
+    # main() constructs its dependencies now; keep real inventory files untouched.
+    with tempfile.TemporaryDirectory() as folder:
+        inventory = InventoryTable(str(Path(folder) / "inventory.csv"))
+        inventory.records = deepcopy(records)
+        data = SimpleNamespace(inventory=inventory)
+        with patch("data_manager.data_manager.DataManager", return_value=data), \
+                patch.object(io_manager, "RecipeResultsStore"), \
+                patch.object(sys, "argv", ["main.py"]):
+            yield data
+
+
 def test_menu_calls_ai_and_displays_recipes():
     analysis = valid_analysis()
     analysis["item_id"] = "inventory-0001"
@@ -502,7 +521,7 @@ def test_menu_calls_ai_and_displays_recipes():
     }]
     client = fake_client(completion(json.dumps(analysis)))
     output = io.StringIO()
-    with patch.object(io_manager.dm, "inventory", [menu_record()]), \
+    with isolated_console([menu_record()]), \
             patch("builtins.input", side_effect=["4", "1", "Firm and fresh", "8"]), \
             patch.object(ai.RecipeStore, "save") as save, contextlib.redirect_stdout(output):
         io_manager.main(today=TODAY, client=client)
@@ -520,19 +539,22 @@ def test_menu_calls_ai_and_displays_recipes():
 
 def test_menu_reports_ai_error_and_allows_exit():
     output = io.StringIO()
-    with patch.object(io_manager.dm, "inventory", [menu_record()]), \
+    with isolated_console([menu_record()]), \
             patch("builtins.input", side_effect=["4", "1", "", "8"]), \
-            patch.object(io_manager, "suggest_recipes", return_value=(None, ai.SERVICE_ERROR)), \
+            patch.object(ai.AIManager, "suggest_recipes", return_value=(None, ai.SERVICE_ERROR)) as suggest, \
             contextlib.redirect_stdout(output):
-        io_manager.main()
+        io_manager.main(today=TODAY)
+    suggest.assert_called_once()
+    assert suggest.call_args.kwargs == {"today": TODAY}
+    assert suggest.call_args.args[0]["item"] == "Tomatoes"
     assert "Assessment failed: " + ai.SERVICE_ERROR in output.getvalue()
     assert "Exiting program" in output.getvalue()
 
 
 def test_menu_skips_ai_when_inventory_is_empty():
-    with patch.object(io_manager.dm, "inventory", []), \
+    with isolated_console([]), \
             patch("builtins.input", side_effect=["4", "8"]), \
-            patch.object(io_manager, "suggest_recipes") as suggest, \
+            patch.object(ai.AIManager, "suggest_recipes") as suggest, \
             contextlib.redirect_stdout(io.StringIO()):
         io_manager.main()
     suggest.assert_not_called()
@@ -542,9 +564,10 @@ def test_empty_recipe_result_displays_assessment_reason():
     result = {**valid_analysis(), "recipes": [], "stock_item": {"name": "Tomatoes"}}
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
-        io_manager.print_ai_result(result)
+        ConsoleView().print_ai_result(result, ai.RECIPES_PATH)
     assert result["reason"] in output.getvalue()
     assert "No recipes suggested" in output.getvalue()
+    assert str(ai.RECIPES_PATH) in output.getvalue()
 
 
 def test_ai_entry_point_delegates_to_menu_without_second_request():
@@ -583,13 +606,13 @@ def test_invalid_io_date_never_calls_ai_or_overwrites_recipes():
 
 def test_search_option_two_does_not_call_ai():
     output = io.StringIO()
-    with patch.object(io_manager.dm, "inventory", [menu_record()]), \
-            patch.object(io_manager, "run_inventory_search") as search, \
-            patch("builtins.input", side_effect=["2", "2", "1", "3", "8"]), \
-            patch.object(io_manager, "suggest_recipes") as suggest, \
+    with isolated_console([menu_record()]), \
+            patch.object(KeyReader, "is_interactive", return_value=False), \
+            patch("builtins.input", side_effect=["2", "Tomatoes", "2", "1", "3", "8"]), \
+            patch.object(ai.AIManager, "suggest_recipes") as suggest, \
             contextlib.redirect_stdout(output):
         io_manager.main()
-    search.assert_called_once_with()
+    assert "Found 1 matching item(s)" in output.getvalue()
     assert "FOOD ID: [1]" in output.getvalue()
     assert "Use-By Date:       3/10/2026" in output.getvalue()
     suggest.assert_not_called()
@@ -597,13 +620,15 @@ def test_search_option_two_does_not_call_ai():
 
 def test_loading_io_module_does_not_prompt_or_rewrite_inventory():
     with patch("builtins.input") as prompt, \
-            patch.object(io_manager.dm, "load") as load, \
-            patch.object(io_manager.dm, "save_inventory") as save:
+            patch("data_manager.data_manager.DataManager") as data_manager, \
+            patch("data_manager.recipe_results_store.RecipeResultsStore") as results_store, \
+            patch.object(ai, "AIManager") as ai_manager:
         module = ai.runpy.run_path(str(Path(io_manager.__file__)))
     assert callable(module["main"])
     prompt.assert_not_called()
-    load.assert_not_called()
-    save.assert_not_called()
+    data_manager.assert_not_called()
+    results_store.assert_not_called()
+    ai_manager.assert_not_called()
 
 
 class TestProvider(ai.AIProvider):
