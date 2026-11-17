@@ -119,6 +119,19 @@ def apply_theme(window, dark):
 APPLICATION_QSS = """
 QMainWindow, QDialog, QMessageBox, QInputDialog { background: #1b1f22; }
 QWidget { color: #dce3df; font-size: 13px; }
+QCheckBox::indicator {
+    width: 16px; height: 16px; border: 1px solid #718179;
+    border-radius: 3px; background-color: #242a2d;
+}
+QCheckBox::indicator:checked {
+    background-color: #3c5648; border-color: #a7cbb6;
+}
+QCheckBox::indicator:disabled {
+    background-color: #30363a; border-color: #536059;
+}
+QCheckBox::indicator:checked:disabled {
+    background-color: #34483e; border-color: #627269;
+}
 QLabel { background: transparent; border: none; padding: 0; margin: 0;
     color: #c3ccc7; font-weight: normal; }
 QLabel#SectionTitle { color: #f0f3f1; font-size: 18px; font-weight: 600; }
