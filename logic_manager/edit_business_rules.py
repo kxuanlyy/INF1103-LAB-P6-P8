@@ -38,6 +38,8 @@ class BusinessRulesEditor:
         if not isinstance(rules, list):
             raise ValueError("Business rules must be a list of recipe objects.")
 
+        seen_names = {}
+
         for index, rule in enumerate(rules, start=1):
             if not isinstance(rule, dict):
                 raise ValueError(f"Rule {index} must be an object.")
@@ -48,11 +50,24 @@ class BusinessRulesEditor:
             if not isinstance(name, str) or not name.strip():
                 raise ValueError(f"Rule {index} must have a non-empty name.")
 
+            normalized_name = " ".join(name.casefold().split())
+
+            if normalized_name in seen_names:
+                previous_index = seen_names[normalized_name]
+                raise ValueError(
+                    f"Rule {index} repeats the recipe name from Rule "
+                    f"{previous_index}: {name!r}."
+                )
+
+            seen_names[normalized_name] = index
+
             if (
                 not isinstance(ingredients, list)
                 or not ingredients
-                or any(not isinstance(item, str) or not item.strip()
-                       for item in ingredients)
+                or any(
+                    not isinstance(item, str) or not item.strip()
+                    for item in ingredients
+                )
             ):
                 raise ValueError(
                     f"Rule {index} must have a non-empty list of ingredients."

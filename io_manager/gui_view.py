@@ -945,11 +945,47 @@ class GuiView(QMainWindow):
         )
 
         def add_ingredient() -> None:
+            if current_index is None:
+                self._show_error_message(
+                    "Cannot add ingredient",
+                    "Select a recipe before adding an ingredient.",
+                )
+                return
+
             ingredient, accepted = QInputDialog.getText(
-                dialog, "Add ingredient", "Ingredient name:"
+                dialog,
+                "Add ingredient",
+                "Ingredient name:",
             )
-            if accepted and ingredient.strip():
-                ingredient_list.addItem(ingredient.strip())
+
+            if not accepted:
+                return
+
+            ingredient = ingredient.strip()
+
+            if not ingredient:
+                self._show_error_message(
+                    "Invalid ingredient",
+                    "Ingredient name cannot be empty.",
+                )
+                return
+
+            normalize = lambda value: " ".join(value.casefold().split())
+            new_ingredient = normalize(ingredient)
+
+            existing_ingredients = {
+                normalize(ingredient_list.item(i).text())
+                for i in range(ingredient_list.count())
+            }
+
+            if new_ingredient in existing_ingredients:
+                self._show_error_message(
+                    "Duplicate ingredient",
+                    f"'{ingredient}' is already in this recipe.",
+                )
+                return
+
+            ingredient_list.addItem(ingredient)
 
         def remove_ingredient() -> None:
             row = ingredient_list.currentRow()
@@ -958,13 +994,44 @@ class GuiView(QMainWindow):
 
         def add_recipe() -> None:
             name, accepted = QInputDialog.getText(
-                dialog, "Add recipe", "Recipe name:"
+                dialog,
+                "Add recipe",
+                "Recipe name:",
             )
-            if not accepted or not name.strip():
+
+            if not accepted:
+                return
+
+            name = name.strip()
+
+            if not name:
+                self._show_error_message(
+                    "Invalid recipe",
+                    "Recipe name cannot be empty.",
+                )
+                return
+
+            normalize = lambda value: " ".join(value.casefold().split())
+            new_name = normalize(name)
+
+            # Include the currently edited name, which may not be stored in rules yet.
+            existing_names = [
+                rule.get("name", "")
+                for rule in rules
+            ]
+
+            if current_index is not None:
+                existing_names[current_index] = name_input.text().strip()
+
+            if any(normalize(existing_name) == new_name for existing_name in existing_names):
+                self._show_error_message(
+                    "Duplicate recipe",
+                    f"A recipe named '{name}' already exists.",
+                )
                 return
 
             store_current_recipe()
-            rules.append({"name": name.strip(), "ingredients": []})
+            rules.append({"name": name, "ingredients": []})
             refresh_recipe_list(len(rules) - 1)
 
         def remove_recipe() -> None:
