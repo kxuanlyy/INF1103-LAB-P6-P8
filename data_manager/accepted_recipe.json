@@ -1,0 +1,288 @@
+[
+    {
+        "name": "Spaghetti Bolognese",
+        "ingredients": [
+            "spaghetti",
+            "ground beef",
+            "tomatoes",
+            "onion",
+            "garlic",
+            "carrots",
+            "olive oil",
+            "tomato paste",
+            "Italian herbs",
+            "Parmesan cheese"
+        ]
+    },
+    {
+        "name": "Chicken Curry",
+        "ingredients": [
+            "chicken",
+            "onion",
+            "garlic",
+            "ginger",
+            "tomatoes",
+            "curry powder",
+            "coconut milk",
+            "oil",
+            "rice"
+        ]
+    },
+    {
+        "name": "Chicken Stir-Fry",
+        "ingredients": [
+            "chicken",
+            "bell peppers",
+            "broccoli",
+            "carrots",
+            "garlic",
+            "green onions",
+            "soy sauce",
+            "sesame oil",
+            "cornstarch",
+            "rice"
+            ]
+            },
+    {
+        "name": "Tacos",
+        "ingredients": [
+            "ground beef",
+            "lettuce",
+            "tomatoes",
+            "onion",
+            "cilantro",
+            "lime",
+            "taco shells",
+            "taco seasoning",
+            "shredded cheese",
+            "sour cream"
+        ]
+    },
+    {
+        "name": "Fried Rice",
+        "ingredients": [
+            "rice",
+            "eggs",
+            "chicken",
+            "frozen peas",
+            "carrots",
+            "green onions",
+            "garlic",
+            "soy sauce",
+            "butter",
+            "sesame oil"
+        ]
+    },
+    {
+        "name": "Macaroni and Cheese",
+        "ingredients": [
+            "elbow macaroni",
+            "cheddar cheese",
+            "butter",
+            "milk",
+            "flour",
+            "salt",
+            "black pepper"
+        ]
+    },
+    {
+        "name": "Spaghetti Carbonara",
+        "ingredients": [
+            "spaghetti",
+            "pancetta",
+            "eggs",
+            "Pecorino Romano",
+            "black pepper",
+            "olive oil"
+        ]
+    },
+    {
+        "name": "Roast Chicken with Vegetables",
+        "ingredients": [
+            "chicken",
+            "potatoes",
+            "carrots",
+            "onions",
+            "garlic",
+            "lemon",
+            "olive oil",
+            "butter",
+            "rosemary",
+            "thyme",
+            "salt",
+            "pepper"
+        ]
+    },
+    {
+        "name": "Grilled Cheese and Tomato Soup",
+        "ingredients": [
+            "bread",
+            "butter",
+            "cheddar cheese",
+            "tomatoes",
+            "onion",
+            "garlic",
+            "vegetable broth",
+            "cream"
+        ]
+    },
+    {
+        "name": "Chili Con Carne",
+        "ingredients": [
+            "ground beef",
+            "kidney beans",
+            "onion",
+            "garlic",
+            "bell pepper",
+            "tomatoes",
+            "chili powder",
+            "cumin",
+            "tomato paste",
+            "beef broth"
+        ]
+    },
+    {
+        "name": "Chicken Parmesan",
+        "ingredients": [
+            "chicken breasts",
+            "eggs",
+            "flour",
+            "breadcrumbs",
+            "marinara sauce",
+            "mozzarella cheese",
+            "Parmesan cheese",
+            "olive oil"
+        ]
+    },
+    {
+        "name": "Beef Stew",
+        "ingredients": [
+            "beef chuck",
+            "potatoes",
+            "carrots",
+            "onions",
+            "celery",
+            "garlic",
+            "beef broth",
+            "tomato paste",
+            "flour",
+            "Worcestershire sauce",
+            "bay leaf"
+        ]
+    },
+    {
+        "name": "Quesadillas",
+        "ingredients": [
+            "flour tortillas",
+            "shredded cheese",
+            "chicken",
+            "bell peppers",
+            "salsa",
+            "sour cream"
+        ]
+    },
+    {
+        "name": "Shepherd's Pie",
+        "ingredients": [
+            "ground lamb",
+            "potatoes",
+            "onions",
+            "peas",
+            "carrots",
+            "garlic",
+            "milk",
+            "butter",
+            "beef broth",
+            "tomato paste",
+            "Worcestershire sauce"
+        ]
+    },
+    {
+        "name": "Homemade Pizza",
+        "ingredients": [
+            "flour",
+            "yeast",
+            "water",
+            "olive oil",
+            "salt",
+            "pizza sauce",
+            "mozzarella cheese",
+            "pepperoni",
+            "basil"
+        ]
+    },
+    {
+        "name": "Omelette",
+        "ingredients": [
+            "eggs",
+            "butter",
+            "salt",
+            "pepper",
+            "cheese",
+            "spinach",
+            "mushrooms",
+            "tomatoes"
+        ]
+    },
+    {
+        "name": "Pan-Seared Salmon with Asparagus",
+        "ingredients": [
+            "salmon fillets",
+            "asparagus",
+            "lemon",
+            "garlic",
+            "olive oil",
+            "butter",
+            "salt",
+            "pepper",
+            "dill"
+        ]
+    },
+    {
+        "name": "Teriyaki Chicken",
+        "ingredients": [
+            "chicken thighs",
+            "garlic",
+            "ginger",
+            "green onions",
+            "sesame seeds",
+            "soy sauce",
+            "mirin",
+            "brown sugar",
+            "cornstarch",
+            "rice"
+        ]
+    },
+    {
+        "name": "Meatballs in Tomato Sauce",
+        "ingredients": [
+            "ground beef",
+            "breadcrumbs",
+            "egg",
+            "Parmesan",
+            "garlic",
+            "onion",
+            "tomatoes",
+            "fresh basil",
+            "olive oil",
+            "oregano"
+        ]
+    },
+    {
+        "name": "Vegetable Soup",
+        "ingredients": [
+            "carrots",
+            "celery",
+            "onions",
+            "garlic",
+            "zucchini",
+            "spinach",
+            "tomatoes",
+            "cannellini beans",
+            "pasta shells",
+            "vegetable broth",
+            "olive oil",
+            "Italian herbs"
+        ]
+    }
+]
