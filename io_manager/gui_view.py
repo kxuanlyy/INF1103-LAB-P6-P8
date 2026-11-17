@@ -882,6 +882,7 @@ class GuiView(QMainWindow):
         recipe_list = QListWidget()
         recipe_list.setObjectName("BusinessRulesRecipeList")
         recipe_list.setSelectionMode(QListWidget.SingleSelection)
+        recipe_list.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         layout.addWidget(recipe_list)
                 
 
@@ -889,6 +890,9 @@ class GuiView(QMainWindow):
         name_input = QLineEdit()
         layout.addWidget(name_input)
         ingredient_list = QListWidget()
+        ingredient_list.setVerticalScrollMode(
+            QAbstractItemView.ScrollPerPixel
+        )
         ingredient_list.setMinimumHeight(160)
         ingredient_list.setMaximumHeight(170)
         layout.addWidget(ingredient_list)   
@@ -938,6 +942,12 @@ class GuiView(QMainWindow):
 
             ingredient_list.clear()
             ingredient_list.addItems(recipe["ingredients"])
+            row_height = ingredient_list.sizeHintForRow(0)
+            if row_height <= 0:
+                row_height = ingredient_list.fontMetrics().height() + 8
+            ingredient_list.verticalScrollBar().setSingleStep(
+                max(row_height // 3, 1)
+            )
 
         def refresh_recipe_list(select_index: int = 0) -> None:
             recipe_list.clear()
@@ -946,6 +956,9 @@ class GuiView(QMainWindow):
             row_height = recipe_list.sizeHintForRow(0)
             if row_height <= 0:
                 row_height = recipe_list.fontMetrics().height() + 16
+            recipe_list.verticalScrollBar().setSingleStep(
+                max(row_height // 3, 1)
+            )
             visible_rows = min(
                 max(recipe_list.count(), 1),
                 max_visible_recipe_rows,
