@@ -782,9 +782,17 @@ class GuiView(QMainWindow):
             self._home_alert_banner.hide()
             return
 
-        alerts = self._controller.inventory_alert_service.get_alerts(
-            self._controller.data_manager.inventory.records
-        )
+        try:
+            alerts = self._controller.inventory_alert_service.get_alerts(
+                self._controller.data_manager.inventory.records
+            )
+        except (OSError, ValueError, TypeError) as error:
+            self._home_alert_message.setText(
+                f"Inventory alerts are unavailable: {error}"
+            )
+            self._home_alert_banner.show()
+            return
+
         item_ids = {
             entry["id"]
             for entries in alerts.values()

@@ -85,11 +85,15 @@ class MenuController:
                 print("\nError: Please select a number between 1 and 9.")
 
     def handle_inventory_alerts(self, today: Optional[Any] = None) -> None:
-        self.data_manager.load()
-        alerts = self.inventory_alert_service.get_alerts(
-            self.data_manager.inventory.records,
-            today=today,
-        )
+        try:
+            self.data_manager.load()
+            alerts = self.inventory_alert_service.get_alerts(
+                self.data_manager.inventory.records,
+                today=today,
+            )
+        except (OSError, ValueError, TypeError) as error:
+            print(f"\nError: Could not load inventory alerts: {error}")
+            return
 
         print("\n============= INVENTORY ALERTS =============")
         print(f"Expired: {len(alerts['expired'])} | "
