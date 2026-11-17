@@ -2,6 +2,8 @@ import os
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 ROOT = Path(__file__).resolve().parent.parent
 if not (ROOT / "io_manager").is_dir():
@@ -99,6 +101,26 @@ class TestFoodRescueGUI(unittest.TestCase):
         self.assertEqual(self.window._add_date.displayFormat(), "dd/MM/yyyy")
         self.assertEqual(self.window._add_qty.placeholderText(), "Stock Qty")
         self.assertGreater(self.window._add_category.count(), 0)
+
+    def test_10_home_alert_banner_surfaces_refresh_error(self):
+        service = Mock()
+        service.get_alerts.side_effect = ValueError("invalid inventory data")
+        self.window._controller = SimpleNamespace(
+            inventory_alert_service=service,
+            data_manager=SimpleNamespace(
+                inventory=SimpleNamespace(records=[])
+            ),
+        )
+
+        self.window._refresh_home_alert_banner()
+
+        self.assertFalse(self.window._home_alert_banner.isHidden())
+        self.assertIn(
+            "Inventory alerts are unavailable: invalid inventory data",
+            self.window._home_alert_message.text(),
+        )
+        self.window._controller = None
+        self.window._home_alert_banner.hide()
 
 
 if __name__ == "__main__":
