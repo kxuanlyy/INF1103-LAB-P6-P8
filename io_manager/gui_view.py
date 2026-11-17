@@ -1,5 +1,6 @@
 from datetime import datetime
 import csv
+import math
 import os
 import re
 from html import escape
@@ -10,7 +11,7 @@ from logic_manager.inventory_alert_service import DEFAULT_EXPIRING_WITHIN_DAYS
 from data_manager.inventory_filter import InventoryFilter
 from io_manager.main_window_style import (
     APPLICATION_QSS, SIDEBAR_QSS, TOOLBAR_QSS, WELCOME_QSS,
-    INVENTORY_QSS, apply_theme, set_themed_html, style_surface, style_inventory_table,
+    apply_theme, set_themed_html, style_surface, style_inventory_table,
 )
 from io_manager.recipe_cards import RecipeCardsView
 from io_manager.theme_switch import ThemeSwitch
@@ -20,7 +21,7 @@ from io_manager.ai_worker import AIWorker
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QPainter, QPixmap
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QInputDialog,
+    QAbstractItemView, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QInputDialog,
     QPushButton, QTextEdit, QLineEdit, QLabel, QFrame, QTableWidget, 
     QTableWidgetItem, QHeaderView, QMessageBox, QListWidget, QSizePolicy,
     QGridLayout, QScrollArea,
@@ -244,6 +245,9 @@ class GuiView(QMainWindow):
         ])
         self._alert_table.setAlternatingRowColors(True)
         self._alert_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._alert_table.setSelectionMode(
+            QAbstractItemView.SelectionMode.ExtendedSelection
+        )
         self._alert_table.verticalHeader().hide()
         alert_header = self._alert_table.horizontalHeader()
         alert_header.setDefaultAlignment(Qt.AlignCenter)
@@ -616,11 +620,6 @@ class GuiView(QMainWindow):
         style_surface(self, APPLICATION_QSS)
         style_inventory_table(self._inventory_table)
         style_inventory_table(self._alert_table)
-        style_surface(
-            self._alert_table,
-            INVENTORY_QSS
-            + "\nQTableWidget::item:focus { border: none; }"
-        )
         for editor in (self._log_display, self._item_details_view):
             editor.document().setDefaultFont(self.font())
         for layout in (self._layout_add, self._layout_edit):
@@ -1139,6 +1138,7 @@ class GuiView(QMainWindow):
                 ", ".join(item["statuses"]),
             )
             checkbox = QCheckBox()
+            checkbox.setObjectName("ExpiredAlertCheckbox")
             checkbox.setCursor(Qt.PointingHandCursor)
             checkbox.setEnabled(item_id in self._expired_alert_ids)
             checkbox.toggled.connect(self._update_expired_delete_button)
@@ -1430,6 +1430,7 @@ class GuiView(QMainWindow):
 
         if 0 <= db_id < len(records):
             target = records[db_id]
+            self._inventory_table.setMaximumHeight(16777215)
             self._item_details_view.show()
             self._item_details_view.clear()
             
@@ -1456,6 +1457,13 @@ class GuiView(QMainWindow):
                 f"<h2 style='color: #f0f3f1; font-size: 20px;'>{escape(target.get('food', 'Unknown'))}</h2>"
                 f"<table width='100%' cellpadding='5' style='color: #dce3df;'>{rows}</table>"
             )
+            self._fit_item_details_view_to_content()
+
+    def _fit_item_details_view_to_content(self) -> None:
+        view = self._item_details_view
+        document_height = math.ceil(view.document().size().height())
+        frame_height = view.height() - view.viewport().height()
+        view.setFixedHeight(max(220, document_height + frame_height + 8))
 
     # Data Renders
     def print_current_inventory(self, extracted_items: list, ids: list = None) -> bool:

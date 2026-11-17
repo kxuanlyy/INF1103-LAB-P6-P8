@@ -13,12 +13,16 @@ sys.path.insert(0, str(ROOT))
 # Run without displaying windows; also useful in CI/Docker with Qt installed.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication, QTableWidget
+from PySide6.QtWidgets import (
+    QApplication, QAbstractItemView, QCheckBox, QTableWidget, QTableWidgetItem,
+)
 
 from io_manager.gui_view import GuiView
 from io_manager.theme_switch import ThemeSwitch
 from io_manager.calendar_date_edit import CalendarDateEdit
-from io_manager.main_window_style import APPLICATION_QSS, theme_colors
+from io_manager.main_window_style import (
+    APPLICATION_QSS, _NoFocusItemDelegate, theme_colors,
+)
 
 
 app = QApplication.instance() or QApplication(sys.argv)
@@ -87,6 +91,14 @@ class TestFoodRescueGUI(unittest.TestCase):
             self.assertIn("QCheckBox::indicator:checked", styles)
         self.assertIn("border: 1px solid #718179", dark_styles)
         self.assertIn("border: 1px solid #879a8e", light_styles)
+        self.assertIn(
+            "QCheckBox#ExpiredAlertCheckbox::indicator:checked",
+            dark_styles,
+        )
+        self.assertIn("background-color: #573c40", dark_styles)
+        self.assertIn("border-color: #b57a7d", dark_styles)
+        self.assertIn("background-color: #f1d9d9", light_styles)
+        self.assertIn("border-color: #d4a4a4", light_styles)
 
     def test_08_theme_switch_widget(self):
         switch = ThemeSwitch()
@@ -121,6 +133,92 @@ class TestFoodRescueGUI(unittest.TestCase):
         )
         self.window._controller = None
         self.window._home_alert_banner.hide()
+
+    def test_11_alert_table_keeps_row_highlight_without_focus_border(self):
+        record = {"food": "Milk", "quantity": 1, "use-by": "01/01/2000"}
+        expired_item = {
+            "id": 1,
+            "record": record,
+            "days_remaining": -1,
+        }
+        alerts = {
+            "expired": [expired_item],
+            "expiring_soon": [],
+            "low_stock": [],
+            "unknown_expiry": [],
+        }
+        self.window._controller = SimpleNamespace(
+            data_manager=SimpleNamespace(
+                load=Mock(),
+                inventory=SimpleNamespace(records=[record]),
+            ),
+            inventory_alert_service=SimpleNamespace(
+                get_alerts=Mock(return_value=alerts)
+            ),
+        )
+
+        self.window._refresh_inventory_alerts()
+
+        self.assertEqual(
+            self.window._alert_table.selectionMode(),
+            QAbstractItemView.SelectionMode.ExtendedSelection,
+        )
+        self.assertIsInstance(
+            self.window._inventory_table.itemDelegate(),
+            _NoFocusItemDelegate,
+        )
+        self.assertIsInstance(
+            self.window._alert_table.itemDelegate(),
+            _NoFocusItemDelegate,
+        )
+        self.window._alert_table.selectRow(0)
+        self.assertTrue(self.window._alert_table.item(0, 2).isSelected())
+        self.window._inventory_table.setRowCount(1)
+        self.window._inventory_table.setItem(0, 0, QTableWidgetItem("Milk"))
+        self.window._inventory_table.selectRow(0)
+        self.assertTrue(self.window._inventory_table.item(0, 0).isSelected())
+        checkbox_container = self.window._alert_table.cellWidget(0, 0)
+        checkbox = checkbox_container.findChild(QCheckBox)
+        checkbox.setChecked(True)
+        self.assertTrue(checkbox.isChecked())
+        self.assertTrue(self.window._btn_delete_expired_alert.isEnabled())
+
+        self.window._controller = None
+        self.window._alert_table.setRowCount(0)
+        self.window._btn_delete_expired_alert.setEnabled(False)
+
+    def test_12_search_item_expands_inventory_table(self):
+        record = {"food": "Milk", "quantity": 1, "use-by": "01/01/2000"}
+        self.window._controller = SimpleNamespace(
+            data_manager=SimpleNamespace(
+                inventory=SimpleNamespace(records=[record])
+            )
+        )
+        self.window.show()
+        self.window._search_panel.show()
+        self.window._inventory_table.setRowCount(1)
+        self.window._inventory_table.setVerticalHeaderItem(
+            0, QTableWidgetItem("1")
+        )
+        self.window._inventory_table.setMaximumHeight(340)
+
+        try:
+            self.window._load_food_profile_by_row(0)
+
+            self.assertEqual(
+                self.window._inventory_table.maximumHeight(),
+                16777215,
+            )
+            self.assertFalse(self.window._item_details_view.isHidden())
+            self.assertEqual(
+                self.window._item_details_view.verticalScrollBar().maximum(),
+                0,
+            )
+        finally:
+            self.window._controller = None
+            self.window._item_details_view.hide()
+            self.window._search_panel.hide()
+            self.window.hide()
 
 
 if __name__ == "__main__":

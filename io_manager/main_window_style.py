@@ -3,7 +3,9 @@
 import re
 
 from PySide6.QtGui import QColor, QFontDatabase, QPalette, QTextCursor
-from PySide6.QtWidgets import QWidget, QTextEdit
+from PySide6.QtWidgets import (
+    QStyle, QStyleOptionViewItem, QStyledItemDelegate, QTextEdit, QWidget,
+)
 from io_manager.report_icons import register_report_icons
 
 
@@ -131,6 +133,9 @@ QCheckBox::indicator:disabled {
 }
 QCheckBox::indicator:checked:disabled {
     background-color: #34483e; border-color: #627269;
+}
+QCheckBox#ExpiredAlertCheckbox::indicator:checked {
+    background-color: #573c40; border-color: #b57a7d;
 }
 QLabel { background: transparent; border: none; padding: 0; margin: 0;
     color: #c3ccc7; font-weight: normal; }
@@ -291,7 +296,7 @@ QTableWidget::item { padding: 10px 14px; border: none;
     border-bottom: 1px solid #303639; }
 QTableWidget::item:alternate { background: #272c2f; }
 QTableWidget::item:selected { background: #3c5648; color: #eff7f1; }
-QTableWidget::item:focus { border: 1px solid #9cbda9; }
+QTableWidget::item:focus { border: none; }
 QHeaderView { background: #2c3236; border: none; padding: 0; margin: 0; }
 QHeaderView::section { background: #2c3236; color: #acb7bc;
     padding: 10px 14px; border: none; border-bottom: 1px solid #41494d;
@@ -315,11 +320,19 @@ def style_surface(widget, stylesheet):
     widget.setStyleSheet(theme_colors(stylesheet, is_dark(widget)))
 
 
+class _NoFocusItemDelegate(QStyledItemDelegate):
+    def paint(self, painter, option, index):
+        unfocused_option = QStyleOptionViewItem(option)
+        unfocused_option.state &= ~QStyle.StateFlag.State_HasFocus
+        super().paint(painter, unfocused_option, index)
+
+
 def style_inventory_table(table):
     """Keep tables consistent while retaining clickable row IDs and item data."""
     style_surface(table, INVENTORY_QSS)
     table.setShowGrid(False)
     table.setSelectionBehavior(table.SelectionBehavior.SelectRows)
+    table.setItemDelegate(_NoFocusItemDelegate(table))
     table.verticalHeader().setMinimumSectionSize(46)
     table.verticalHeader().setDefaultSectionSize(46)
     table.horizontalHeader().setMinimumHeight(44)
