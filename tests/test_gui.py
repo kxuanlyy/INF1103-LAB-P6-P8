@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QApplication, QTableWidget
 from io_manager.gui_view import GuiView
 from io_manager.theme_switch import ThemeSwitch
 from io_manager.calendar_date_edit import CalendarDateEdit
+from io_manager.main_window_style import APPLICATION_QSS, theme_colors
 
 
 app = QApplication.instance() or QApplication(sys.argv)
@@ -75,7 +76,17 @@ class TestFoodRescueGUI(unittest.TestCase):
         self.window._toggle_theme(False)
         self.assertFalse(self.window._dark_mode)
 
-    def test_07_theme_switch_widget(self):
+    def test_07_checkbox_indicators_are_styled_in_both_themes(self):
+        dark_styles = theme_colors(APPLICATION_QSS, True)
+        light_styles = theme_colors(APPLICATION_QSS, False)
+
+        for styles in (dark_styles, light_styles):
+            self.assertIn("QCheckBox::indicator:disabled", styles)
+            self.assertIn("QCheckBox::indicator:checked", styles)
+        self.assertIn("border: 1px solid #718179", dark_styles)
+        self.assertIn("border: 1px solid #879a8e", light_styles)
+
+    def test_08_theme_switch_widget(self):
         switch = ThemeSwitch()
         switch.setChecked(True)
         self.assertTrue(switch.isChecked())
@@ -83,7 +94,7 @@ class TestFoodRescueGUI(unittest.TestCase):
         self.assertFalse(switch.isChecked())
         switch.close()
 
-    def test_08_date_and_inventory_inputs(self):
+    def test_09_date_and_inventory_inputs(self):
         self.assertIsInstance(self.window._add_date, CalendarDateEdit)
         self.assertEqual(self.window._add_date.displayFormat(), "dd/MM/yyyy")
         self.assertEqual(self.window._add_qty.placeholderText(), "Stock Qty")
