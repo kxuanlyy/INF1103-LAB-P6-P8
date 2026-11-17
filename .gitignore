@@ -15,5 +15,6 @@ Thumbs.db
 recipes.json
 recipe_results.csv
 accepted_recipe.json
+!data_manager/accepted_recipe.json
 rejected.txt
 .recipes-*.tmp

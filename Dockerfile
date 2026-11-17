@@ -15,23 +15,19 @@ COPY ai_module/requirements.txt ./ai_module/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir -r ai_module/requirements.txt
 
-# Application code: every package folder is copied whole (this also brings in
-# food_inventory.csv, the icons folder and any json files that live inside them)
+# Application code and seed data; .dockerignore excludes local generated results.
 COPY main.py ./
 COPY ai_module/ ./ai_module/
 COPY data_manager/ ./data_manager/
 COPY io_manager/ ./io_manager/
 COPY logic_manager/ ./logic_manager/
 
-# Files the app reads or rewrites at the project root
-COPY rejected.txt ./
-
 ENV PYTHONUNBUFFERED=1
 ENV QT_XCB_GL_INTEGRATION=none
 ENV LIBGL_ALWAYS_SOFTWARE=1
 
 # --- Target 1: Interactive Application ---
-# Terminal:  docker run -it apikey.env foodrescue-ai-oop
+# Terminal:  docker run --rm -it --env-file apikey.env foodrescue-ai-oop
 # GUI:       docker run --rm -it --env-file apikey.env -e DISPLAY=host.docker.internal:0.0 foodrescue-ai-oop --gui
 
 FROM base AS app
@@ -42,4 +38,4 @@ CMD []
 FROM base AS test
 COPY tests/ ./tests/
 ENV QT_QPA_PLATFORM=offscreen
-CMD ["sh", "-c", "python -m unittest discover -s tests -v && python -m unittest discover -s ai_module -p 'test_*.py' -v"]
+CMD ["python", "-m", "unittest", "discover", "-s", "tests", "-v"]
