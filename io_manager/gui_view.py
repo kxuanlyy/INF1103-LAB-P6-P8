@@ -871,8 +871,9 @@ class GuiView(QMainWindow):
 
         dialog = QDialog(self)
         dialog.setWindowTitle("Edit Business Rules")
-        dialog.resize(850, 600)
-        dialog.setMinimumSize(760, 600)
+        dialog.resize(850, 650)
+        dialog.setMinimumWidth(760)
+        dialog.setObjectName("EditBusinessRulesDialog")
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(12)
@@ -881,13 +882,14 @@ class GuiView(QMainWindow):
         recipe_list = QListWidget()
         recipe_list.setObjectName("BusinessRulesRecipeList")
         recipe_list.setSelectionMode(QListWidget.SingleSelection)
-        layout.addWidget(recipe_list, 2)
+        layout.addWidget(recipe_list)
                 
 
         layout.addWidget(QLabel("Recipe name:"))
         name_input = QLineEdit()
         layout.addWidget(name_input)
         ingredient_list = QListWidget()
+        ingredient_list.setMinimumHeight(160)
         ingredient_list.setMaximumHeight(170)
         layout.addWidget(ingredient_list)   
 
@@ -914,6 +916,7 @@ class GuiView(QMainWindow):
         layout.addWidget(save_buttons)
 
         current_index = None
+        max_visible_recipe_rows = 4
         
         def store_current_recipe() -> None:
             if current_index is None:
@@ -940,12 +943,23 @@ class GuiView(QMainWindow):
             recipe_list.clear()
             recipe_list.addItems([rule["name"] for rule in rules])
 
+            row_height = recipe_list.sizeHintForRow(0)
+            if row_height <= 0:
+                row_height = recipe_list.fontMetrics().height() + 16
+            visible_rows = min(
+                max(recipe_list.count(), 1),
+                max_visible_recipe_rows,
+            )
+            recipe_list.setFixedHeight(
+                row_height * visible_rows + 2 * recipe_list.frameWidth()
+            )
             if rules:
                 recipe_list.setCurrentRow(select_index)
                 show_recipe(select_index)
             else:
                 name_input.clear()
                 ingredient_list.clear()
+            dialog.adjustSize()
 
         recipe_list.currentRowChanged.connect(
             lambda index: show_recipe(index) if index >= 0 else None
@@ -1739,6 +1753,12 @@ class GuiView(QMainWindow):
         self._btn_execute_ai.setObjectName("ApplyFilterButton")
         self._btn_execute_ai.setFixedWidth(116)
         self._btn_execute_ai.clicked.connect(self._execute_threaded_ai_analysis)
+        self._input_ai_id.returnPressed.connect(
+            self._execute_threaded_ai_analysis
+        )
+        self._input_ai_notes.returnPressed.connect(
+            self._execute_threaded_ai_analysis
+        )
 
         # Assemble inline components horizontally onto the row layout matrix
         row_layout.addWidget(self._input_ai_id)
