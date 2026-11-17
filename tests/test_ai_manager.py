@@ -1,8 +1,6 @@
 # Offline behaviour and OOP tests.
 # Run: python -m unittest discover -s tests -p test_ai_manager.py -v
 
-import contextlib
-import io
 from copy import deepcopy
 from datetime import date
 import json
@@ -17,10 +15,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ai_module import ai_manager as ai
-from data_manager.inventory_table import InventoryTable
 import io_manager.io_manager as io_manager
-from io_manager.console_view import ConsoleView
-from io_manager.key_reader import KeyReader
 
 
 TODAY = date(2026, 10, 1)
@@ -499,75 +494,30 @@ def io_record():
     }
 
 
-@contextlib.contextmanager
-def isolated_console(records):
-    # main() constructs its dependencies now; keep real inventory files untouched.
-    with tempfile.TemporaryDirectory() as folder:
-        inventory = InventoryTable(str(Path(folder) / "inventory.csv"))
-        inventory.records = deepcopy(records)
-        data = SimpleNamespace(inventory=inventory)
-        with patch("data_manager.data_manager.DataManager", return_value=data), \
-                patch.object(io_manager, "RecipeResultsStore"), \
-                patch.object(sys, "argv", ["main.py"]):
-            yield data
+def test_main_launches_gui_by_default():
+    data_manager = Mock()
+    results_store = Mock()
+    ai_manager = Mock()
+    evaluator = Mock()
+    view = Mock()
+    app = Mock()
+    app.exec.return_value = 17
 
+    with patch("data_manager.data_manager.DataManager", return_value=data_manager), \
+            patch.object(io_manager, "RecipeResultsStore", return_value=results_store), \
+            patch("logic_manager.recipeevaluator.RecipeEvaluator", return_value=evaluator), \
+            patch("ai_module.ai_manager.AIManager", return_value=ai_manager), \
+            patch("PySide6.QtWidgets.QApplication") as qt_application, \
+            patch("io_manager.gui_view.GuiView", return_value=view), \
+            patch.object(sys, "argv", ["main.py"]):
+        qt_application.instance.return_value = None
+        qt_application.return_value = app
+        assert io_manager.main(today=TODAY) == 17
 
-def test_menu_calls_ai_and_displays_recipes():
-    analysis = valid_analysis()
-    analysis["item_id"] = "inventory-0001"
-    analysis["recipe_suggestions"] = [{
-        "name": "Roasted tomatoes", "ingredient_ids": ["inventory-0001"],
-        "how_to_make": ["Wash and halve the tomatoes.", "Roast until tender."],
-    }]
-    client = fake_client(completion(json.dumps(analysis)))
-    output = io.StringIO()
-    with isolated_console([menu_record()]), \
-            patch("builtins.input", side_effect=["4", "1", "Firm and fresh", "8"]), \
-            patch.object(ai.RecipeStore, "save") as save, contextlib.redirect_stdout(output):
-        io_manager.main(today=TODAY, client=client)
-    assert "Roast until tender." in output.getvalue()
-    assert analysis["reason"] in output.getvalue()
-    save.assert_called_once_with([{
-        "name": "Roasted tomatoes", "ingredients": ["Tomatoes"],
-        "instructions": ["Wash and halve the tomatoes.", "Roast until tender."],
-    }])
-    sent = json.loads(client.chat.completions.create.call_args.kwargs["messages"][1]["content"])
-    assert sent["target_item"]["staff_observations"] == "Firm and fresh"
-    assert sent["target_item"]["quantity"] == 12
-    assert sent["target_item"]["use_by"] == "2026-10-03"
-
-
-def test_menu_reports_ai_error_and_allows_exit():
-    output = io.StringIO()
-    with isolated_console([menu_record()]), \
-            patch("builtins.input", side_effect=["4", "1", "", "8"]), \
-            patch.object(ai.AIManager, "suggest_recipes", return_value=(None, ai.SERVICE_ERROR)) as suggest, \
-            contextlib.redirect_stdout(output):
-        io_manager.main(today=TODAY)
-    suggest.assert_called_once()
-    assert suggest.call_args.kwargs == {"today": TODAY}
-    assert suggest.call_args.args[0]["item"] == "Tomatoes"
-    assert "Assessment failed: " + ai.SERVICE_ERROR in output.getvalue()
-    assert "Exiting program" in output.getvalue()
-
-
-def test_menu_skips_ai_when_inventory_is_empty():
-    with isolated_console([]), \
-            patch("builtins.input", side_effect=["4", "8"]), \
-            patch.object(ai.AIManager, "suggest_recipes") as suggest, \
-            contextlib.redirect_stdout(io.StringIO()):
-        io_manager.main()
-    suggest.assert_not_called()
-
-
-def test_empty_recipe_result_displays_assessment_reason():
-    result = {**valid_analysis(), "recipes": [], "stock_item": {"name": "Tomatoes"}}
-    output = io.StringIO()
-    with contextlib.redirect_stdout(output):
-        ConsoleView().print_ai_result(result, ai.RECIPES_PATH)
-    assert result["reason"] in output.getvalue()
-    assert "No recipes suggested" in output.getvalue()
-    assert str(ai.RECIPES_PATH) in output.getvalue()
+    qt_application.assert_called_once_with([])
+    view.set_controller.assert_called_once()
+    view.display_main_menu.assert_called_once_with()
+    app.exec.assert_called_once_with()
 
 
 def test_ai_entry_point_delegates_to_menu_without_second_request():
@@ -602,20 +552,6 @@ def test_invalid_io_date_never_calls_ai_or_overwrites_recipes():
         assert ai.suggest_recipes(record, today=TODAY, client=client) == (None, ai.INVALID_INPUT_ERROR)
     client.chat.completions.create.assert_not_called()
     save.assert_not_called()
-
-
-def test_search_option_two_does_not_call_ai():
-    output = io.StringIO()
-    with isolated_console([menu_record()]), \
-            patch.object(KeyReader, "is_interactive", return_value=False), \
-            patch("builtins.input", side_effect=["2", "Tomatoes", "2", "1", "3", "8"]), \
-            patch.object(ai.AIManager, "suggest_recipes") as suggest, \
-            contextlib.redirect_stdout(output):
-        io_manager.main()
-    assert "Found 1 matching item(s)" in output.getvalue()
-    assert "FOOD ID: [1]" in output.getvalue()
-    assert "Use-By Date:       3/10/2026" in output.getvalue()
-    suggest.assert_not_called()
 
 
 def test_loading_io_module_does_not_prompt_or_rewrite_inventory():
@@ -654,15 +590,6 @@ class TestProvider(ai.AIProvider):
 
     def close(self):
         self._closed = True
-
-
-def menu_record():
-    # Match the current Data Manager inventory field names used by the I/O menu.
-    return {
-        "food": "Tomatoes", "food_category": "Fresh Produce", "use-by": "3/10/2026",
-        "storage condition": "Chilled", "days_to_expiry": "2", "waste_risk_level": "High",
-        "allergen info": "None", "demand level": "low", "quantity": "12",
-    }
 
 
 def load_tests(loader, tests, pattern):
