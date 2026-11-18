@@ -25,6 +25,8 @@ class DataManager:
         if recipes_path is not None:
             self.recipes.path = recipes_path
         self.inventory.load()
+        # Refresh the derived expiry-day values in the CSV before consumers use them.
+        self.inventory.save()
         self.recipes.load()
 
     def save_all(self) -> None:

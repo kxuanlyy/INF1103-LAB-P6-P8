@@ -1463,8 +1463,12 @@ class GuiView(QMainWindow):
             
             allergen = target.get('allergen info', 'None') or 'None'
             storage = target.get('storage condition', 'Ambient')
-            days_left = target.get('days_to_expiry', 'N/A')
-            expiry_str = f"{days_left} day(s) remaining" if str(days_left).isdigit() else str(days_left)
+            days_left = self._days_until_expiry(target.get("use-by"))
+            expiry_str = (
+                f"{days_left} day(s) remaining"
+                if days_left is not None
+                else "N/A"
+            )
 
             fields = (
                 ("Category", target.get('food_category', 'General')),
@@ -1485,6 +1489,15 @@ class GuiView(QMainWindow):
                 f"<table width='100%' cellpadding='5' style='color: #dce3df;'>{rows}</table>"
             )
             self._fit_item_details_view_to_content()
+
+    @staticmethod
+    def _days_until_expiry(use_by: str):
+        """Return the live number of days from today until the use-by date."""
+        try:
+            expiry = datetime.strptime(use_by, "%d/%m/%Y").date()
+        except (TypeError, ValueError):
+            return None
+        return (expiry - datetime.today().date()).days
 
     def _fit_item_details_view_to_content(self) -> None:
         view = self._item_details_view

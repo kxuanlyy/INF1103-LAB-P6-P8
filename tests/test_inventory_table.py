@@ -3,7 +3,7 @@ import csv
 import os
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import date, datetime
 from unittest import mock
 
 from data_manager.inventory_table import (
@@ -150,14 +150,22 @@ class TestSaving(InventoryTestCase):
         t._rows_for_saving()
         self.assertIsNone(t.records[4]["days_to_expiry"])
 
-    def test_round_trip_keeps_everything(self):
+    def test_round_trip_refreshes_days_to_expiry(self):
         t = self.make()
         before = [dict(r) for r in t.records]
         t.save()
         again = InventoryTable(self.path)
         with self.assertLogs("data_manager", "WARNING"):
             again.load()
-        self.assertEqual(again.records, before)
+
+        for original, saved in zip(before, again.records):
+            self.assertEqual(
+                {key: value for key, value in saved.items() if key != "days_to_expiry"},
+                {key: value for key, value in original.items() if key != "days_to_expiry"},
+            )
+            use_by = InventoryTable._parse_date(original["use-by"])
+            expected_days = (use_by.date() - date.today()).days if use_by else None
+            self.assertEqual(saved["days_to_expiry"], expected_days)
 
 
 class TestAdd(InventoryTestCase):

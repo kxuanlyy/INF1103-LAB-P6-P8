@@ -60,7 +60,18 @@ class InventoryTable(CsvTable):
         return rows
 
     def _rows_for_saving(self) -> list:
-        return [{c: ("" if r[c] is None else r[c]) for c in self.COLUMNS} for r in self.records]
+        today = date.today()
+        rows = []
+        for record in self.records:
+            row = dict(record)
+            use_by = self._parse_date(row.get("use-by"))
+            row["days_to_expiry"] = (
+                (use_by.date() - today).days
+                if use_by is not None
+                else None
+            )
+            rows.append({c: ("" if row[c] is None else row[c]) for c in self.COLUMNS})
+        return rows
 
     def add(
         self,
